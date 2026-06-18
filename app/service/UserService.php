@@ -135,7 +135,7 @@ class UserService
                 // 生日
                 if(array_key_exists('birthday', $v))
                 {
-                    $v['birthday'] = empty($v['birthday']) ? '' : date('Y-m-d', $v['birthday']);
+                    $v['birthday'] = DataHandleTimeFormat($v['birthday'], 'Y-m-d', '');
                 }
 
                 // 头像
@@ -169,11 +169,11 @@ class UserService
                 // 时间
                 if(array_key_exists('add_time', $v))
                 {
-                    $v['add_time'] = date('Y-m-d H:i:s', $v['add_time']);
+                    $v['add_time'] = DataHandleTimeFormat($v['add_time'], 'Y-m-d H:i:s', $v['add_time']);
                 }
                 if(array_key_exists('upd_time', $v))
                 {
-                    $v['upd_time'] = empty($v['upd_time']) ? '' : date('Y-m-d H:i:s', $v['upd_time']);
+                    $v['upd_time'] = DataHandleTimeFormat($v['upd_time'], 'Y-m-d H:i:s', '');
                 }
 
                 // 性别
@@ -993,11 +993,11 @@ class UserService
             // 基础数据处理
             if(isset($user['add_time']))
             {
-                $user['add_time_text'] = date('Y-m-d H:i:s', $user['add_time']);
+                $user['add_time_text'] = DataHandleTimeFormat($user['add_time'], 'Y-m-d H:i:s', $user['add_time']);
             }
             if(isset($user['upd_time']))
             {
-                $user['upd_time_text'] = date('Y-m-d H:i:s', $user['upd_time']);
+                $user['upd_time_text'] = DataHandleTimeFormat($user['upd_time'], 'Y-m-d H:i:s', $user['upd_time']);
             }
             if(isset($user['gender']))
             {
@@ -1005,7 +1005,7 @@ class UserService
             }
             if(isset($user['birthday']))
             {
-                $user['birthday'] = empty($user['birthday']) ? '' : date('Y-m-d', $user['birthday']);
+                $user['birthday'] = DataHandleTimeFormat($user['birthday'], 'Y-m-d', '');
             }
 
             // 邮箱/手机
@@ -1167,7 +1167,7 @@ class UserService
             'root_path'     => $root_path,
             'img_path'      => $img_path,
             'date'          => $date,
-            'avatar'        => $avatar,
+            'avatar'        => &$avatar,
         ]));
         if(isset($ret['code']) && $ret['code'] != 0)
         {
@@ -1340,7 +1340,22 @@ class UserService
         $user = self::$method($ac['data'], $params['accounts']);
         if(empty($user))
         {
-            return DataReturn(MyLang('accounts_error_tips'), -3);
+            // 手机/邮箱验证码登录自动注册
+            if(in_array($params['type'], ['sms', 'email']))
+            {
+                $reg_ret = self::LoginVerifyAutoRegister($params);
+                if($reg_ret['code'] != 0)
+                {
+                    return $reg_ret;
+                }
+                $user = $reg_ret['data'];
+                if(isset($obj) && is_object($obj))
+                {
+                    $obj->Remove();
+                }
+            } else {
+                return DataReturn(MyLang('accounts_error_tips'), -3);
+            }
         }
 
         // 密码校验
@@ -1505,6 +1520,56 @@ class UserService
             return DataReturn(MyLang('login_success'), 0, $result);
         }
         return DataReturn(MyLang('login_failure_tips'), -100);
+    }
+
+    /**
+     * 验证码登录自动注册
+     * @author  Devil
+     * @blog    http://gong.gg/
+     * @version 1.0.0
+     * @date    2026-05-26
+     * @desc    description
+     * @param   [array]          $params [输入参数]
+     */
+    private static function LoginVerifyAutoRegister($params = [])
+    {
+        if(MyC('home_user_login_verify_auto_register', 0, true) != 1)
+        {
+            return DataReturn(MyLang('common_service.user.login_verify_auto_register_close_tips'), -3);
+        }
+
+        $common_register_is_enable_audit = MyC('common_register_is_enable_audit', 0);
+        $salt = GetNumberCode(6);
+        $data = [
+            'upd_time'  => time(),
+            'salt'      => $salt,
+            'pwd'       => LoginPwdEncryption(GetNumberCode(12), $salt),
+            'status'    => ($common_register_is_enable_audit == 1) ? 3 : 0,
+        ];
+        if($params['type'] == 'sms')
+        {
+            $data['mobile'] = $params['accounts'];
+        } else {
+            $data['email'] = $params['accounts'];
+        }
+
+        $user_ret = self::UserInsert($data, $params);
+        if($user_ret['code'] != 0)
+        {
+            return $user_ret;
+        }
+        if($common_register_is_enable_audit == 1)
+        {
+            return DataReturn(MyLang('common_service.user.user_not_audit_tips'), -110);
+        }
+
+        $method = self::UserUniqueMethod();
+        $user = self::$method('id', $user_ret['data']['user_id']);
+        if(empty($user))
+        {
+            return DataReturn(MyLang('insert_fail'), -100);
+        }
+        return DataReturn(MyLang('operate_success'), 0, $user);
     }
 
     /**
@@ -1801,6 +1866,7 @@ class UserService
     public static function UserLoginAccountsCheck($params = [])
     {
         $field = '';
+        $is_login_verify_auto_register = MyC('home_user_login_verify_auto_register', 0, true) == 1;
         switch($params['type'])
         {
             // 手机
@@ -1811,7 +1877,7 @@ class UserService
                     return DataReturn(MyLang('mobile_format_error_tips'), -2);
                 }
                 // 手机号码是否不存在
-                if(!self::IsExistAccounts($params['accounts'], 'mobile'))
+                if(!$is_login_verify_auto_register && !self::IsExistAccounts($params['accounts'], 'mobile'))
                 {
                     return DataReturn(MyLang('mobile_no_exist_error_tips'), -3);
                 }
@@ -1826,7 +1892,7 @@ class UserService
                      return DataReturn(MyLang('email_format_error_tips'), -2);
                 }
                 // 电子邮箱是否不存在
-                if(!self::IsExistAccounts($params['accounts'], 'email'))
+                if(!$is_login_verify_auto_register && !self::IsExistAccounts($params['accounts'], 'email'))
                 {
                     return DataReturn(MyLang('email_no_exist_error_tips'), -3);
                 }

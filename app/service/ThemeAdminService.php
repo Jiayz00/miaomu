@@ -373,7 +373,7 @@ class ThemeAdminService
                         continue;
                     }
                     $base = rtrim(str_replace(['\\', '/'], DS, $dir_value), DS).DS;
-                    $new_file = $base.str_replace('/', DS, $rel);
+                    $new_file = $base.$theme_package.DS.str_replace('/', DS, $rel);
                     $is_has_find = true;
                     break;
                 }
