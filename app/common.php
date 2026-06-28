@@ -3939,6 +3939,28 @@ function PhpStrictAutoloadStaticInitSafe($src)
 }
 
 /**
+ * 插件包内 lib/sdk 目录 PHP（composer 依赖、维护脚本等，安装时可豁免「须含 class」校验）
+ * @author  Devil
+ * @blog    http://gong.gg/
+ * @version 1.0.0
+ * @date    2026-06-15
+ * @desc    lib/、sdk/、vendor/ 下 PHP（含 composer vendor、autoload.php、function.php 等；lib 根目录 patch 脚本），均跳过序言校验
+ * @param   [string]          $norm_file [zip 内归一化路径]
+ * @param   [string]          $plugins   [插件标识]
+ * @return  [boolean]                    [是 lib/sdk/vendor 目录下 PHP 返回 true]
+ */
+function PhpPluginLibPhpFilePath($norm_file, $plugins)
+{
+    if(!is_string($norm_file) || $norm_file === '' || !is_string($plugins) || $plugins === '')
+    {
+        return false;
+    }
+    $plugins = preg_quote($plugins, '#');
+    $pattern = '#(?:^|/)'.$plugins.'/_main_/'.$plugins.'/(lib|sdk|vendor)/.+\.php$#i';
+    return preg_match($pattern, str_replace('\\', '/', $norm_file)) === 1;
+}
+
+/**
  * 校验 zip 内 PHP 文件源码：首个类/接口/trait/enum 之前须为声明性序言（防上传包内恶意 PHP 在 autoload 时执行）
  * @author  Devil
  * @blog    http://gong.gg/

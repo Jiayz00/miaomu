@@ -1288,6 +1288,7 @@ php;
                             if($ext_lc === 'php')
                             {
                                 $is_plugin_lang_php = (preg_match('#/_main_/[^/]+/lang/.+\.php$#i', $norm_file) === 1);
+                                $is_plugin_lib_php = PhpPluginLibPhpFilePath($norm_file, $plugins);
                                 if($file_content === false)
                                 {
                                     fclose($stream);
@@ -1300,6 +1301,9 @@ php;
                                         fclose($stream);
                                         continue 2;
                                     }
+                                } elseif($is_plugin_lib_php)
+                                {
+                                    // lib/sdk/vendor 目录（含 composer 依赖、patch 脚本等），跳过序言校验
                                 } elseif(!PhpStrictAutoloadFileSourceSafe($file_content))
                                 {
                                     fclose($stream);
