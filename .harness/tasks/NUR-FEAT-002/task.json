@@ -1,0 +1,224 @@
+{
+  "schema_version": 2,
+  "id": "NUR-FEAT-002",
+  "title": "苗木目录、规格参数与公开参考价",
+  "type": "feature",
+  "priority": "P0",
+  "phase": 1,
+  "risk_level": "L3",
+  "status": "approved_for_implementation",
+  "requirement_ids": [
+    "FR-CAT-001",
+    "FR-CAT-002",
+    "FR-ADMIN-GOODS-001",
+    "FR-ADMIN-GOODS-002",
+    "FR-ADMIN-GOODS-003",
+    "FR-ADMIN-GOODS-005",
+    "BR-PRICE-001",
+    "BR-PRICE-002",
+    "BR-PRICE-003",
+    "BR-PRICE-004",
+    "AC-001"
+  ],
+  "decision_ids": [
+    "DEC-CATALOG-BASELINE",
+    "DEC-PRICE-VALIDITY",
+    "DEC-CATALOG-IMPORT-MODE"
+  ],
+  "business_goal": "在 nursery 插件边界内建立可重复导入的首版苗木两级目录、规格模板和参数模板；以商品规格行作为公开参考价的唯一数值真源，在保存上架和独立上架时拒绝无效价格；游客在分类、搜索、商品模块和详情无需登录或询价即可看到与规格一致的固定价或价格区间，并在详情看到完整参考价免责声明。",
+  "in_scope": [
+    "提供版本为 1 的结构化苗木目录清单：8 个一级分类和经批准的二级叶子分类，一级分类绑定最多两个苗木规格模板及复用 ShopXO 的参数模板。",
+    "使用 sxo_config.only_tag=plugins_nursery_catalog_manifest 记录版本、导入模式、清单哈希、seed_key、数据库 ID 和结构身份哈希；existing 模式只新增，不接管或覆盖同父同名的未托管数据。",
+    "BeginInstall 和 BeginUpgrade 只调用目录迁移的只读 Preflight，不写数据库；所有目录写迁移均在新代码就位后通过仓库内受控 CLI 显式执行，避免升级包替换失败留下新数据与旧代码。",
+    "提供与目录导入解耦的存量公开价格完整性 CLI：默认 dry-run；只有显式 --apply 且提供 actor/run-id 时，无规格或存在零价、负价、越界价的在架商品才受控下架并记录原因，规格均有效但商品汇总漂移时按规格 MIN/MAX 修正汇总并记录，不伪造规格价、不删除商品或历史。",
+    "在 plugins_service_goods_save_handle 中严格校验原始 specifications_price[]、最多两个规格维度、默认计量单位白名单和当前目录台账内的单一受管二级叶子分类；草稿可保存 0.00，上架保存时所有规格必须为 0.01 至 99999999.99。",
+    "在 plugins_service_goods_field_status_update 中对独立上架执行数据库态复核并以异常触发 ShopXO 事务回滚；下架及其他状态字段不受影响。",
+    "通过商品处理 Hook 将价格标题统一为参考价、强制公开价格可见、附加 fixed/range、min/max、单位和短/完整文案；列表以最低参考价起展示，详情保留完整区间和规格精确价。",
+    "扩展 nursery 的 default 主题同构商品模板覆盖 grid/list/slider 三类公开入口，保留原 Hook、链接和布局语义，继续移除购物车按钮并使用统一参考价字段。",
+    "通过 plugins_view_goods_detail_panel_price_bottom 输出 BR-PRICE-004 原文免责声明，并新增无第三方依赖的离线合同测试。"
+  ],
+  "out_of_scope": [
+    "完整 nursery 视觉主题、首页编排、筛选器重设计、图片素材、商品演示数据和浏览器视觉验收。",
+    "价格历史、纯面议价格、按商品配置起始价模式、询价回复价格和任何订单或支付价格。",
+    "询价、收藏唯一性、用户数据、行为事件、运营统计、看板和导出。",
+    "删除 ShopXO 演示商品或目录、物理删除商城能力、修改 config/shopxo.sql、新增数据库表或修改 ShopXO 核心服务。",
+    "安装或启用插件、访问远程数据库、连接服务器、修改 Caddy 或执行生产发布；这些动作由后续 L4 集成/发布任务承担。"
+  ],
+  "business_invariants": [
+    "sxo_goods_spec_base.price 是唯一公开数值真源；商品主表的 price/min_price/max_price 只由规格聚合，不得反向覆盖规格价。",
+    "公开参考价不以登录、收藏或询价为前置条件，询价回复不得修改本任务的公开价格字段。",
+    "草稿允许 0.00；任何上架路径均要求每条规格价格有效，纯面议和用零价表达面议均禁止。",
+    "首版商品只能使用当前目录台账内的单一受管二级叶子分类；旧 ShopXO 演示叶子和未纳管的新分类不得用于保存或上架，交叉属性进入参数，不物理删除多分类能力。",
+    "存量不合规商品只受控下架或修正派生汇总，不删除商品、收藏、询价或统计历史。",
+    "excluded mall capabilities 继续不可见且不可达，新增商品模板不得重新引入购物车、订单、支付或售后入口。"
+  ],
+  "dependencies": [
+    "ShopXO 6.9.0 固定上游 d1825c5404054b535255d8fcad675a5dae0ab633 已通过 source-check。",
+    "GoodsService::GoodsSave() 在事务开始前触发 plugins_service_goods_save_handle，并检查 EventReturnHandle 的非零返回。",
+    "GoodsService::GoodsStatusUpdate() 在事务中先更新状态再触发 plugins_service_goods_field_status_update，忽略 Hook 返回值，但异常会被外层捕获并回滚。",
+    "GoodsService::GoodsSaveBaseUpdate() 从 sxo_goods_spec_base.price 聚合 min_price、max_price 和展示 price。",
+    "sxo_goods_spec_base.price 为 DECIMAL(10,2)，正数上限 99999999.99；sxo_config.only_tag 有唯一索引。",
+    "插件首次安装的 BeginInstall 返回会被 PluginsAdminService 检查；Install/Upgrade 返回和 SQL 上传结果不能作为权威迁移门禁。",
+    "本机缺少 PHP、Composer、MySQL 和 Docker；离线合同测试在本任务执行，真实 PHP/MySQL、插件安装、HTTP 和浏览器验收在后续 L4 服务器集成任务补齐，不得互相替代。"
+  ],
+  "allowed_paths": [
+    "app/plugins/nursery/**",
+    "scripts/nursery_catalog.php",
+    "tests/nursery/**"
+  ],
+  "forbidden_paths": [
+    ".env",
+    ".env.*",
+    "rsakeys/**",
+    "vendor/**",
+    "runtime/**"
+  ],
+  "shopxo_core_change": {
+    "required": false,
+    "paths": [],
+    "reason": "已验证的商品保存、状态、数据处理、详情视图和模板替换 Hook 足以实现本任务，不需要核心适配。",
+    "registration": ""
+  },
+  "database_change": {
+    "required": true,
+    "affected_tables": [
+      "sxo_config",
+      "sxo_goods_category",
+      "sxo_goods_params_template",
+      "sxo_goods_params_template_config",
+      "sxo_goods_spec_template",
+      "sxo_goods",
+      "sxo_goods_spec_base"
+    ],
+    "migration_paths": [
+      "app/plugins/nursery/catalog-v1.json",
+      "app/plugins/nursery/service/CatalogMigration.php",
+      "app/plugins/nursery/service/CatalogIntegrity.php",
+      "app/plugins/nursery/Event.php",
+      "scripts/nursery_catalog.php"
+    ],
+    "fresh_install_baseline_exception": {
+      "requested": false,
+      "reason": "本任务不修改 config/shopxo.sql，也不删除演示数据；fresh 清理只能由后续 L4 发布合同在备份和基线证明后执行。"
+    },
+    "rollback_plan": "代码回滚不删除已写入的目录、模板或台账，不自动重新上架被判定无效价格的商品。未被引用且结构哈希未漂移的种子清理、受控 before-image 恢复或 fresh 数据恢复只能在后续 L4 任务中从发布前备份执行；一般故障优先前向修复。",
+    "verification": "真实 MySQL 环境验证 existing/fresh 模式、重复执行、同父同名冲突、受管 ID 缺失、事务回滚、存量下架/汇总修正及历史行不变；本任务离线测试只验证迁移合同和源码边界。"
+  },
+  "new_dependency_allowed": false,
+  "network_access_required": false,
+  "acceptance_criteria": [
+    {
+      "id": "AC-TASK-001",
+      "requirement_ids": [
+        "FR-CAT-001",
+        "FR-CAT-002",
+        "FR-ADMIN-GOODS-002",
+        "FR-ADMIN-GOODS-003"
+      ],
+      "description": "版本化清单包含获批的 8 个一级分类及二级叶子、每类最多两个规格模板、苗木参数模板和默认单位白名单；安装/升级事件仅做只读预检，受控 CLI 写迁移以 seed_key/ID/结构哈希幂等追踪，同父同名未托管、父级冲突或受管 ID 缺失时整批失败，且不覆盖管理员可维护的排序、图片、SEO、描述和启停字段。"
+    },
+    {
+      "id": "AC-TASK-002",
+      "requirement_ids": [
+        "FR-ADMIN-GOODS-001",
+        "FR-ADMIN-GOODS-002",
+        "FR-ADMIN-GOODS-005",
+        "BR-PRICE-001"
+      ],
+      "description": "草稿可保存 0.00；保存为上架或独立上架时，每条原始规格价格都必须匹配严格 ASCII 十进制格式并处于 0.01..99999999.99，规格维度不超过两个、单位在白名单且主分类是当前台账内的单一受管启用二级叶子；旧 ShopXO 演示叶子和未纳管分类必须失败，否则保存返回失败或状态更新事务回滚。"
+    },
+    {
+      "id": "AC-TASK-003",
+      "requirement_ids": [
+        "BR-PRICE-002",
+        "BR-PRICE-003",
+        "BR-PRICE-004",
+        "AC-001"
+      ],
+      "description": "匿名游客在默认主题 grid/list/slider、分类、搜索和详情无需登录或询价即可看到参考价；固定价显示精确值，区间商品列表显示最低价起、详情显示完整区间且规格切换保留精确价；API 商品数据附带一致的 mode/min/max/unit/text 字段，详情输出 BR-PRICE-004 原文。"
+    },
+    {
+      "id": "AC-TASK-004",
+      "requirement_ids": [
+        "FR-ADMIN-GOODS-005",
+        "BR-PRICE-001"
+      ],
+      "description": "独立价格完整性 CLI 默认仅 dry-run 并返回可审查 JSON，不由目录安装隐式触发；只有显式 --apply 且携带 actor/run-id 时，无规格或含无效规格价的在架商品只下架并记录，规格有效但派生汇总漂移时只重算主表汇总并记录；不伪造价格、不删除商品和历史，重复执行不重复修复。"
+    }
+  ],
+  "required_tests": [
+    {
+      "id": "nursery_catalog_price_contract",
+      "description": "离线验证目录清单、迁移台账、独立 dry-run 价格完整性入口、价格格式/范围/单位/规格维度/叶子分类守卫、异常回滚语义、统一公开价字段、免责声明、grid/list/slider 替换和无核心修改。",
+      "command": [
+        "python",
+        "tests/nursery/test_catalog_price_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "nursery_scope_regression",
+      "description": "回归验证 NUR-FEAT-001 的 PX 路由、导航、用户中心和商品模板收敛没有被重新启用。",
+      "command": [
+        "python",
+        "tests/nursery/test_scope_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "harness_selftest",
+      "description": "确认业务任务没有削弱 Harness 的范围、审批、证据和状态门禁。",
+      "command": [
+        "python",
+        "scripts/harness_selftest.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300
+    }
+  ],
+  "rollback": {
+    "required": true,
+    "plan": "未部署时只回退 app/plugins/nursery/**、scripts/nursery_catalog.php 与 tests/nursery/** 的本任务差异。已部署时先禁用 nursery 插件并确认 app/event.php 不再注册本任务 Hook，再回退代码；目录种子和台账默认保留，已下架商品不自动上架。需要数据回退时必须在 L4 任务中使用发布前数据库备份或受审 before-image。",
+    "verification": "运行 source-check、现有范围回归和 Harness 自检；在真实数据库核对商品/规格/分类/模板/收藏/询价/统计行数与发布前基线，并确认无效价格商品未被错误重新上架。"
+  },
+  "manual_approvals": {
+    "plan": {
+      "required": true,
+      "status": "approved",
+      "approved_by": "Codex-Review",
+      "approved_at": "2026-07-13T17:35:34Z"
+    },
+    "merge": {
+      "required": true,
+      "status": "pending",
+      "approved_by": null,
+      "approved_at": null
+    },
+    "release": {
+      "required": false,
+      "status": "not_required",
+      "approved_by": null,
+      "approved_at": null
+    }
+  },
+  "codex_role_bindings": {
+    "implementation": {
+      "agent_task": "/root",
+      "thread_id": "019f566b-dffa-7913-a608-bc2dffbd2bea"
+    },
+    "plan": {
+      "agent_task": "/root/catalog_product_review"
+    },
+    "merge": {
+      "agent_task": "/root/feat002_price_import_decision"
+    },
+    "release": null
+  },
+  "owner": "Codex-Implementer",
+  "reviewer": "Codex-Review",
+  "release_approver": null,
+  "created_at": "2026-07-13T17:13:54Z",
+  "updated_at": "2026-07-13T17:36:21Z"
+}
