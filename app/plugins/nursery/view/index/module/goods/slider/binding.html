@@ -38,6 +38,9 @@
                                 <i class="join iconfont icon-add"></i>
                             {{/if}}
                             <div class="content-item am-radius {{if isset($module_data['is_border']) and $module_data['is_border'] eq 1}}am-padding-sm{{else /}}am-border-0{{/if}} theme-data-edit-event" data-id="{{$v.id}}" data-module="goods">
+                                <button type="button" class="nursery-favorite-action nursery-favorite-card-button {{if isset($v['user_is_favor']) and $v['user_is_favor'] eq 1}}am-active{{/if}}" data-gid="{{$v.id}}" data-favorite-status="{{if isset($v['user_is_favor']) and $v['user_is_favor'] eq 1}}1{{else /}}0{{/if}}" data-csrf-token="{{$nursery_favorite_csrf}}" data-add-url="{{$nursery_favorite_add_url}}" data-cancel-url="{{$nursery_favorite_cancel_url}}" aria-label="{{if isset($v['user_is_favor']) and $v['user_is_favor'] eq 1}}取消收藏{{else /}}收藏商品{{/if}}" aria-pressed="{{if isset($v['user_is_favor']) and $v['user_is_favor'] eq 1}}true{{else /}}false{{/if}}">
+                                    <i class="iconfont {{if isset($v['user_is_favor']) and $v['user_is_favor'] eq 1}}icon-heart{{else /}}icon-heart-o{{/if}}" aria-hidden="true"></i>
+                                </button>
                                 <!-- 商品信息顶部钩子 -->
                                 {{if isset($shopxo_is_develop) and $shopxo_is_develop eq true}}
                                     <div class="plugins-tag">
@@ -123,4 +126,6 @@
             </div>
         </div>
     </div>
+    <link rel="stylesheet" href="{{:StaticAttachmentUrl('favorite.css', 'css', 'nursery', 'index')}}?v=1.2.0" />
+    <script src="{{:StaticAttachmentUrl('favorite.js', 'js', 'nursery', 'index')}}?v=1.2.0"></script>
 {{/if}}

@@ -1,0 +1,71 @@
+{{:ModuleInclude('public/header')}}
+<link rel="stylesheet" href="{{:StaticAttachmentUrl('favorite.css', 'css', 'nursery', 'index')}}?v=1.2.0" />
+
+{{:ModuleInclude('public/nav')}}
+{{:ModuleInclude('public/header_top_nav')}}
+{{:ModuleInclude('public/nav_search')}}
+{{:ModuleInclude('public/header_nav')}}
+
+<main class="am-container nursery-favorite-page">
+    <header class="nursery-favorite-heading">
+        <div>
+            <p class="nursery-favorite-kicker">个人中心</p>
+            <h1>我的收藏</h1>
+        </div>
+        <span class="nursery-favorite-total"><strong data-favorite-total>{{$favorite_data.total}}</strong> 件苗木</span>
+    </header>
+
+    {{if !empty($favorite_data['items'])}}
+        <div class="nursery-favorite-grid" data-favorite-list>
+            {{foreach $favorite_data.items as $item}}
+                <article class="nursery-favorite-item" data-favorite-item="{{$item.goods_id}}">
+                    <div class="nursery-favorite-media">
+                        {{if !empty($item['images'])}}
+                            {{if !empty($item['goods_url'])}}<a href="{{$item.goods_url}}">{{/if}}
+                            <img src="{{$item.images}}" alt="{{$item.title}}" />
+                            {{if !empty($item['goods_url'])}}</a>{{/if}}
+                        {{else /}}
+                            <div class="nursery-favorite-image-empty" aria-hidden="true"><i class="iconfont icon-image"></i></div>
+                        {{/if}}
+                        <span class="nursery-favorite-status is-{{$item.availability}}">{{$item.availability_text}}</span>
+                    </div>
+                    <div class="nursery-favorite-content">
+                        <h2>{{$item.title}}</h2>
+                        {{if !empty($item['reference_price'])}}
+                            <p class="nursery-favorite-price"><span>当前参考价</span><strong>{{$item.reference_price.short_text}}</strong></p>
+                        {{else /}}
+                            <p class="nursery-favorite-price is-unavailable">当前无公开参考价</p>
+                        {{/if}}
+                        <p class="nursery-favorite-time">收藏于 {{$item.favorite_time_text}}</p>
+                        <div class="nursery-favorite-actions">
+                            {{if !empty($item['goods_url'])}}
+                                <a class="am-btn am-btn-default am-btn-sm" href="{{$item.goods_url}}"><i class="iconfont icon-eye"></i><span>查看苗木</span></a>
+                            {{else /}}
+                                <span class="nursery-favorite-view-disabled"><i class="iconfont icon-eye-slash"></i><span>暂不可查看</span></span>
+                            {{/if}}
+                            <button type="button" class="am-btn am-btn-danger am-btn-sm nursery-favorite-action" data-gid="{{$item.goods_id}}" data-favorite-status="1" data-csrf-token="{{$csrf_token}}" data-add-url="{{:PluginsHomeUrl('nursery', 'favorite', 'add')}}" data-cancel-url="{{:PluginsHomeUrl('nursery', 'favorite', 'cancel')}}" data-remove-on-cancel="1" aria-label="取消收藏 {{$item.title}}" aria-pressed="true"><i class="iconfont icon-delete"></i><span>取消收藏</span></button>
+                        </div>
+                    </div>
+                </article>
+            {{/foreach}}
+        </div>
+        <nav class="nursery-favorite-pagination" aria-label="收藏分页">
+            {{if !empty($favorite_data['has_previous'])}}
+                <a class="am-btn am-btn-default am-btn-sm" href="{{:PluginsHomeUrl('nursery', 'favorite', 'index', ['page'=>$favorite_data['previous_page']])}}"><i class="iconfont icon-angle-left"></i><span>上一页</span></a>
+            {{/if}}
+            <span>第 {{$favorite_data.page}} / {{$favorite_data.page_total}} 页</span>
+            {{if !empty($favorite_data['has_next'])}}
+                <a class="am-btn am-btn-default am-btn-sm" href="{{:PluginsHomeUrl('nursery', 'favorite', 'index', ['page'=>$favorite_data['next_page']])}}"><span>下一页</span><i class="iconfont icon-angle-right"></i></a>
+            {{/if}}
+        </nav>
+    {{else /}}
+        <div class="nursery-favorite-empty" data-favorite-empty>
+            <i class="iconfont icon-heart-o" aria-hidden="true"></i>
+            <h2>还没有收藏苗木</h2>
+            <a class="am-btn am-btn-primary" href="{{:MyUrl('index/search/index')}}">浏览苗木</a>
+        </div>
+    {{/if}}
+</main>
+
+<script src="{{:StaticAttachmentUrl('favorite.js', 'js', 'nursery', 'index')}}?v=1.2.0"></script>
+{{:ModuleInclude('public/footer')}}

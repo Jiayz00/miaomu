@@ -5,7 +5,7 @@
     "logo": "",
     "author": "Jiayz00",
     "author_url": "https://github.com/Jiayz00/miaomu",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "desc": "单一经营主体苗木展示、收藏、询价与运营扩展",
     "apply_terminal": [
       "pc",
@@ -55,6 +55,12 @@
       "app\\plugins\\nursery\\Hook"
     ],
     "plugins_service_goods_buy_nav_button_handle": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_goods_buy_left_nav_handle": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_goods_list_handle_begin": [
       "app\\plugins\\nursery\\Hook"
     ],
     "plugins_service_goods_save_handle": [

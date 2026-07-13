@@ -42,6 +42,20 @@ class ScopePolicy
         'warehousegoods',
     ];
 
+    public const WEB_DENIED_ACTIONS = [
+        'goods' => ['favor'],
+        'usergoodsfavor' => ['cancel', 'delete'],
+    ];
+
+    public const API_DENIED_ACTIONS = [
+        'goods' => ['favor'],
+        'usergoodsfavor' => ['cancel', 'delete'],
+    ];
+
+    public const ADMIN_DENIED_ACTIONS = [
+        'goods' => ['delete'],
+    ];
+
     public const DENIED_PLUGINS = [
         'agent',
         'aftersale',
@@ -174,12 +188,14 @@ class ScopePolicy
         'module/goods/grid/base' => '../../../plugins/nursery/view/index/module/goods/grid/base',
         'module/goods/list/base' => '../../../plugins/nursery/view/index/module/goods/list/base',
         'module/goods/slider/binding' => '../../../plugins/nursery/view/index/module/goods/slider/binding',
+        'goods/module/middle_base/left/photo_pc_bottom_favor' => '../../../plugins/nursery/view/index/goods/module/middle_base/left/photo_pc_bottom_favor',
     ];
 
     private const DEFAULT_FALLBACK_VIEW_REPLACEMENTS = [
         '../default/module/goods/grid/base' => '../../../plugins/nursery/view/index/module/goods/grid/base',
         '../default/module/goods/list/base' => '../../../plugins/nursery/view/index/module/goods/list/base',
         '../default/module/goods/slider/binding' => '../../../plugins/nursery/view/index/module/goods/slider/binding',
+        '../default/goods/module/middle_base/left/photo_pc_bottom_favor' => '../../../plugins/nursery/view/index/goods/module/middle_base/left/photo_pc_bottom_favor',
     ];
 
     private const USER_CENTER_ENTRY_VIEWS = [
@@ -208,6 +224,24 @@ class ScopePolicy
             return in_array($controller, self::ADMIN_DENIED_CONTROLLERS, true);
         }
         return false;
+    }
+
+    public static function IsActionDenied($module, $controller, $action)
+    {
+        $module = self::Normalize($module);
+        $controller = self::Normalize($controller);
+        $action = self::Normalize($action);
+        if($module === 'index')
+        {
+            $map = self::WEB_DENIED_ACTIONS;
+        } elseif($module === 'api') {
+            $map = self::API_DENIED_ACTIONS;
+        } elseif($module === 'admin') {
+            $map = self::ADMIN_DENIED_ACTIONS;
+        } else {
+            return false;
+        }
+        return isset($map[$controller]) && in_array($action, $map[$controller], true);
     }
 
     public static function IsPluginDenied($plugins)
@@ -284,7 +318,9 @@ class ScopePolicy
             }
 
             $control = empty($item['control']) ? '' : self::Normalize($item['control']);
-            if(in_array($control, self::ADMIN_DENIED_CONTROLLERS, true) || self::IsPluginMenuItemDenied($item))
+            $action = empty($item['action']) ? '' : self::Normalize($item['action']);
+            $url = isset($item['url']) && is_scalar($item['url']) ? (string) $item['url'] : '';
+            if(in_array($control, self::ADMIN_DENIED_CONTROLLERS, true) || self::IsActionDenied('admin', $control, $action) || self::UrlContainsDeniedAdminAction($url) || self::IsPluginMenuItemDenied($item))
             {
                 continue;
             }
@@ -307,6 +343,11 @@ class ScopePolicy
         foreach(array_keys($data) as $key)
         {
             $normalized = self::Normalize($key);
+            if($normalized === 'goods_delete')
+            {
+                unset($data[$key]);
+                continue;
+            }
             foreach(self::ADMIN_DENIED_CONTROLLERS as $control)
             {
                 if(strpos($normalized, $control.'_') === 0)
@@ -406,7 +447,7 @@ class ScopePolicy
             {
                 continue;
             }
-            if(self::IsNavigationItemDenied($item) || self::UrlContainsDeniedAdminController($url))
+            if(self::IsNavigationItemDenied($item) || self::UrlContainsDeniedAdminController($url) || self::UrlContainsDeniedAdminAction($url))
             {
                 continue;
             }
@@ -502,6 +543,12 @@ class ScopePolicy
             }
         }
         return false;
+    }
+
+    private static function UrlContainsDeniedAdminAction($value)
+    {
+        $value = self::NormalizeUrl($value);
+        return preg_match('#(?:^|[?&])s=goods/delete(?:[.?#&/]|$)#', $value) === 1 || preg_match('#(?:^|/)admin/goods/delete(?:[.?#&/]|$)#', $value) === 1;
     }
 
     private static function ContainsDeniedRoute($value)

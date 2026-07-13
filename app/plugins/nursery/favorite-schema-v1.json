@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "favorite_schema_version": 1,
+  "table": "goods_favor",
+  "unique_index": {
+    "name": "uniq_nursery_user_goods",
+    "columns": [
+      "user_id",
+      "goods_id"
+    ]
+  },
+  "ledger": {
+    "only_tag": "plugins_nursery_favorite_schema_v1",
+    "name": "苗木收藏结构迁移台账"
+  }
+}

@@ -74,9 +74,14 @@ class PriceHookContractTests(unittest.TestCase):
         source = read_utf8(EVENT_FILE)
         for method in ("BeginInstall", "BeginUpgrade"):
             body = compact_code(extract_php_method(source, method))
-            self.assertIn("catalogmigration::preflight(", body)
+            self.assertIn("$this->preflightall($params)", body)
             self.assertNotIn("catalogmigration::run(", body)
             self.assertNotIn("db::", body)
+        preflight = compact_code(extract_php_method(source, "PreflightAll"))
+        self.assertIn("catalogmigration::preflight(", preflight)
+        self.assertIn("favoritemigration::preflight()", preflight)
+        self.assertNotIn("::run(", preflight)
+        self.assertNotIn("db::", preflight)
 
 
 class ReferencePriceServiceContractTests(unittest.TestCase):

@@ -1,0 +1,8 @@
+{{if !empty($module_data['goods'])}}
+    <span class="nav-icon nursery-favorite-action am-hide-sm-only {{if isset($module_data['goods']['user_is_favor']) and $module_data['goods']['user_is_favor'] eq 1}}am-active{{/if}}" data-gid="{{$module_data.goods.id}}" data-favorite-status="{{if isset($module_data['goods']['user_is_favor']) and $module_data['goods']['user_is_favor'] eq 1}}1{{else /}}0{{/if}}" data-csrf-token="{{$nursery_favorite_csrf}}" data-add-url="{{$nursery_favorite_add_url}}" data-cancel-url="{{$nursery_favorite_cancel_url}}" role="button" tabindex="0" aria-pressed="{{if isset($module_data['goods']['user_is_favor']) and $module_data['goods']['user_is_favor'] eq 1}}true{{else /}}false{{/if}}">
+        <i class="iconfont {{if isset($module_data['goods']['user_is_favor']) and $module_data['goods']['user_is_favor'] eq 1}}icon-heart{{else /}}icon-heart-o{{/if}}" aria-hidden="true"></i>
+        <em class="nursery-favorite-text">{{if isset($module_data['goods']['user_is_favor']) and $module_data['goods']['user_is_favor'] eq 1}}已收藏{{else /}}收藏{{/if}}</em>
+    </span>
+    <link rel="stylesheet" href="{{:StaticAttachmentUrl('favorite.css', 'css', 'nursery', 'index')}}?v=1.2.0" />
+    <script src="{{:StaticAttachmentUrl('favorite.js', 'js', 'nursery', 'index')}}?v=1.2.0"></script>
+{{/if}}

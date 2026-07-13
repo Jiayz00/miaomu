@@ -46,6 +46,8 @@ EXPECTED_HOOKS = (
     "plugins_service_user_center_mini_navigation_handle",
     "plugins_service_admin_menu_data",
     "plugins_service_goods_buy_nav_button_handle",
+    "plugins_service_goods_buy_left_nav_handle",
+    "plugins_service_goods_list_handle_begin",
     "plugins_service_goods_save_handle",
     "plugins_service_goods_save_thing_end",
     "plugins_service_goods_field_status_update",
@@ -221,12 +223,14 @@ DEFAULT_THEME_VIEW_REPLACEMENTS = {
     "module/goods/grid/base": "../../../plugins/nursery/view/index/module/goods/grid/base",
     "module/goods/list/base": "../../../plugins/nursery/view/index/module/goods/list/base",
     "module/goods/slider/binding": "../../../plugins/nursery/view/index/module/goods/slider/binding",
+    "goods/module/middle_base/left/photo_pc_bottom_favor": "../../../plugins/nursery/view/index/goods/module/middle_base/left/photo_pc_bottom_favor",
 }
 
 DEFAULT_FALLBACK_VIEW_REPLACEMENTS = {
     "../default/module/goods/grid/base": "../../../plugins/nursery/view/index/module/goods/grid/base",
     "../default/module/goods/list/base": "../../../plugins/nursery/view/index/module/goods/list/base",
     "../default/module/goods/slider/binding": "../../../plugins/nursery/view/index/module/goods/slider/binding",
+    "../default/goods/module/middle_base/left/photo_pc_bottom_favor": "../../../plugins/nursery/view/index/goods/module/middle_base/left/photo_pc_bottom_favor",
 }
 
 USER_CENTER_ENTRY_VIEWS = (
@@ -236,14 +240,21 @@ USER_CENTER_ENTRY_VIEWS = (
 
 EXPECTED_PLUGIN_FILES = {
     "catalog-v1.json",
+    "favorite-schema-v1.json",
     "config.json",
     "Event.php",
     "Hook.php",
+    "api/Favorite.php",
+    "index/Favorite.php",
     "service/CatalogIntegrity.php",
     "service/CatalogMigration.php",
     "service/CatalogPolicy.php",
     "service/ReferencePriceService.php",
+    "service/FavoriteMigration.php",
+    "service/FavoriteService.php",
     "service/ScopePolicy.php",
+    "view/index/favorite/index.html",
+    "view/index/goods/module/middle_base/left/photo_pc_bottom_favor.html",
     "view/index/module/goods/grid/base.html",
     "view/index/module/goods/list/base.html",
     "view/index/module/goods/slider/binding.html",
@@ -643,7 +654,7 @@ def validate_manifest_source(source: str) -> dict[str, Any]:
     require(isinstance(base, dict), "config.json base must be an object")
     require(isinstance(hooks, dict), "config.json hook must be an object")
     require(base.get("plugins") == "nursery", "plugin identifier must be nursery")
-    require(base.get("version") == "1.1.0", "plugin version must match the catalog/price release")
+    require(base.get("version") == "1.2.0", "plugin version must match the favorite release")
     require(base.get("apply_terminal") == ["pc", "h5"], "plugin terminals must be pc and h5")
     require(base.get("apply_version") == ["6.9.0"], "plugin must pin ShopXO 6.9.0")
     require(base.get("is_home") is False, "scope plugin must not expose a standalone homepage")
@@ -714,16 +725,16 @@ def validate_policy_source(source: str) -> dict[str, tuple[str, ...]]:
     direct_view_replacements = extract_php_const_map(source, "DEFAULT_THEME_VIEW_REPLACEMENTS")
     require(
         direct_view_replacements == DEFAULT_THEME_VIEW_REPLACEMENTS,
-        "DEFAULT_THEME_VIEW_REPLACEMENTS differs from the three approved direct mappings",
+        "DEFAULT_THEME_VIEW_REPLACEMENTS differs from the approved direct mappings",
     )
     fallback_view_replacements = extract_php_const_map(source, "DEFAULT_FALLBACK_VIEW_REPLACEMENTS")
     require(
         fallback_view_replacements == DEFAULT_FALLBACK_VIEW_REPLACEMENTS,
-        "DEFAULT_FALLBACK_VIEW_REPLACEMENTS differs from the three approved fallback mappings",
+        "DEFAULT_FALLBACK_VIEW_REPLACEMENTS differs from the approved fallback mappings",
     )
     require(
         set(direct_view_replacements.values()) == set(fallback_view_replacements.values()),
-        "direct and fallback mappings must resolve to the same three plugin templates",
+        "direct and fallback mappings must resolve to the same plugin templates",
     )
     parsed["DEFAULT_THEME_VIEW_REPLACEMENTS"] = tuple(direct_view_replacements)
     parsed["DEFAULT_FALLBACK_VIEW_REPLACEMENTS"] = tuple(fallback_view_replacements)
@@ -853,6 +864,19 @@ def validate_policy_source(source: str) -> dict[str, tuple[str, ...]]:
         "ispluginentrydenied(" not in request_method,
         "direct request blocking must not consume the entry-only hidden set",
     )
+
+    action_method = compact_code(extract_php_method(source, "IsActionDenied"))
+    for token in (
+        "self::normalize($module)",
+        "self::normalize($controller)",
+        "self::normalize($action)",
+        "self::web_denied_actions",
+        "self::api_denied_actions",
+        "self::admin_denied_actions",
+        "isset($map[$controller])",
+        "in_array($action,$map[$controller],true)",
+    ):
+        require(token in action_method, f"action request boundary is missing fragment {token}")
 
     plugin_method = compact_code(extract_php_method(source, "IsPluginDenied"))
     require("self::normalize($plugins)" in plugin_method, "plugin identifier must be normalized")
@@ -1058,6 +1082,8 @@ def validate_hook_source(source: str) -> None:
         "self::navigation_hooks",
         "scopepolicy::filternavigation($params['data'])",
         "scopepolicy::filtergoodsbuttons($params['data'])",
+        "$this->replacefavoritebuyleftnav($params)",
+        "$params['params']['is_favor']=1",
         "referencepriceservice::validatesave($params['params'],$params['data'],$params['spec'])",
         "plugins_service_goods_save_thing_end",
         "referencepriceservice::assertpublishedgoods(",
@@ -1075,11 +1101,12 @@ def validate_hook_source(source: str) -> None:
     for token in (
         "$module=requestmodule();",
         "$controller=requestcontroller();",
+        "$action=requestaction();",
         "$plugins=(strtolower($controller)==='plugins')?pluginsrequestname():'';",
         "scopepolicy::isrequestdenied($module,$controller,$plugins)",
+        "scopepolicy::isactiondenied($module,$controller,$action)",
     ):
         require(token in compact_enforce, f"system-begin request guard missing: {token}")
-    require("requestaction(" not in compact_enforce, "denied controller must cover every action")
     require(
         len(re.findall(r"\babort\s*\(\s*404\s*,", enforce_method, flags=re.IGNORECASE)) == 1,
         "denied request must abort exactly once with HTTP 404",
@@ -1164,8 +1191,13 @@ def validate_event_source(source: str) -> None:
         require("return datareturn('success',0);".replace(" ", "") in body, f"{method} must be a no-op success callback")
     for method in ("BeginInstall", "BeginUpgrade"):
         body = compact_code(extract_php_method(source, method))
-        require("catalogmigration::preflight(" in body, f"{method} must call the read-only catalog preflight")
+        require("$this->preflightall($params)" in body, f"{method} must call the combined read-only preflight")
         require("catalogmigration::run(" not in body, f"{method} must not run a write migration")
+        require("favoritemigration::run(" not in body, f"{method} must not run a favorite write migration")
+    combined = compact_code(extract_php_method(source, "PreflightAll"))
+    require("catalogmigration::preflight(" in combined, "combined preflight must check the catalog")
+    require("favoritemigration::preflight()" in combined, "combined preflight must check favorite schema")
+    require("::run(" not in combined and "db::" not in combined, "combined preflight must stay read-only")
     lowered = source.lower()
     for forbidden in ("db::", "->execute(", "->query(", "config/shopxo.sql", "app\\service\\"):
         require(forbidden not in lowered, f"Event lifecycle must not mutate data/core: {forbidden}")
@@ -1189,11 +1221,14 @@ def validate_view_source(source: str) -> None:
         "index/personal/index",
         "index/safety/index",
         "index/message/index",
-        "index/usergoodsfavor/index",
         "index/usergoodsbrowse/index",
         "index/goods/index",
     ):
         require(route in lowered, f"positive user-center route missing: {route}")
+    require(
+        "pluginshomeurl('nursery','favorite','index')" in compact_code(source),
+        "positive nursery favorite route missing",
+    )
     for token in ("goods_favor_list", "goods_browse_list", "mini_navigation", "user.avatar", "user.user_name_view"):
         require(token in lowered, f"positive user-center data missing: {token}")
     for hook in EXPECTED_USER_VIEW_HOOKS:
@@ -1254,6 +1289,44 @@ def controlled_goods_view_transform(upstream_source: str, cart_node: str, label:
     return transformed.replace(old, new, 1)
 
 
+def strip_favorite_view_additions(source: str, label: str) -> str:
+    lines = normalize_newlines(source).splitlines(keepends=True)
+    starts = [
+        index
+        for index, line in enumerate(lines)
+        if 'class="nursery-favorite-action nursery-favorite-card-button' in line
+    ]
+    require(len(starts) == 1, f"nursery {label} must contain one favorite card button")
+    start = starts[0]
+    end = next(
+        (index for index in range(start, min(start + 8, len(lines))) if "</button>" in lines[index]),
+        None,
+    )
+    require(end is not None, f"nursery {label} favorite button is incomplete")
+    button = "".join(lines[start : end + 1])
+    for token in (
+        "data-gid=",
+        "data-favorite-status=",
+        "data-csrf-token=",
+        "data-add-url=",
+        "data-cancel-url=",
+        "aria-pressed=",
+        "icon-heart",
+    ):
+        require(token in button, f"nursery {label} favorite button lost {token}")
+    del lines[start : end + 1]
+
+    asset_markers = (
+        "StaticAttachmentUrl('favorite.css', 'css', 'nursery', 'index')",
+        "StaticAttachmentUrl('favorite.js', 'js', 'nursery', 'index')",
+    )
+    for marker in asset_markers:
+        indexes = [index for index, line in enumerate(lines) if marker in line]
+        require(len(indexes) == 1, f"nursery {label} must load {marker} exactly once")
+        del lines[indexes[0]]
+    return "".join(lines)
+
+
 def validate_goods_view_source(
     source: str,
     upstream_source: str,
@@ -1264,8 +1337,8 @@ def validate_goods_view_source(
     normalized_upstream = normalize_newlines(upstream_source)
     expected_source = controlled_goods_view_transform(normalized_upstream, cart_node, label)
     require(
-        normalized_source == expected_source,
-        f"nursery {label} template differs outside the approved cart and reference-price changes",
+        strip_favorite_view_additions(normalized_source, label) == expected_source,
+        f"nursery {label} template differs outside the approved cart, price, and favorite changes",
     )
 
     lowered = normalized_source.lower()
@@ -2272,8 +2345,8 @@ class UserViewContractTests(unittest.TestCase):
         )
         missing_positive = replace_once(
             source,
-            "index/usergoodsfavor/index",
-            "index/user/index",
+            "PluginsHomeUrl('nursery', 'favorite', 'index')",
+            "MyUrl('index/user/index')",
             "favorite route",
         )
         fake_inquiry = source.replace(

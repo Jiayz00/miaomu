@@ -3,6 +3,7 @@ namespace app\plugins\nursery;
 
 use app\plugins\nursery\service\ScopePolicy;
 use app\plugins\nursery\service\ReferencePriceService;
+use app\plugins\nursery\service\FavoriteService;
 
 class Hook
 {
@@ -47,6 +48,13 @@ class Hook
                     $params['error'] = MyLang('goods_only_show_title');
                 }
             }
+        } elseif($hook_name === 'plugins_service_goods_buy_left_nav_handle') {
+            $this->ReplaceFavoriteBuyLeftNav($params);
+        } elseif($hook_name === 'plugins_service_goods_list_handle_begin') {
+            if(RequestModule() === 'index' && isset($params['params']) && is_array($params['params']))
+            {
+                $params['params']['is_favor'] = 1;
+            }
         } elseif($hook_name === 'plugins_service_goods_save_handle') {
             if(isset($params['params'], $params['data'], $params['spec']) && is_array($params['params']) && is_array($params['data']) && is_array($params['spec']))
             {
@@ -72,6 +80,7 @@ class Hook
             return ReferencePriceService::DisclaimerHtml();
         } elseif($hook_name === 'plugins_view_assign_data') {
             $this->FilterAssignedViewData($params);
+            $this->AssignFavoriteViewData($params);
         } elseif($hook_name === 'plugins_view_fetch_begin') {
             $this->ReplaceRestrictedView($params);
         }
@@ -82,8 +91,9 @@ class Hook
     {
         $module = RequestModule();
         $controller = RequestController();
+        $action = RequestAction();
         $plugins = (strtolower($controller) === 'plugins') ? PluginsRequestName() : '';
-        if(ScopePolicy::IsRequestDenied($module, $controller, $plugins))
+        if(ScopePolicy::IsRequestDenied($module, $controller, $plugins) || ScopePolicy::IsActionDenied($module, $controller, $action))
         {
             abort(404, '该功能在苗木展示站不可用');
         }
@@ -125,6 +135,38 @@ class Hook
         } elseif($module === 'admin' && $controller === 'index' && $action === 'init' && isset($params['data']['shortcut_menu_data']) && is_array($params['data']['shortcut_menu_data'])) {
             $params['data']['shortcut_menu_data'] = ScopePolicy::FilterShortcutMenu($params['data']['shortcut_menu_data']);
         }
+    }
+
+    private function AssignFavoriteViewData($params)
+    {
+        if(RequestModule() !== 'index' || !isset($params['data']) || !is_array($params['data']))
+        {
+            return;
+        }
+        $params['data']['nursery_favorite_csrf'] = FavoriteService::WebCsrfToken();
+        $params['data']['nursery_favorite_add_url'] = PluginsHomeUrl('nursery', 'favorite', 'add');
+        $params['data']['nursery_favorite_cancel_url'] = PluginsHomeUrl('nursery', 'favorite', 'cancel');
+        $params['data']['nursery_favorite_list_url'] = PluginsHomeUrl('nursery', 'favorite', 'index');
+    }
+
+    private function ReplaceFavoriteBuyLeftNav($params)
+    {
+        if(!isset($params['data']) || !is_array($params['data']))
+        {
+            return;
+        }
+        foreach($params['data'] as &$item)
+        {
+            if(!is_array($item) || ($item['type'] ?? '') !== 'favor')
+            {
+                continue;
+            }
+            $active = !empty($item['active']);
+            $item['type'] = 'nursery-favorite';
+            $item['class'] = trim(($item['class'] ?? '').' nursery-favorite-action');
+            $item['document'] = 'data-favorite-status="'.($active ? '1' : '0').'" data-csrf-token="'.htmlspecialchars(FavoriteService::WebCsrfToken(), ENT_QUOTES, 'UTF-8').'" data-add-url="'.htmlspecialchars(PluginsHomeUrl('nursery', 'favorite', 'add'), ENT_QUOTES, 'UTF-8').'" data-cancel-url="'.htmlspecialchars(PluginsHomeUrl('nursery', 'favorite', 'cancel'), ENT_QUOTES, 'UTF-8').'"';
+        }
+        unset($item);
     }
 
     private function ReplaceRestrictedView($params)
