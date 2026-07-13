@@ -154,6 +154,22 @@
       "by": "Codex-Implementer",
       "reason": "Plan reapproval rejected: Windows core.autocrlf causes false release-check drift; repair Harness bootstrap before resubmission",
       "at": "2026-07-13T11:06:36Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "Submit revised loopback Caddy and least-privilege initialization plan for independent approval",
+      "at": "2026-07-13T13:00:04Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "ready_for_analysis",
+      "by": "Codex-Implementer",
+      "reason": "Independent plan review rejected direct loopback FastCGI because PHP_VALUE and PHP_ADMIN_VALUE can disable auto_prepend_file; redesign deployment boundary before release",
+      "at": "2026-07-13T13:12:28Z"
     }
   ]
 }
