@@ -47,6 +47,30 @@
       "by": "Codex-Implementer",
       "reason": "独立 L3 计划审查关闭升级时序、受控 CLI 和受管分类边界三项 findings 后批准",
       "at": "2026-07-13T17:36:21Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_implementation",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "修正项目分支规则并提交批准计划后，source-check 与 preflight 通过",
+      "at": "2026-07-13T17:37:08Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "blocked",
+      "by": "Codex-Implementer",
+      "reason": "必需 Harness 自测夹具受新价格决策影响，先隔离修复控制面基线再继续验证",
+      "at": "2026-07-13T18:21:53Z"
+    },
+    {
+      "type": "transition",
+      "from": "blocked",
+      "to": "approved_for_implementation",
+      "by": "Codex-Implementer",
+      "reason": "业务计划与独立审查保持有效，仅更新已修复的 Harness 自测基础提交后重新预检",
+      "at": "2026-07-13T18:22:10Z"
     }
   ]
 }
