@@ -149,6 +149,14 @@
       "decision_context_sha256": "00289b390e631150eb442ace000557511411325abdf6a764e36f5d531a934b4c",
       "contract_sha256": "ca87a4da60e68dd2c9e4f099da67e5982f3be1c9926fe4be0bed1ed31ab3fd16",
       "policy_sha256": "ce7f1db203324ad701fd537ec27d51587ee7c4c0dba4cd405ca8f69d99bbd9b8"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "approved_for_implementation",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-13T14:42:56Z"
     }
   ]
 }
