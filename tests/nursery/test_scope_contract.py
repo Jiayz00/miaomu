@@ -21,6 +21,12 @@ HOOK_FILE = PLUGIN_ROOT / "Hook.php"
 EVENT_FILE = PLUGIN_ROOT / "Event.php"
 POLICY_FILE = PLUGIN_ROOT / "service" / "ScopePolicy.php"
 USER_VIEW_FILE = PLUGIN_ROOT / "view" / "index" / "user" / "index.html"
+LIST_VIEW_FILE = PLUGIN_ROOT / "view" / "index" / "module" / "goods" / "list" / "base.html"
+SLIDER_VIEW_FILE = PLUGIN_ROOT / "view" / "index" / "module" / "goods" / "slider" / "binding.html"
+UPSTREAM_LIST_VIEW_FILE = ROOT / "app" / "index" / "view" / "default" / "module" / "goods" / "list" / "base.html"
+UPSTREAM_SLIDER_VIEW_FILE = (
+    ROOT / "app" / "index" / "view" / "default" / "module" / "goods" / "slider" / "binding.html"
+)
 
 HOOK_CLASS = r"app\plugins\nursery\Hook"
 
@@ -204,11 +210,23 @@ PATHINFO_H5_MARKERS = (
     "pages/user-goods-comments",
 )
 
+DEFAULT_THEME_VIEW_REPLACEMENTS = {
+    "module/goods/list/base": "../../../plugins/nursery/view/index/module/goods/list/base",
+    "module/goods/slider/binding": "../../../plugins/nursery/view/index/module/goods/slider/binding",
+}
+
+DEFAULT_FALLBACK_VIEW_REPLACEMENTS = {
+    "../default/module/goods/list/base": "../../../plugins/nursery/view/index/module/goods/list/base",
+    "../default/module/goods/slider/binding": "../../../plugins/nursery/view/index/module/goods/slider/binding",
+}
+
 EXPECTED_PLUGIN_FILES = {
     "config.json",
     "Event.php",
     "Hook.php",
     "service/ScopePolicy.php",
+    "view/index/module/goods/list/base.html",
+    "view/index/module/goods/slider/binding.html",
     "view/index/user/index.html",
 }
 
@@ -230,6 +248,35 @@ EXPECTED_USER_VIEW_HOOKS = (
     "plugins_view_user_various_inside_top",
     "plugins_view_user_various_inside_bottom",
     "plugins_view_user_various_bottom",
+)
+
+EXPECTED_GOODS_VIEW_HOOKS = (
+    "plugins_view_module_goods_inside_top",
+    "plugins_view_module_goods_inside_price_top",
+    "plugins_view_module_goods_inside_bottom",
+)
+
+FORBIDDEN_GOODS_CART_MARKERS = (
+    "common-goods-cart-submit-event",
+    "icon-shopping-cart",
+    "item-cart-submit",
+    "goods-cart",
+)
+
+LIST_CART_NODE = (
+    '                                    <i data-gid="{{$v.id}}" data-is-many-spec="{{$v.is_exist_many_spec}}" '
+    'class="goods-cart iconfont icon-shopping-cart login-event common-goods-cart-submit-event '
+    'am-color-main am-cursor-pointer"></i>\n'
+)
+
+SLIDER_CART_NODE = (
+    "                                        {{if $v['is_error'] eq 0}}\n"
+    '                                            <a href="javascript:;" data-gid="{{$v.id}}" '
+    'data-is-many-spec="{{$v.is_exist_many_spec}}" '
+    'class="item-cart-submit am-fl common-goods-cart-submit-event">\n'
+    '                                                <i class="iconfont icon-shopping-cart"></i>\n'
+    '                                            </a>\n'
+    "                                        {{/if}}\n"
 )
 
 
@@ -399,6 +446,35 @@ def extract_php_const_list(source: str, name: str) -> tuple[str, ...]:
     return tuple(values)
 
 
+def extract_php_const_map(source: str, name: str) -> dict[str, str]:
+    start, end = php_const_body_span(source, name)
+    body = source[start:end]
+    entry_pattern = re.compile(
+        rf"(?P<key>{PHP_STRING_LITERAL.pattern})\s*=>\s*(?P<value>{PHP_STRING_LITERAL.pattern})"
+    )
+    result: dict[str, str] = {}
+    cursor = 0
+    for index, match in enumerate(entry_pattern.finditer(body)):
+        separator = body[cursor : match.start()]
+        if index == 0:
+            require(separator.strip() == "", f"{name} must be a direct string map")
+        else:
+            require(
+                separator.count(",") == 1 and separator.replace(",", "").strip() == "",
+                f"{name} contains a dynamic or malformed map entry",
+            )
+        key = _decode_php_string(match.group("key"))
+        value = _decode_php_string(match.group("value"))
+        require(key not in result, f"{name} contains duplicate key: {key}")
+        result[key] = value
+        cursor = match.end()
+
+    tail = body[cursor:]
+    require(tail.strip() in {"", ","}, f"{name} must contain only direct string mappings")
+    require(result, f"{name} must not be empty")
+    return result
+
+
 def php_method_span(source: str, name: str) -> tuple[int, int]:
     match = re.search(rf"\bfunction\s+{re.escape(name)}\s*\(", source, flags=re.IGNORECASE)
     require(match is not None, f"missing PHP method: {name}")
@@ -433,6 +509,24 @@ def mutate_const_remove_item(source: str, const_name: str, value: str) -> str:
     mutated, count = pattern.subn("", body, count=1)
     require(count == 1, f"unable to remove {value!r} from {const_name}")
     return source[:start] + mutated + source[end:]
+
+
+def mutate_const_remove_map_entry(source: str, const_name: str, key: str) -> str:
+    start, end = php_const_body_span(source, const_name)
+    body = source[start:end]
+    pattern = re.compile(
+        rf"(?m)^[ \t]*['\"]{re.escape(key)}['\"][ \t]*=>[ \t]*"
+        rf"(?:'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\")[ \t]*,[ \t]*(?:\r?\n)?"
+    )
+    mutated, count = pattern.subn("", body, count=1)
+    require(count == 1, f"unable to remove mapping {key!r} from {const_name}")
+    return source[:start] + mutated + source[end:]
+
+
+def normalize_newlines(source: str) -> str:
+    normalized = source.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = "\n".join(line.rstrip(" \t") for line in normalized.split("\n"))
+    return normalized[:-1] if normalized.endswith("\n") else normalized
 
 
 @contextmanager
@@ -529,6 +623,78 @@ def validate_policy_source(source: str) -> dict[str, tuple[str, ...]]:
     for marker in PATHINFO_H5_MARKERS:
         require(marker in route_markers, f"required PATHINFO/H5 route marker missing: {marker}")
     parsed["DENIED_ROUTE_MARKERS"] = route_markers
+
+    direct_view_replacements = extract_php_const_map(source, "DEFAULT_THEME_VIEW_REPLACEMENTS")
+    require(
+        direct_view_replacements == DEFAULT_THEME_VIEW_REPLACEMENTS,
+        "DEFAULT_THEME_VIEW_REPLACEMENTS differs from the two approved direct mappings",
+    )
+    fallback_view_replacements = extract_php_const_map(source, "DEFAULT_FALLBACK_VIEW_REPLACEMENTS")
+    require(
+        fallback_view_replacements == DEFAULT_FALLBACK_VIEW_REPLACEMENTS,
+        "DEFAULT_FALLBACK_VIEW_REPLACEMENTS differs from the two approved fallback mappings",
+    )
+    require(
+        set(direct_view_replacements.values()) == set(fallback_view_replacements.values()),
+        "direct and fallback mappings must resolve to the same two plugin templates",
+    )
+    parsed["DEFAULT_THEME_VIEW_REPLACEMENTS"] = tuple(direct_view_replacements)
+    parsed["DEFAULT_FALLBACK_VIEW_REPLACEMENTS"] = tuple(fallback_view_replacements)
+
+    replacement_method_source = extract_php_method(source, "ReplacementView")
+    replacement_method = compact_code(replacement_method_source)
+    require(
+        re.search(
+            r"\bpublic\s+static\s+function\s+ReplacementView\s*\(\s*\$view\s*,\s*\$theme\s*\)",
+            source,
+            flags=re.IGNORECASE,
+        )
+        is not None,
+        "ReplacementView must remain a public static two-argument boundary",
+    )
+    replacement_fragments = (
+        "if(!is_string($view)){return$view;}",
+        r"$normalized_view=str_replace('\\','/',$view);",
+        "if(isset(self::default_fallback_view_replacements[$normalized_view]))",
+        "returnself::default_fallback_view_replacements[$normalized_view];",
+        "if($theme==='default'&&isset(self::default_theme_view_replacements[$normalized_view]))",
+        "returnself::default_theme_view_replacements[$normalized_view];",
+        "return$view;",
+    )
+    for fragment in replacement_fragments:
+        require(fragment in replacement_method, f"view replacement boundary missing: {fragment}")
+    require(
+        replacement_method.index("self::default_fallback_view_replacements")
+        < replacement_method.index("$theme==='default'"),
+        "explicit default fallbacks must be resolved before the direct-theme condition",
+    )
+    require(
+        replacement_method_source.lower().count("str_replace(") == 1
+        and source.lower().count("str_replace(") == 1,
+        "backslash normalization must be the policy's only str_replace call",
+    )
+    for forbidden_fragment in (
+        "strpos(",
+        "stripos(",
+        "str_contains(",
+        "preg_match(",
+        "preg_match_all(",
+        "preg_replace(",
+        "fnmatch(",
+        "strtolower(",
+        "trim(",
+        "requestparams(",
+        "requestparam(",
+        "request::",
+        "input(",
+        "$_get",
+        "$_post",
+        "$_request",
+    ):
+        require(
+            forbidden_fragment not in replacement_method,
+            f"view replacement must stay exact and request-independent: {forbidden_fragment}",
+        )
 
     request_method = compact_code(extract_php_method(source, "IsRequestDenied"))
     for token in (
@@ -730,7 +896,6 @@ def validate_policy_source(source: str) -> dict[str, tuple[str, ...]]:
         "db::",
         "config/shopxo.sql",
         "file_get_contents(",
-        "str_replace(",
         "preg_replace(",
     ):
         require(forbidden not in lowered, f"policy must not use dynamic/core shortcut: {forbidden}")
@@ -757,7 +922,7 @@ def validate_hook_source(source: str) -> None:
         "scopepolicy::filtergoodsbuttons($params['data'])",
         "$this->filteradminscope($params)",
         "$this->filterassignedviewdata($params)",
-        "$this->replaceusercenterview($params)",
+        "$this->replacerestrictedview($params)",
         "returnnull;",
     ):
         require(token in handle_method, f"Hook dispatcher missing: {token}")
@@ -806,15 +971,27 @@ def validate_hook_source(source: str) -> None:
     ):
         require(token in assigned_method, f"view-assignment filtering missing: {token}")
 
-    view_method = compact_code(extract_php_method(source, "ReplaceUserCenterView"))
+    view_method_source = extract_php_method(source, "ReplaceRestrictedView")
+    view_method = compact_code(view_method_source)
     for token in (
-        "requestmodule()==='index'",
-        "requestcontroller()==='user'",
-        "requestaction()==='index'",
+        "if(requestmodule()!=='index'||!array_key_exists('view',$params)){return;}",
+        "if(requestcontroller()==='user'&&requestaction()==='index')",
         "array_key_exists('view',$params)",
         "$params['view']='../../../plugins/nursery/view/index/user/index';",
+        "$params['view']=scopepolicy::replacementview($params['view'],defaulttheme());",
     ):
-        require(token in view_method, f"user center view replacement missing: {token}")
+        require(token in view_method, f"restricted view replacement missing: {token}")
+    user_view_assignment = "$params['view']='../../../plugins/nursery/view/index/user/index';"
+    policy_view_assignment = "$params['view']=scopepolicy::replacementview($params['view'],defaulttheme());"
+    user_return = view_method.find("return;", view_method.index(user_view_assignment))
+    require(
+        view_method.index(user_view_assignment) < user_return < view_method.index(policy_view_assignment),
+        "user-center replacement must return before the goods-view mapping",
+    )
+    require(
+        len(re.findall(r"\bDefaultTheme\s*\(\s*\)", view_method_source, flags=re.IGNORECASE)) == 1,
+        "goods-view mapping must consult DefaultTheme exactly once",
+    )
 
     lowered = source.lower()
     for forbidden in ("str_replace(", "preg_replace(", "db::", "config/shopxo.sql"):
@@ -902,6 +1079,73 @@ def validate_view_source(source: str) -> None:
 
 def validate_view_file(path: Path) -> None:
     validate_view_source(read_utf8(path))
+
+
+def controlled_goods_view_transform(upstream_source: str, cart_node: str, label: str) -> str:
+    normalized_upstream = normalize_newlines(upstream_source)
+    require(
+        normalized_upstream.count(cart_node) == 1,
+        f"pinned upstream {label} template must contain the approved cart node exactly once",
+    )
+    return normalized_upstream.replace(cart_node, "", 1)
+
+
+def validate_goods_view_source(
+    source: str,
+    upstream_source: str,
+    cart_node: str,
+    label: str,
+) -> None:
+    normalized_source = normalize_newlines(source)
+    normalized_upstream = normalize_newlines(upstream_source)
+    expected_source = controlled_goods_view_transform(normalized_upstream, cart_node, label)
+    require(
+        normalized_source == expected_source,
+        f"nursery {label} template must equal pinned upstream with only its approved cart node removed",
+    )
+
+    lowered = normalized_source.lower()
+    for forbidden_marker in FORBIDDEN_GOODS_CART_MARKERS:
+        require(forbidden_marker not in lowered, f"nursery {label} template retains cart marker: {forbidden_marker}")
+
+    for price_fragment in (
+        "show_price_symbol",
+        "show_price_unit",
+        '<strong class="price">',
+    ):
+        require(
+            normalized_source.count(price_fragment) == normalized_upstream.count(price_fragment) > 0,
+            f"nursery {label} template changed public price/unit output: {price_fragment}",
+        )
+    require(
+        normalized_source.count("goods_url") == normalized_upstream.count("goods_url") > 0,
+        f"nursery {label} template changed goods_url links",
+    )
+    for hook_name in EXPECTED_GOODS_VIEW_HOOKS:
+        require(
+            normalized_source.count(hook_name) == normalized_upstream.count(hook_name) > 0,
+            f"nursery {label} template changed upstream Hook: {hook_name}",
+        )
+
+
+def validate_goods_view_file(
+    path: Path,
+    upstream_path: Path,
+    cart_node: str,
+    label: str,
+) -> None:
+    validate_goods_view_source(read_utf8(path), read_utf8(upstream_path), cart_node, label)
+
+
+def model_replacement_view(view: Any, theme: Any) -> Any:
+    if not isinstance(view, str):
+        return view
+    normalized_view = view.replace("\\", "/")
+    if normalized_view in DEFAULT_FALLBACK_VIEW_REPLACEMENTS:
+        return DEFAULT_FALLBACK_VIEW_REPLACEMENTS[normalized_view]
+    if theme == "default" and normalized_view in DEFAULT_THEME_VIEW_REPLACEMENTS:
+        return DEFAULT_THEME_VIEW_REPLACEMENTS[normalized_view]
+    return view
 
 
 def model_is_request_denied(module: Any, controller: Any, plugins: Any = "", action: Any = "index") -> bool:
@@ -1065,6 +1309,134 @@ class ScopePolicyContractTests(unittest.TestCase):
         self.assertEqual(len(parsed["DENIED_PLUGINS"]), 23)
         self.assertEqual(len(parsed["DENIED_PLUGIN_ALIASES"]), 4)
         self.assertEqual(len(parsed["HIDDEN_PLUGIN_ENTRIES"]), 8)
+        self.assertEqual(len(parsed["DEFAULT_THEME_VIEW_REPLACEMENTS"]), 2)
+        self.assertEqual(len(parsed["DEFAULT_FALLBACK_VIEW_REPLACEMENTS"]), 2)
+
+    def test_exact_goods_view_mappings_and_theme_model(self) -> None:
+        validate_policy_file(POLICY_FILE)
+        for view, replacement in DEFAULT_THEME_VIEW_REPLACEMENTS.items():
+            with self.subTest(mapping="direct-default", view=view):
+                self.assertEqual(model_replacement_view(view, "default"), replacement)
+                self.assertEqual(model_replacement_view(view.replace("/", "\\"), "default"), replacement)
+            for theme in ("nursery", "Default", "DEFAULT", "", None):
+                with self.subTest(mapping="direct-custom", view=view, theme=theme):
+                    self.assertEqual(model_replacement_view(view, theme), view)
+                    windows_view = view.replace("/", "\\")
+                    self.assertEqual(model_replacement_view(windows_view, theme), windows_view)
+
+        for view, replacement in DEFAULT_FALLBACK_VIEW_REPLACEMENTS.items():
+            for theme in ("default", "nursery", "Default", "DEFAULT", "", None):
+                with self.subTest(mapping="fallback", view=view, theme=theme):
+                    self.assertEqual(model_replacement_view(view, theme), replacement)
+                    self.assertEqual(model_replacement_view(view.replace("/", "\\"), theme), replacement)
+
+        similar_or_case_changed = (
+            "module/goods/list/base.html",
+            "module/goods/list/base/",
+            "/module/goods/list/base",
+            "module//goods/list/base",
+            "module/goods/list/basement",
+            "prefix/module/goods/list/base",
+            "MODULE/goods/list/base",
+            "module/goods/slider/binding.html",
+            "module/goods/slider/binding-extra",
+            "../default/module/goods/list/base.html",
+            "../defaulted/module/goods/list/base",
+            "../DEFAULT/module/goods/list/base",
+            "../../default/module/goods/slider/binding",
+        )
+        for view in similar_or_case_changed:
+            for theme in ("default", "nursery"):
+                with self.subTest(mapping="exact-negative", view=view, theme=theme):
+                    self.assertEqual(model_replacement_view(view, theme), view)
+        for opaque_view in (None, 7, False, ("module/goods/list/base",)):
+            with self.subTest(mapping="non-string", view=opaque_view):
+                self.assertIs(model_replacement_view(opaque_view, "default"), opaque_view)
+
+    def test_goods_view_mapping_mutations_fail_on_temporary_copy(self) -> None:
+        source = read_utf8(POLICY_FILE)
+        mutations: list[tuple[str, str]] = []
+        for const_name, mappings in (
+            ("DEFAULT_THEME_VIEW_REPLACEMENTS", DEFAULT_THEME_VIEW_REPLACEMENTS),
+            ("DEFAULT_FALLBACK_VIEW_REPLACEMENTS", DEFAULT_FALLBACK_VIEW_REPLACEMENTS),
+        ):
+            for view in mappings:
+                mutations.append(
+                    (
+                        f"remove {const_name} {view}",
+                        mutate_const_remove_map_entry(source, const_name, view),
+                    )
+                )
+
+        mutations.extend(
+            (
+                (
+                    "remove strict default condition",
+                    mutate_method_once(
+                        source,
+                        "ReplacementView",
+                        "if($theme === 'default' && isset(self::DEFAULT_THEME_VIEW_REPLACEMENTS[$normalized_view]))",
+                        "if(isset(self::DEFAULT_THEME_VIEW_REPLACEMENTS[$normalized_view]))",
+                        "strict default theme condition",
+                    ),
+                ),
+                (
+                    "replace custom theme direct path",
+                    mutate_method_once(
+                        source,
+                        "ReplacementView",
+                        "$theme === 'default'",
+                        "$theme !== 'default'",
+                        "custom theme direct replacement",
+                    ),
+                ),
+                (
+                    "do not replace explicit fallback",
+                    mutate_method_once(
+                        source,
+                        "ReplacementView",
+                        "return self::DEFAULT_FALLBACK_VIEW_REPLACEMENTS[$normalized_view];",
+                        "return $view;",
+                        "fallback replacement return",
+                    ),
+                ),
+                (
+                    "downgrade exact map lookup to substring",
+                    mutate_method_once(
+                        source,
+                        "ReplacementView",
+                        "isset(self::DEFAULT_FALLBACK_VIEW_REPLACEMENTS[$normalized_view])",
+                        "strpos($normalized_view, '../default/module/goods/list/base') !== false",
+                        "fallback exact mapping",
+                    ),
+                ),
+                (
+                    "downgrade exact map lookup to regex",
+                    mutate_method_once(
+                        source,
+                        "ReplacementView",
+                        "isset(self::DEFAULT_THEME_VIEW_REPLACEMENTS[$normalized_view])",
+                        "preg_match('#module/goods/#', $normalized_view) === 1",
+                        "direct exact mapping",
+                    ),
+                ),
+                (
+                    "source replacement view from request input",
+                    mutate_method_once(
+                        source,
+                        "ReplacementView",
+                        "$normalized_view = str_replace('\\\\', '/', $view);",
+                        "$normalized_view = str_replace('\\\\', '/', $_GET['view']);",
+                        "request-independent view input",
+                    ),
+                ),
+            )
+        )
+        for label, mutated in mutations:
+            with self.subTest(mutation=label):
+                with temporary_copy(POLICY_FILE, mutated) as path:
+                    with self.assertRaises(ContractError):
+                        validate_policy_file(path)
 
     def test_controller_level_case_insensitive_route_model(self) -> None:
         denied_by_module = {
@@ -1596,6 +1968,13 @@ class HookContractTests(unittest.TestCase):
                 "ScopePolicy::FilterNavigation($params['data']['shortcut_menu_data'])",
                 "shortcut menu filter call",
             ),
+            mutate_method_once(
+                source,
+                "ReplaceRestrictedView",
+                "DefaultTheme()",
+                "'default'",
+                "custom theme forced through direct default mapping",
+            ),
         ]
         for key in ADMIN_PAYLOAD_KEYS:
             mutations.append(
@@ -1645,6 +2024,46 @@ class UserViewContractTests(unittest.TestCase):
                 with temporary_copy(USER_VIEW_FILE, mutated) as path:
                     with self.assertRaises(ContractError):
                         validate_view_file(path)
+
+
+class GoodsModuleViewContractTests(unittest.TestCase):
+    def test_goods_views_equal_pinned_upstream_with_only_cart_nodes_removed(self) -> None:
+        cases = (
+            (LIST_VIEW_FILE, UPSTREAM_LIST_VIEW_FILE, LIST_CART_NODE, "goods list/base"),
+            (SLIDER_VIEW_FILE, UPSTREAM_SLIDER_VIEW_FILE, SLIDER_CART_NODE, "goods slider/binding"),
+        )
+        for plugin_path, upstream_path, cart_node, label in cases:
+            with self.subTest(template=label):
+                validate_goods_view_file(plugin_path, upstream_path, cart_node, label)
+
+    def test_restored_cart_or_removed_price_link_unit_and_hooks_fail(self) -> None:
+        cases = (
+            (LIST_VIEW_FILE, UPSTREAM_LIST_VIEW_FILE, LIST_CART_NODE, "goods list/base"),
+            (SLIDER_VIEW_FILE, UPSTREAM_SLIDER_VIEW_FILE, SLIDER_CART_NODE, "goods slider/binding"),
+        )
+        critical_fragments = (
+            "show_price_symbol",
+            "show_price_unit",
+            '<strong class="price">',
+            "goods_url",
+        ) + EXPECTED_GOODS_VIEW_HOOKS
+        for plugin_path, upstream_path, cart_node, label in cases:
+            source = read_utf8(plugin_path)
+            upstream_source = read_utf8(upstream_path)
+            with self.subTest(template=label, mutation="restore cart"):
+                with temporary_copy(plugin_path, upstream_source) as path:
+                    with self.assertRaises(ContractError):
+                        validate_goods_view_file(path, upstream_path, cart_node, label)
+            for critical_fragment in critical_fragments:
+                with self.subTest(template=label, mutation=f"remove {critical_fragment}"):
+                    require(
+                        critical_fragment in source,
+                        f"mutation prerequisite missing from {label}: {critical_fragment}",
+                    )
+                    mutated = source.replace(critical_fragment, "", 1)
+                    with temporary_copy(plugin_path, mutated) as path:
+                        with self.assertRaises(ContractError):
+                            validate_goods_view_file(path, upstream_path, cart_node, label)
 
 
 class RepositoryBoundaryTests(unittest.TestCase):

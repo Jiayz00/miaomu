@@ -2,27 +2,28 @@
 
 ## 审查范围
 
-独立核对了 `FR-HOME-001`、`FR-CENTER-001`、`DEC-PX-BASELINE-NAV`、任务合同、四份获批计划、实施证据、发布说明、最新 review-pack、完整暂存差异，以及固定 ShopXO 6.9.0 源码中的事件部署、系统起始、导航、商品按钮、后台权限和视图 Hook 调用点。
+本轮重新核对了 `FR-HOME-001`、`FR-CENTER-001`、`DEC-PX-BASELINE-NAV`、最新任务合同、四份修订计划、`approval-plan.json` 及审批历史、上一轮 `CHANGES_REQUESTED`、最新 verify 运行、实施证据、发布说明、review-pack、HEAD `822b6ae2db717b5682e50c068ec8f2ce673e2b10` 到完整暂存差异，以及 ShopXO 6.9.0 的 `MyView`、`ModuleInclude`、分类、搜索、商品模块与用户中心真实调用链。
 
-本轮实际执行并通过：`source-check`、`task-check NUR-FEAT-001`、`scope-check NUR-FEAT-001`、`evidence-check NUR-FEAT-001`、19 项 `nursery_scope_contract` 测试和 60 项 Harness 自测；Harness 自测另有 2 项因当前 Windows 无符号链接权限而明确跳过。未执行 PHP 语法、Composer、MySQL、插件安装/启用、HTTP、数据库副作用或浏览器测试，不能将这些项目记为通过。
+上一轮分类/搜索图文列表及动态 slider 的可见购物车 P1 已按修订计划处理：两个插件模板与固定上游相比只删除购物车节点，公开价格、单位、商品链接和原有商品模块 Hook 均保留；商品模块 direct 路径仅在 default 主题替换，显式 `../default` 回退始终替换，非 default 主题自有 direct 模板保持不变。本轮实际复跑 `source-check`、`task-check`、`scope-check`、`evidence-check` 和 23 项 `nursery_scope_contract`，均通过；最新 verify 证据另记录 60 项 Harness 自测通过、2 项因 Windows 无符号链接权限明确跳过。
 
 ## 发现
 
-### P1：分类和搜索图文列表仍显示可点击购物车入口
+### P1：用户中心视图替换会递归替换其所有 ModuleInclude
 
-- 证据：上游 `app/index/view/default/module/goods/list/base.html:120` 在公开价格区块中硬编码输出 `icon-shopping-cart` 与 `common-goods-cart-submit-event`。`app/index/view/default/search/index.html:120-123` 在 `layout=1` 时直接包含该模板，`app/index/view/default/category/datalist.html:1-5` 也固定包含该模板，因此任务明确要求保留可用的分类与搜索页面仍会显示购物车图标。
-- 缺口：当前 `app/plugins/nursery/Hook.php:39-48` 和 `app/plugins/nursery/service/ScopePolicy.php:323` 只过滤 `GoodsService::GoodsBuyButtonList()` 产生的商品详情按钮，无法触达列表模板里的硬编码入口。购物车控制器最终返回 404 只能满足直达路由失败关闭，不能替代可见入口收敛。
-- 违反：任务 `business_invariants[0]` 要求排除能力同时从可见入口、直达 Web/API 路由和后台菜单权限收敛；同时违背 `FR-HOME-001` 及项目 PX 规则“不建设或重新启用购物车”的产品边界。
-- 最小修正：退回实施阶段并修订计划与测试。可以继续保持业务改动集中在 `app/plugins/nursery/**`，通过经源码验证的结构化 Hook，或在 `plugins_view_fetch_begin` 中对实际使用的商品列表模块做插件内替代视图；不得以 CSS 隐藏替代模板收敛。同步审计 `app/index/view/default/module/goods/slider/binding.html:93-95` 的同类硬编码入口，并新增搜索 `layout=1`、分类列表及首页/动态商品 slider 的正负测试和后续浏览器验收。
+- 证据：`app/index/controller/User.php:126` 的用户中心外层调用是 `MyView()`，因此 default 主题下进入 fetch-begin Hook 的外层 `view` 是空字符串；非 default 主题缺少该页面时，上游 `app/common.php:1041-1064` 会把它变成 `../default/user/index`。这两个值才是需要替换的外层输入。
+- 失败场景：当前 `app/plugins/nursery/Hook.php:112-115` 只判断请求仍为 `index/user/index`，不检查本次 `view`，于是该请求中的每一次 `MyView()` 都被改成整个 nursery 用户中心模板。插件模板 `app/plugins/nursery/view/index/user/index.html:1-18` 随即调用 `ModuleInclude('public/header')`、`public/nav`、`public/header_top_nav`、`public/header_nav_simple` 和 `public/user_menu`；上游 `app/common.php:2497-2514` 与 `app/module/ViewIncludeModule.php:35-37` 证明每个 ModuleInclude 都再次调用 `MyView($template, ...)`。请求控制器和 action 未变化，这些嵌套 partial 会再次被替换成用户中心模板，形成递归渲染并使用户中心不可用。
+- 测试缺口：23 项静态测试只要求存在 user/controller/action 条件、赋值和 return 顺序，没有断言用户中心替换只接受外层 `view` 的精确集合，也没有验证 `public/*`、商品模块或插件自身 view 在 `index/user/index` 请求内保持原值，因此该缺陷未被负变异捕获。
+- 违反：直接破坏 `FR-CENTER-001`、`AC-TASK-001` 和任务不变量中“个人资料、账号安全、收藏和浏览历史不得误伤”的要求；同时不能把未运行的 PHP 页面渲染当成已验证。
+- 最小修正：把用户中心替换收窄为源码确认的外层输入白名单，至少精确覆盖 default/custom-own 情况下的空外层 view 与 `../default/user/index` 显式回退，并明确让 `public/*`、`module/*`、`../../../plugins/*` 和相似路径保持不变。计划和测试必须锁定这些真实输入，加入删除条件、扩大为请求级无条件替换、错误替换 partial、漏掉 fallback 等临时负变异；在具备 PHP 的环境中增加一次用户中心渲染冒烟，证明不会递归且公共 partial 正常输出。
 
 ## 审查结论
 
-自动门禁与离线合同测试通过，但它们没有覆盖上述真实默认主题模板调用链。该 P1 会让首版苗木站在正常可达页面继续展示购物车入口，因此本轮拒绝合并审批。
+商品 list/slider 的上一轮缺口已经关闭，自动门禁和 23 项离线测试也通过；但当前用户中心 fetch-begin 边界会让正常页面递归渲染，属于阻塞合并的 P1。本轮拒绝 merge 审批，不创建 `approval-merge.json`，不执行 `task-approval ... merge --status approved`。
 
-修正后仍需在 PHP/MySQL 环境验证插件安装和 `app/event.php` 生成、真实 404、冷/暖缓存权限、数据库无副作用以及 PC/H5 浏览器页面。`?default_theme=default` 本身不能绕过当前 system-begin 或用户中心 fetch-begin Hook，但默认主题公共 footer/header 和详情隐藏表单仍保留休眠的购物车标记，发布前应确认所有可见触发入口均已收敛且目标路由持续失败关闭；部署还必须验证只有 `nursery` 插件启用。
+本机仍未运行 PHP 语法、Composer、MySQL、插件安装/启用、`app/event.php` 生成、HTTP 路由、数据库副作用或 PC/H5 浏览器测试；这些项目保持未验证，后续不得表述为通过。安装器、直连 FPM、静态文件保护、真实 slider 配置、冷暖缓存和仅启用 nursery 插件也仍属于发布前运行验收门禁。
 
 REVIEW_RESULT: CHANGES_REQUESTED
 
 REVIEWER: Codex-Review
 
-REVIEWED_AT: 2026-07-13T15:52:06Z
+REVIEWED_AT: 2026-07-13T16:35:48Z

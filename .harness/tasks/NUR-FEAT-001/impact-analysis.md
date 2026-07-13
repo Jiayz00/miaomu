@@ -19,7 +19,7 @@
    - `plugins_service_admin_menu_data`：递归过滤后台菜单，并同步移除 `admin_power` 中被拒绝控制器的 action key。
    - `plugins_view_assign_data`：在 `admin/index/init` 对 `shortcut_menu_data` 做第二次结构化裁剪；权限菜单已移除而未解析出 URL 的订单/售后项，以及直指 PX 插件的分销/优惠券/秒杀项不能继续显示。
    - `plugins_service_goods_buy_nav_button_handle`：从详情按钮集合移除 `buy`、`cart`，保留展示型 `show` 及未来 `inquiry`。
-4. 硬编码页面：`plugins_view_assign_data` 在前台首页清空 `user_order_status`，并在后台首页过滤独立快捷菜单数据；`plugins_view_fetch_begin` 的 `view` 参数按引用传入，可把 `index/user/index` 替换为插件自有视图。商品模块使用固定精确表：直接 `module/goods/list/base`、`module/goods/slider/binding` 仅在 `DefaultTheme() === 'default'` 时替换；`../default/` 回退形式始终替换。两份插件商品视图只删除购物车节点，保留公开价格、商品链接和 `plugins_view_module_goods_inside_*` Hook；非 default 主题已提供的自有模板保持不变。
+4. 硬编码页面：`plugins_view_assign_data` 在前台首页清空 `user_order_status`，并在后台首页过滤独立快捷菜单数据；`plugins_view_fetch_begin` 的 `view` 参数按引用传入。用户中心仅在请求为 `index/user/index` 且规范 view 严格为空字符串或 `../default/user/index` 时替换为插件自有视图；插件模板内 `ModuleInclude('public/*')` 通过 `ViewIncludeModule::Run()` 再次调用 `MyView($template)`，这些非空嵌套路径必须原样保留以避免递归。商品模块使用固定精确表：直接 `module/goods/list/base`、`module/goods/slider/binding` 仅在 `DefaultTheme() === 'default'` 时替换；`../default/` 回退形式始终替换。两份插件商品视图只删除购物车节点，保留公开价格、商品链接和 `plugins_view_module_goods_inside_*` Hook；非 default 主题已提供的自有模板保持不变。
 5. 数据：本任务不查询、写入或迁移订单/支付/收藏/商品表；插件安装状态属于后续部署操作。历史商城表和数据不删除。
 
 固定路由策略在计划批准前锁定如下（全部小写比较，命中控制器后拒绝其所有 action）：
@@ -59,6 +59,7 @@
 - 控制器拒绝表过宽会误伤收藏、登录或苗木插件，过窄会留下 action 绕过；测试同时维护正例和控制器级负例。
 - 后台菜单缓存可能保留旧菜单；安装/启用/禁用后必须刷新 ShopXO 缓存，运行验收不能只检查新会话外观。
 - 插件替换用户中心视图只针对 `index/user/index`；其他资料、安全、收藏、浏览页面继续回退当前主题/默认主题。
+- 同一请求内所有嵌套模板仍保持 `index/user/index` 路由上下文，只按路由替换会递归；外层允许输入固定为 `''` 与 `../default/user/index`，Windows 分隔符只做规范化，`public/*`、`module/*`、插件路径、大小写或相似路径均不得匹配。PHP 运行时必须证明 header/nav/footer 各渲染一次且响应有限完成。
 - 商品 list/slider 替代视图复制固定上游模板会增加同步面；合同测试必须证明插件版本等于固定上游版本仅删除批准的购物车节点，并要求升级 ShopXO 时显式重审。路径映射只接受四个精确规范值，不使用子串、正则或请求参数扩展；直接路径还要求当前主题严格为 default，防止覆盖未来 nursery 或其他非 default 主题的自有安全模板。
 - 第三方商城插件标识无法穷举；首版固定拒绝已知 PX 标识，部署时同时证明未安装未批准插件。
 - ShopXO 在后台一级菜单下动态注入的插件项没有 `control`，只有 `id/key=plugins-<name>` 和插件 URL；只按 control 过滤会漏项，合同测试必须覆盖全部 23 个 PX 插件菜单形态。

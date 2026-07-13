@@ -49,7 +49,7 @@ class Hook
         } elseif($hook_name === 'plugins_view_assign_data') {
             $this->FilterAssignedViewData($params);
         } elseif($hook_name === 'plugins_view_fetch_begin') {
-            $this->ReplaceUserCenterView($params);
+            $this->ReplaceRestrictedView($params);
         }
         return null;
     }
@@ -103,12 +103,18 @@ class Hook
         }
     }
 
-    private function ReplaceUserCenterView($params)
+    private function ReplaceRestrictedView($params)
     {
-        if(RequestModule() === 'index' && RequestController() === 'user' && RequestAction() === 'index' && array_key_exists('view', $params))
+        if(RequestModule() !== 'index' || !array_key_exists('view', $params))
+        {
+            return;
+        }
+        if(RequestController() === 'user' && RequestAction() === 'index')
         {
             $params['view'] = '../../../plugins/nursery/view/index/user/index';
+            return;
         }
+        $params['view'] = ScopePolicy::ReplacementView($params['view'], DefaultTheme());
     }
 }
 ?>

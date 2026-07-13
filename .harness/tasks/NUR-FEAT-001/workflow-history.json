@@ -285,6 +285,84 @@
       "by": "Codex-Implementer",
       "reason": "独立计划复审批准 P1 商品模块入口修复与 P2 主题边界收窄",
       "at": "2026-07-13T16:08:00Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_implementation",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "开始实现获批的商品列表与 slider 购物车入口收敛",
+      "at": "2026-07-13T16:08:55Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "商品 list/slider 替代视图、主题边界和 23 项合同测试完成，独立预审无 P0-P2",
+      "at": "2026-07-13T16:29:11Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "23 项合同测试与 Harness 自测通过，证据和审查包就绪，重新提交独立合并审查",
+      "at": "2026-07-13T16:31:44Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "blocked",
+      "by": "Codex-Implementer",
+      "reason": "独立合并复审发现用户中心嵌套 ModuleInclude 被无条件重定向导致递归渲染，计划需补充外层视图精确边界",
+      "at": "2026-07-13T16:37:12Z"
+    },
+    {
+      "type": "transition",
+      "from": "blocked",
+      "to": "ready_for_analysis",
+      "by": "Codex-Implementer",
+      "reason": "退回分析阶段锁定用户中心外层空视图与显式 default fallback，保留嵌套 public/module 视图",
+      "at": "2026-07-13T16:37:13Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "按独立复审 P1 锁定用户中心外层 view 白名单与嵌套 ModuleInclude 递归负例，重新提交 L3 计划审批",
+      "at": "2026-07-13T16:39:20Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/feat001_plan_review_v3",
+      "codex_thread_id": "019f5bc0-5bdd-78f2-bb07-29b9ad80f761",
+      "expected_agent_task": "/root/feat001_plan_review_v3",
+      "observed_agent_task": "/root/feat001_plan_review_v3",
+      "observed_codex_thread_id": "019f5bc0-5bdd-78f2-bb07-29b9ad80f761",
+      "reason": "Approved after independent third-round plan review confirmed closure of the merge-review P1 recursion defect: user-center replacement is limited to index/user/index with normalized outer view empty or ../default/user/index, Windows fallback is covered, nested public/module/plugin and similar or case-variant views are preserved, replacement returns immediately, and PHP runtime recursion smoke remains an explicit release blocker rather than a claimed pass.",
+      "at": "2026-07-13T16:41:50Z",
+      "review_artifact_path": ".harness/tasks/NUR-FEAT-001/approval-plan.json",
+      "review_artifact_sha256": "d6fb4f87add8e642401f42fc71150722b9918799cfba06a29e617e6d3fcae51d",
+      "approval_context_sha256": "92095cf7c1c0b59258818bd67f1cf41c64ca823bb14717811c7177a02f287dc3",
+      "reviewed_at": "2026-07-13T16:41:06Z",
+      "plan_artifacts_sha256": "423ea778bd084b0408a14d21f5e59d708cad0d79905ed17dd2933ea4ff22d617",
+      "decision_context_sha256": "00289b390e631150eb442ace000557511411325abdf6a764e36f5d531a934b4c",
+      "contract_sha256": "10dd06a6b260f5442400d6a3c0054ae76c6a798ae03f0f218aa6ec5af08de957",
+      "policy_sha256": "73aaa3fec28df021167906813b2021af2f941a58d4ec53753fcb60c5e2ac6b66"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "approved_for_implementation",
+      "by": "Codex-Implementer",
+      "reason": "独立计划复审批准用户中心外层 view 白名单与递归负例",
+      "at": "2026-07-13T16:42:24Z"
     }
   ]
 }

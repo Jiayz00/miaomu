@@ -24,6 +24,8 @@
 
 独立合并审查进一步确认，默认主题的 `module/goods/list/base` 会被分类页和搜索 `layout=1` 正常调用，并硬编码可点击购物车图标；`module/goods/slider/binding` 也硬编码同类入口。详情按钮 Hook 无法触达这些模板节点，购物车路由返回 404 也不能替代可见入口收敛。因此修订后的本任务必须通过既有 `plugins_view_fetch_begin` 精确替换这两类商品模块视图，且保留公开价格、商品链接和原有扩展 Hook。直接 `module/...` 同时可能表示非 default 主题已经拥有的自有模板，因此只在 `DefaultTheme() === 'default'` 时替换；`../default/...` 明确表示主题缺失文件后回退默认模板，必须始终替换。
 
+第二次独立合并审查确认，用户中心替换若只判断当前请求为 `index/user/index`，插件用户模板内部的 `ModuleInclude('public/*')` 会再次进入同一 fetch-begin Hook 并被替换成整页模板，造成递归渲染。固定源码中 `User::Index()` 的外层调用是 `MyView()` 空 view，非 default 主题缺文件时外层 view 为 `../default/user/index`；只有这两个规范输入可替换。所有 `public/*`、`module/*`、插件自身路径、相似或大小写变体必须保持原样。
+
 源码复核确认两类不能遗漏的入口：`sxo_app_home_nav/sxo_app_center_nav` 使用 `/pages/plugins/<slug>/...`，其中 `membershiplevelvip`、`weixinliveplayer` 是会员等级和直播的 ShopXO 基线标识；`sxo_shortcut_menu` 还独立保存订单、售后、分销、优惠券和秒杀快捷入口。它们均受既有 PX 业务规则约束，不因路由或数据源不同而保留。
 
 ## 明确不做

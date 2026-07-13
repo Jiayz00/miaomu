@@ -170,6 +170,16 @@ class ScopePolicy
         's=userintegral/',
     ];
 
+    private const DEFAULT_THEME_VIEW_REPLACEMENTS = [
+        'module/goods/list/base' => '../../../plugins/nursery/view/index/module/goods/list/base',
+        'module/goods/slider/binding' => '../../../plugins/nursery/view/index/module/goods/slider/binding',
+    ];
+
+    private const DEFAULT_FALLBACK_VIEW_REPLACEMENTS = [
+        '../default/module/goods/list/base' => '../../../plugins/nursery/view/index/module/goods/list/base',
+        '../default/module/goods/slider/binding' => '../../../plugins/nursery/view/index/module/goods/slider/binding',
+    ];
+
     public static function IsRequestDenied($module, $controller, $plugins = '')
     {
         $module = self::Normalize($module);
@@ -336,6 +346,25 @@ class ScopePolicy
             $type = empty($item['type']) ? '' : self::Normalize($item['type']);
             return !in_array($type, ['buy', 'cart'], true);
         }));
+    }
+
+    public static function ReplacementView($view, $theme)
+    {
+        if(!is_string($view))
+        {
+            return $view;
+        }
+
+        $normalized_view = str_replace('\\', '/', $view);
+        if(isset(self::DEFAULT_FALLBACK_VIEW_REPLACEMENTS[$normalized_view]))
+        {
+            return self::DEFAULT_FALLBACK_VIEW_REPLACEMENTS[$normalized_view];
+        }
+        if($theme === 'default' && isset(self::DEFAULT_THEME_VIEW_REPLACEMENTS[$normalized_view]))
+        {
+            return self::DEFAULT_THEME_VIEW_REPLACEMENTS[$normalized_view];
+        }
+        return $view;
     }
 
     public static function FilterShortcutMenu($data)
