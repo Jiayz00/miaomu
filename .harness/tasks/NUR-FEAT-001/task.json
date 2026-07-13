@@ -6,7 +6,7 @@
   "priority": "P0",
   "phase": 1,
   "risk_level": "L3",
-  "status": "awaiting_plan_approval",
+  "status": "approved_for_implementation",
   "requirement_ids": [
     "FR-HOME-001",
     "FR-CENTER-001"
@@ -128,9 +128,9 @@
   "manual_approvals": {
     "plan": {
       "required": true,
-      "status": "pending",
-      "approved_by": null,
-      "approved_at": null
+      "status": "approved",
+      "approved_by": "Codex-Review",
+      "approved_at": "2026-07-13T13:56:27Z"
     },
     "merge": {
       "required": true,
@@ -162,5 +162,5 @@
   "reviewer": "Codex-Review",
   "release_approver": null,
   "created_at": "2026-07-13T13:24:31Z",
-  "updated_at": "2026-07-13T13:52:14Z"
+  "updated_at": "2026-07-13T13:57:21Z"
 }

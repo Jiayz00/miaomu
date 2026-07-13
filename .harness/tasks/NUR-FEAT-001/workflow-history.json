@@ -49,6 +49,36 @@
       "by": "Codex-Implementer",
       "reason": "Resubmit plan with explicit filtering for control-less plugins-name admin menu entries and per-plugin negative tests",
       "at": "2026-07-13T13:52:14Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/feat001_plan_review_v3",
+      "codex_thread_id": "019f5bc0-5bdd-78f2-bb07-29b9ad80f761",
+      "expected_agent_task": "/root/feat001_plan_review_v3",
+      "observed_agent_task": "/root/feat001_plan_review_v3",
+      "observed_codex_thread_id": "019f5bc0-5bdd-78f2-bb07-29b9ad80f761",
+      "reason": "Third independent L3 review found no P0-P2 defects after exact controller, PX plugin, hook, control-less menu identifier and per-plugin negative-mutation coverage was locked.",
+      "at": "2026-07-13T13:56:27Z",
+      "review_artifact_path": ".harness/tasks/NUR-FEAT-001/approval-plan.json",
+      "review_artifact_sha256": "174760cfd051abaf978bdb9ac2c2ea53a7db70c3930df031e00ed6c8e252aa85",
+      "approval_context_sha256": "d2889d319843ea3770727f107a6849767dd47dd842df2206e8e157fd4d143138",
+      "reviewed_at": "2026-07-13T13:56:11Z",
+      "plan_artifacts_sha256": "e0381f984f3e2142d4358e39b98b1429d0855419cc8d092712bc168f2d1d8cb2",
+      "decision_context_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "contract_sha256": "32a5be62bce23cbe305fc75c4931730d489b33fe969b5f4f913055fd92d2b5ff",
+      "policy_sha256": "409411e9946e769051ccafda4d23000c65fa0a1ce6c0ddc2770148efac38cda4"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "approved_for_implementation",
+      "by": "Codex-Implementer",
+      "reason": "Independent L3 plan approval recorded after three review rounds and all P1 coverage gaps were closed",
+      "at": "2026-07-13T13:57:21Z"
     }
   ]
 }
