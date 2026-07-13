@@ -9,3 +9,7 @@
 *.htaccess
 *payment_*_respond.php
 *payment_*_notify.php
+
+# Project-local Harness Python artifacts
+__pycache__/
+*.py[cod]

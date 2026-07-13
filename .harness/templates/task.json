@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "id": "NUR-FEAT-000",
+  "title": "待填写任务标题",
+  "type": "feature",
+  "priority": "P0",
+  "phase": 0,
+  "risk_level": "L2",
+  "status": "draft",
+  "requirement_ids": [],
+  "decision_ids": [],
+  "business_goal": "待填写：用可验证结果描述本任务的业务目标。",
+  "in_scope": [
+    "待填写：本任务明确交付的最小范围。"
+  ],
+  "out_of_scope": [
+    "供应商、多商户、分销、购物车、订单、支付与售后能力。"
+  ],
+  "business_invariants": [
+    "保持公开参考价格、收藏与询价独立、用户数据隔离和历史可追溯。"
+  ],
+  "dependencies": [],
+  "allowed_paths": [],
+  "forbidden_paths": [
+    ".env",
+    ".env.*",
+    "rsakeys/**",
+    "vendor/**",
+    "runtime/**"
+  ],
+  "shopxo_core_change": {
+    "required": false,
+    "paths": [],
+    "reason": "",
+    "registration": ""
+  },
+  "database_change": {
+    "required": false,
+    "affected_tables": [],
+    "migration_paths": [],
+    "fresh_install_baseline_exception": {
+      "requested": false,
+      "reason": ""
+    },
+    "rollback_plan": "",
+    "verification": ""
+  },
+  "new_dependency_allowed": false,
+  "network_access_required": false,
+  "acceptance_criteria": [
+    {
+      "id": "AC-TASK-001",
+      "requirement_ids": [],
+      "description": "待填写：给出可观察、可复现且可判定通过或失败的验收结果。"
+    }
+  ],
+  "required_tests": [
+    {
+      "id": "replace_me",
+      "description": "待替换为仓库中实际可执行的检查。",
+      "command": [
+        "python",
+        "scripts/harness_selftest.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300
+    }
+  ],
+  "rollback": {
+    "required": false,
+    "plan": "待填写：说明如何只回退本任务变更并保留历史数据。",
+    "verification": "待填写：说明如何确认回滚完成。"
+  },
+  "manual_approvals": {
+    "plan": {
+      "required": false,
+      "status": "not_required",
+      "approved_by": null,
+      "approved_at": null
+    },
+    "merge": {
+      "required": true,
+      "status": "pending",
+      "approved_by": null,
+      "approved_at": null
+    },
+    "release": {
+      "required": false,
+      "status": "not_required",
+      "approved_by": null,
+      "approved_at": null
+    }
+  },
+  "owner": "待填写",
+  "reviewer": "",
+  "release_approver": null,
+  "created_at": "1970-01-01T00:00:00Z",
+  "updated_at": "1970-01-01T00:00:00Z"
+}

@@ -1,0 +1,218 @@
+{
+  "schema_version": 1,
+  "project": {
+    "name": "shopxo-nursery",
+    "timezone": "Asia/Shanghai",
+    "requirements_file": "ShopXO苗木平台需求规格说明书_V1.0.md",
+    "decisions_file": ".harness/requirements-decisions.json",
+    "task_schema": ".harness/schemas/task.schema.json"
+  },
+  "git": {
+    "protected_branches": [
+      "main",
+      "master",
+      "nursery/main",
+      "release/*"
+    ],
+    "task_branch_patterns": [
+      "feat/{task_id}-*",
+      "fix/{task_id}-*",
+      "ui/{task_id}-*",
+      "data/{task_id}-*",
+      "sec/{task_id}-*",
+      "ops/{task_id}-*",
+      "docs/{task_id}-*",
+      "refactor/{task_id}-*",
+      "harness/{task_id}-*"
+    ],
+    "clean_worktree_preflight": true
+  },
+  "source": {
+    "upstream_remote": "https://github.com/gongfuxiang/shopxo.git",
+    "pinned_commit": "d1825c5404054b535255d8fcad675a5dae0ab633",
+    "shopxo_version": "6.9.0",
+    "required_paths": [
+      {
+        "path": "composer.json",
+        "kind": "file"
+      },
+      {
+        "path": "app",
+        "kind": "directory"
+      },
+      {
+        "path": "config/shopxo.sql",
+        "kind": "file"
+      },
+      {
+        "path": "app/common.php",
+        "kind": "file"
+      }
+    ]
+  },
+  "paths": {
+    "protected": [
+      ".git/**",
+      ".env",
+      ".env.*",
+      "rsakeys/**",
+      "secrets/**",
+      "production/**",
+      "vendor/**",
+      "runtime/**",
+      "config/database.php"
+    ],
+    "bootstrap_allowed": [
+      ".agents/**",
+      ".codex/**",
+      ".harness/**",
+      ".github/**",
+      "docs/product/BUSINESS_RULES.md",
+      "docs/product/REQUIREMENTS_TRACEABILITY.md",
+      "docs/architecture/SHOPXO_BOUNDARY.md",
+      "scripts/harness.py",
+      "scripts/harness_selftest.py",
+      "scripts/harness.ps1",
+      "scripts/harness.sh",
+      "AGENTS.md",
+      "HARNESS.md",
+      "shopxo_nursery_harness_spec.md",
+      "ShopXO苗木平台需求规格说明书_V1.0.md",
+      ".gitignore"
+    ],
+    "task_runtime_allowed": [
+      ".harness/tasks/{task_id}/task.json",
+      ".harness/tasks/{task_id}/workflow-history.json",
+      ".harness/tasks/{task_id}/requirement.md",
+      ".harness/tasks/{task_id}/impact-analysis.md",
+      ".harness/tasks/{task_id}/implementation-plan.md",
+      ".harness/tasks/{task_id}/test-plan.md",
+      ".harness/tasks/{task_id}/evidence.md",
+      ".harness/tasks/{task_id}/review.md",
+      ".harness/tasks/{task_id}/release-note.md",
+      ".harness/runs/{task_id}/**",
+      ".harness/reports/{task_id}/**",
+      ".harness/state/active-task.json"
+    ]
+  },
+  "workflow": {
+    "baseline_files": [
+      ".harness/baselines/repository.json",
+      ".harness/baselines/toolchain.json",
+      ".harness/baselines/database.json",
+      ".harness/baselines/tests.json"
+    ],
+    "preflight_statuses": [
+      "approved_for_implementation"
+    ],
+    "scope_statuses": [
+      "approved_for_implementation",
+      "implementing",
+      "verifying",
+      "awaiting_review",
+      "approved_for_merge",
+      "closed"
+    ],
+    "verify_statuses": [
+      "implementing",
+      "verifying",
+      "awaiting_review",
+      "approved_for_merge",
+      "closed"
+    ],
+    "review_statuses": [
+      "verifying",
+      "awaiting_review",
+      "approved_for_merge",
+      "closed"
+    ],
+    "review_pack_statuses": [
+      "verifying",
+      "awaiting_review",
+      "approved_for_merge",
+      "closed"
+    ],
+    "release_statuses": [
+      "approved_for_merge",
+      "closed"
+    ],
+    "independent_review_risks": [
+      "L3",
+      "L4"
+    ],
+    "status_transitions": {
+      "draft": ["ready_for_analysis", "cancelled"],
+      "ready_for_analysis": ["awaiting_plan_approval", "blocked", "cancelled"],
+      "awaiting_plan_approval": ["ready_for_analysis", "approved_for_implementation", "blocked", "cancelled"],
+      "approved_for_implementation": ["implementing", "blocked", "cancelled"],
+      "implementing": ["verifying", "blocked", "cancelled"],
+      "verifying": ["implementing", "awaiting_review", "blocked", "cancelled"],
+      "awaiting_review": ["implementing", "verifying", "approved_for_merge", "blocked", "cancelled"],
+      "approved_for_merge": ["awaiting_review", "closed", "blocked"],
+      "blocked": ["ready_for_analysis", "awaiting_plan_approval", "approved_for_implementation", "implementing", "verifying", "awaiting_review", "cancelled"],
+      "closed": [],
+      "cancelled": []
+    }
+  },
+  "execution": {
+    "production_access": "deny",
+    "secret_access": "deny",
+    "max_test_timeout_seconds": 3600,
+    "max_captured_output_bytes": 1048576,
+    "production_environment_markers": {
+      "APP_ENV": [
+        "prod",
+        "production"
+      ],
+      "ENVIRONMENT": [
+        "prod",
+        "production"
+      ],
+      "SHOPXO_ENV": [
+        "prod",
+        "production"
+      ]
+    }
+  },
+  "project_check": {
+    "required_files": [
+      "AGENTS.md",
+      "HARNESS.md",
+      "shopxo_nursery_harness_spec.md",
+      "ShopXO苗木平台需求规格说明书_V1.0.md",
+      "docs/product/BUSINESS_RULES.md",
+      "docs/product/REQUIREMENTS_TRACEABILITY.md",
+      "docs/architecture/SHOPXO_BOUNDARY.md",
+      ".harness/CONSTITUTION.md",
+      ".harness/harness.json",
+      ".harness/requirements-decisions.json",
+      ".harness/schemas/task.schema.json",
+      ".harness/templates/task.json",
+      ".harness/templates/requirement.md",
+      ".harness/templates/impact-analysis.md",
+      ".harness/templates/implementation-plan.md",
+      ".harness/templates/test-plan.md",
+      ".harness/templates/evidence.md",
+      ".harness/templates/review.md",
+      ".harness/templates/release-note.md",
+      ".harness/core-changes/REGISTER.md",
+      ".codex/config.toml",
+      ".codex/hooks.json",
+      ".codex/hooks/harness_guard.py",
+      ".harness/mcp/server.py",
+      ".agents/skills/shopxo-nursery-task/SKILL.md",
+      ".agents/skills/shopxo-nursery-task/agents/openai.yaml",
+      ".agents/skills/shopxo-nursery-task/references/workflow.md",
+      ".agents/skills/shopxo-nursery-task/references/requirement-routing.md",
+      ".agents/skills/shopxo-nursery-review/SKILL.md",
+      ".agents/skills/shopxo-nursery-review/agents/openai.yaml",
+      ".agents/skills/shopxo-nursery-review/references/review-checklist.md",
+      "scripts/harness.py",
+      "scripts/harness_selftest.py",
+      "scripts/harness.ps1",
+      "scripts/harness.sh",
+      ".github/pull_request_template.md",
+      ".github/workflows/harness.yml"
+    ]
+  }
+}

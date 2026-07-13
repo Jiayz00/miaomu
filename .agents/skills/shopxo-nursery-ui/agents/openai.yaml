@@ -1,0 +1,4 @@
+interface:
+  display_name: "ShopXO Nursery UI"
+  short_description: "Design and verify the ShopXO nursery interface"
+  default_prompt: "Use $shopxo-nursery-ui to redesign a ShopXO page for the nursery platform."

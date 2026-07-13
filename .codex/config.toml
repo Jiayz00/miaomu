@@ -1,0 +1,19 @@
+# Project-local Codex settings. Do not copy to the user-level config.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = false
+
+[features]
+hooks = true
+
+[mcp_servers.nursery_harness]
+command = "python"
+args = ["-u", ".harness/mcp/server.py"]
+enabled = true
+required = false
+supports_parallel_tool_calls = true
+startup_timeout_sec = 10
+tool_timeout_sec = 20
+enabled_tools = ["harness_status", "requirements_search", "requirement_get", "task_get"]

@@ -1,0 +1,15 @@
+interface:
+  display_name: "ShopXO Nursery Task"
+  short_description: "Plan and execute traceable ShopXO nursery tasks"
+  default_prompt: "Use $shopxo-nursery-task to plan and implement a requirement-traceable nursery task."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "nursery_harness"
+      description: "Read-only local requirements, tasks, and Harness status"
+      transport: "stdio"
+      command: "python -u .harness/mcp/server.py"
+
+policy:
+  allow_implicit_invocation: true

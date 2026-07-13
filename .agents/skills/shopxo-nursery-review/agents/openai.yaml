@@ -1,0 +1,15 @@
+interface:
+  display_name: "ShopXO Nursery Review"
+  short_description: "Review nursery changes against product and safety gates"
+  default_prompt: "Use $shopxo-nursery-review to review this change against nursery requirements and Harness gates."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "nursery_harness"
+      description: "Read-only local requirements, tasks, and Harness status"
+      transport: "stdio"
+      command: "python -u .harness/mcp/server.py"
+
+policy:
+  allow_implicit_invocation: true

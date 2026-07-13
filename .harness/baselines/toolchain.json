@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T17:31:02Z",
+  "source_commit": "d1825c5404054b535255d8fcad675a5dae0ab633",
+  "generated_from_head": "d1825c5404054b535255d8fcad675a5dae0ab633",
+  "upstream_remote": "https://github.com/gongfuxiang/shopxo.git",
+  "shopxo_version": "6.9.0",
+  "invalidated_by": [
+    "source.pinned_commit changes",
+    "project PHP/database requirements change",
+    "composer.json or composer.lock content/presence changes"
+  ],
+  "project_requirements": {
+    "php": ">=8.0.2",
+    "database": "MySQL 8.0 recommended for the reproducible development baseline",
+    "evidence": [
+      "composer.json",
+      "public/core.php",
+      "vendor/composer/platform_check.php"
+    ]
+  },
+  "tools": {
+    "python": {
+      "status": "confirmed",
+      "path": "C:\\Users\\25390\\anaconda3\\python.exe",
+      "version": "3.12.7"
+    },
+    "git": {
+      "status": "confirmed",
+      "path": "C:\\Program Files\\Git\\cmd\\git.EXE",
+      "version": "git version 2.53.0.windows.2",
+      "exit_code": 0
+    },
+    "php": {
+      "status": "not_available",
+      "path": null,
+      "version": null
+    },
+    "composer": {
+      "status": "not_available",
+      "path": null,
+      "version": null
+    },
+    "mysql": {
+      "status": "not_available",
+      "path": null,
+      "version": null
+    },
+    "psql": {
+      "status": "not_available",
+      "path": null,
+      "version": null
+    },
+    "sqlite3": {
+      "status": "confirmed",
+      "path": "C:\\Users\\25390\\anaconda3\\Library\\bin\\sqlite3.EXE",
+      "version": "3.45.3 2024-04-15 13:34:05 8653b758870e6ef0c98d46b3ace27849054af85da891eb121e9aaa537f1e8355 (64-bit)",
+      "exit_code": 0
+    }
+  },
+  "composer_files": {
+    "status": "confirmed",
+    "composer_json": {
+      "present": true,
+      "sha256": "0a852f20346f361fad8749076ab54c5e7e380690d5aab5eb837a59edb70fca16"
+    },
+    "composer_lock": {
+      "present": true,
+      "sha256": "ac5a2bb0da4b89bfb8b9b4d5f9c8932c816a59a2097972fa574e18e9b79d5fdb"
+    },
+    "hash_mode": "utf8-lf-v1"
+  },
+  "host_facts_sha256": "a2e8eac257664aa6f50d6e93c9f6048402f73ac724f63d71b007637fd4dacb2c",
+  "portable_facts_sha256": "4cf1f50bf8d9925f43af9f2934eec9676ae3855271232345266f3f6db517d1d9"
+}

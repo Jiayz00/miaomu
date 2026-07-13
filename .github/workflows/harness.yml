@@ -1,0 +1,124 @@
+name: nursery-harness
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: 'NUR task id; leave empty only for Harness bootstrap changes'
+        required: false
+        type: string
+      base_ref:
+        description: 'Base commit/ref for scope comparison'
+        required: false
+        default: 'HEAD^'
+        type: string
+      release_check:
+        description: 'Also run release-check'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  harness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.base_ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Resolve task contract
+        id: task
+        shell: bash
+        env:
+          INPUT_TASK_ID: ${{ inputs.task_id }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          value="$INPUT_TASK_ID"
+          text="$HEAD_REF $PR_TITLE"
+          if [[ -z "$value" && "$text" =~ (NUR-(FEAT|BUG|UI|DATA|SEC|OPS|DOC|REFACTOR|HARNESS)-[0-9]{3}) ]]; then
+            value="${BASH_REMATCH[1]}"
+          fi
+          echo "task_id=$value" >> "$GITHUB_OUTPUT"
+
+      - name: Project Harness check
+        run: python scripts/harness.py project-check
+
+      - name: Harness core regression tests
+        run: python scripts/harness_selftest.py
+
+      - name: Environment discovery
+        run: python scripts/harness.py doctor
+
+      - name: ShopXO source and portable baseline gate
+        if: steps.task.outputs.task_id != ''
+        run: python scripts/harness.py source-check
+
+      - name: Bootstrap scope gate
+        if: steps.task.outputs.task_id == ''
+        run: python scripts/harness.py scope-check --bootstrap --base-ref "$GITHUB_BASE_SHA"
+
+      - name: Task contract and plan gates
+        if: steps.task.outputs.task_id != ''
+        env:
+          TASK_ID: ${{ steps.task.outputs.task_id }}
+        run: |
+          python scripts/harness.py task-check "$TASK_ID"
+          python scripts/harness.py plan-check "$TASK_ID"
+          python scripts/harness.py scope-check "$TASK_ID" --base-ref "$GITHUB_BASE_SHA"
+
+      - name: Run only contract-declared tests
+        if: steps.task.outputs.task_id != ''
+        env:
+          TASK_ID: ${{ steps.task.outputs.task_id }}
+        run: python scripts/harness.py verify "$TASK_ID" --base-ref "$GITHUB_BASE_SHA"
+
+      - name: Evidence and review pack gates
+        if: steps.task.outputs.task_id != ''
+        env:
+          TASK_ID: ${{ steps.task.outputs.task_id }}
+        run: |
+          python scripts/harness.py evidence-check "$TASK_ID" --base-ref "$GITHUB_BASE_SHA"
+          python scripts/harness.py review-pack "$TASK_ID" --base-ref "$GITHUB_BASE_SHA"
+
+      - name: Release readiness gate
+        if: >-
+          steps.task.outputs.task_id != '' &&
+          (github.event_name == 'pull_request' ||
+           inputs.release_check == true)
+        env:
+          TASK_ID: ${{ steps.task.outputs.task_id }}
+        run: python scripts/harness.py release-check "$TASK_ID" --base-ref "$GITHUB_BASE_SHA"
+
+      - name: Upload Harness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nursery-harness-${{ github.run_id }}
+          if-no-files-found: ignore
+          retention-days: 3
+          path: |
+            .harness/runs/**/manifest.json
+            .harness/runs/**/test-results/*.json
+            .harness/runs/**/changed-files.txt
+            .harness/runs/**/diff-summary.md
+            .harness/runs/**/database-report.md
+            .harness/runs/**/security-report.md
+            .harness/reports/**/review-pack.json
+            .harness/reports/**/review-pack.md
+            .harness/reports/**/changed-files.txt
+            .harness/reports/**/diff-summary.md
+            .harness/reports/**/database-report.md
+            .harness/reports/**/security-report.md

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-12T17:31:02Z",
+  "source_commit": "d1825c5404054b535255d8fcad675a5dae0ab633",
+  "generated_from_head": "d1825c5404054b535255d8fcad675a5dae0ab633",
+  "upstream_remote": "https://github.com/gongfuxiang/shopxo.git",
+  "shopxo_version": "6.9.0",
+  "invalidated_by": [
+    "source.pinned_commit changes",
+    "config/shopxo.sql content changes",
+    "database engine/version or migration mechanism changes"
+  ],
+  "shopxo_sql": {
+    "status": "confirmed",
+    "path": "config/shopxo.sql",
+    "sha256": "62c66f4455a2c16378f1afdcbeafb95386d1a3249b471de1246680a5ae702864",
+    "hash_mode": "utf8-lf-v1",
+    "create_table_statements": 83
+  },
+  "migration_mechanism": {
+    "status": "confirmed",
+    "value": {
+      "fresh_install": "config/shopxo.sql",
+      "system_upgrade": [
+        "update.sql",
+        "power.sql"
+      ],
+      "plugin": [
+        "install.sql",
+        "update.sql",
+        "uninstall.sql"
+      ],
+      "standard_migration_ledger": false,
+      "project_policy": "维护项目级版本台账；不得直接修改完整 shopxo.sql 充当增量迁移"
+    },
+    "evidence": [
+      "app/install/controller/Index.php",
+      "app/service/SystemUpgradeService.php",
+      "app/service/PluginsAdminService.php",
+      "app/service/SqlConsoleService.php"
+    ],
+    "facts_sha256": "fc911da02d14ba873ee0dd81a2892be56199738f891c08278839c1ddd55d7edd",
+    "facts": {
+      "policy_version": 1,
+      "hash_mode": "utf8-lf-v1",
+      "files": {
+        "app/install/controller/Index.php": {
+          "present": true,
+          "sha256": "7a960f676f54bf72e361adf73a4899896db67137453a56f4bfc49b91122002b9"
+        },
+        "app/service/SystemUpgradeService.php": {
+          "present": true,
+          "sha256": "c115140eb323f80eefbe9f5999d5413269e2b9613874d6556c3f5f128e1c9249"
+        },
+        "app/service/PluginsAdminService.php": {
+          "present": true,
+          "sha256": "5517184bacfbdc5477f0ed1644d4a815e78489b4275e90057082093fc82d6eb9"
+        },
+        "app/service/SqlConsoleService.php": {
+          "present": true,
+          "sha256": "6c1f8795f448e6796569689289bab5da87735ac2b523f82bda4ffe0a864ea7e7"
+        }
+      }
+    }
+  },
+  "production_connection": {
+    "status": "blocked",
+    "value": null,
+    "evidence": "Harness policy denies production database access"
+  }
+}

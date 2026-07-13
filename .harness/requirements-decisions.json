@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "decisions": [
+    {
+      "id": "DEC-PRIO-EXPORT",
+      "status": "open",
+      "title": "数据导出 P0/P1 边界",
+      "affected_requirement_ids": ["FR-ADMIN-INQ-005"],
+      "question": "区分 P0 统计导出与 P1 含个人信息的询价导出，并确定权限与脱敏。",
+      "resolution": null,
+      "approved_by": null,
+      "approved_at": null
+    },
+    {
+      "id": "DEC-PRIO-MEDIA",
+      "status": "open",
+      "title": "媒体分析优先级",
+      "affected_requirement_ids": ["FR-DETAIL-003", "FR-DASH-003"],
+      "question": "明确 P0 媒体事件采集/基础展示与 P1 媒体分析排行的边界。",
+      "resolution": null,
+      "approved_by": null,
+      "approved_at": null
+    },
+    {
+      "id": "DEC-PRIO-SEARCH",
+      "status": "open",
+      "title": "搜索采集、分析与预警优先级",
+      "affected_requirement_ids": ["FR-SEARCH-003", "FR-SEARCH-004", "AC-008"],
+      "question": "划分 P0 搜索记录/无结果事件、基础展示和 P1 排行/预警。",
+      "resolution": null,
+      "approved_by": null,
+      "approved_at": null
+    },
+    {
+      "id": "DEC-PRIO-PRICE-HISTORY",
+      "status": "open",
+      "title": "价格历史优先级",
+      "affected_requirement_ids": ["BR-PRICE-006", "FR-ADMIN-GOODS-006", "AC-010"],
+      "question": "确认真实价格历史是基础强制能力还是第六阶段 P1 增强。",
+      "resolution": null,
+      "approved_by": null,
+      "approved_at": null
+    },
+    {
+      "id": "DEC-P1-IDS",
+      "status": "open",
+      "title": "无独立编号的 P1 需求",
+      "affected_requirement_ids": [],
+      "question": "为超时提醒、运营排行、注册后行为和渠道分析补充独立需求编号。",
+      "resolution": null,
+      "approved_by": null,
+      "approved_at": null
+    },
+    {
+      "id": "DEC-INQ-STATE",
+      "status": "open",
+      "title": "询价合法状态机",
+      "affected_requirement_ids": ["FR-INQ-004", "FR-ADMIN-INQ-004", "AC-004"],
+      "question": "定义状态、合法流转、操作者权限、终态与重开规则。",
+      "resolution": null,
+      "approved_by": null,
+      "approved_at": null
+    },
+    {
+      "id": "DEC-DUP-WINDOW",
+      "status": "open",
+      "title": "重复询价判定",
+      "affected_requirement_ids": ["BR-INQ-007", "FR-INQ-006"],
+      "question": "定义时间窗口、内容规范化、规格/数量差异和管理员豁免。",
+      "resolution": null,
+      "approved_by": null,
+      "approved_at": null
+    },
+    {
+      "id": "DEC-METRIC-REPLY",
+      "status": "open",
+      "title": "首次回复时长口径",
+      "affected_requirement_ids": ["METRIC-011", "FR-DASH-006"],
+      "question": "选择平均值、中位数或同时展示，并定义工作时间与异常值处理。",
+      "resolution": null,
+      "approved_by": null,
+      "approved_at": null
+    }
+  ]
+}

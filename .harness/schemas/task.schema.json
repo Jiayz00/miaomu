@@ -1,0 +1,380 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.shopxo-nursery.invalid/schemas/task.schema.json",
+  "title": "ShopXO 苗木项目任务合同",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "type",
+    "priority",
+    "phase",
+    "risk_level",
+    "status",
+    "requirement_ids",
+    "decision_ids",
+    "business_goal",
+    "in_scope",
+    "out_of_scope",
+    "business_invariants",
+    "dependencies",
+    "allowed_paths",
+    "forbidden_paths",
+    "shopxo_core_change",
+    "database_change",
+    "new_dependency_allowed",
+    "network_access_required",
+    "acceptance_criteria",
+    "required_tests",
+    "rollback",
+    "manual_approvals",
+    "owner",
+    "reviewer",
+    "release_approver",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "enum": [1]
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^NUR-(FEAT|BUG|UI|DATA|SEC|OPS|DOC|REFACTOR|HARNESS)-[0-9]{3}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 2
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "feature",
+        "bug",
+        "ui",
+        "data",
+        "security",
+        "operations",
+        "documentation",
+        "refactor",
+        "harness"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["P0", "P1", "P2"]
+    },
+    "phase": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6
+    },
+    "risk_level": {
+      "type": "string",
+      "enum": ["L0", "L1", "L2", "L3", "L4"]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "ready_for_analysis",
+        "awaiting_plan_approval",
+        "approved_for_implementation",
+        "implementing",
+        "verifying",
+        "awaiting_review",
+        "approved_for_merge",
+        "closed",
+        "blocked",
+        "cancelled"
+      ]
+    },
+    "requirement_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(BR|FR|NFR|DATA|METRIC|AC)(-[A-Z]+)*-[0-9]{3}$"
+      }
+    },
+    "decision_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^DEC-[A-Z0-9-]+$"
+      }
+    },
+    "business_goal": {
+      "type": "string",
+      "minLength": 10
+    },
+    "in_scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 2
+      }
+    },
+    "out_of_scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 2
+      }
+    },
+    "business_invariants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 2
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 2
+      }
+    },
+    "allowed_paths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "forbidden_paths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "shopxo_core_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "paths", "reason", "registration"],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "registration": {
+          "type": "string"
+        }
+      }
+    },
+    "database_change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "affected_tables", "migration_paths", "fresh_install_baseline_exception", "rollback_plan", "verification"],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "affected_tables": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "migration_paths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "fresh_install_baseline_exception": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requested", "reason"],
+          "properties": {
+            "requested": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        },
+        "rollback_plan": {
+          "type": "string"
+        },
+        "verification": {
+          "type": "string"
+        }
+      }
+    },
+    "new_dependency_allowed": {
+      "type": "boolean"
+    },
+    "network_access_required": {
+      "type": "boolean"
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "requirement_ids", "description"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^AC-(TASK-)?[0-9]{3}$"
+          },
+          "requirement_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^(BR|FR|NFR|DATA|METRIC|AC)(-[A-Z]+)*-[0-9]{3}$"
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 5
+          }
+        }
+      }
+    },
+    "required_tests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description", "command", "cwd", "timeout_seconds"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{1,63}$"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 3
+          },
+          "command": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "cwd": {
+            "type": "string",
+            "minLength": 1
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3600
+          }
+        }
+      }
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "plan", "verification"],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "plan": {
+          "type": "string"
+        },
+        "verification": {
+          "type": "string"
+        }
+      }
+    },
+    "manual_approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan", "merge", "release"],
+      "properties": {
+        "plan": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "status", "approved_by", "approved_at"],
+          "properties": {
+            "required": {"type": "boolean"},
+            "status": {"type": "string", "enum": ["not_required", "pending", "approved", "rejected"]},
+            "approved_by": {"type": ["string", "null"]},
+            "approved_at": {"type": ["string", "null"]}
+          }
+        },
+        "merge": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "status", "approved_by", "approved_at"],
+          "properties": {
+            "required": {"type": "boolean", "enum": [true]},
+            "status": {"type": "string", "enum": ["not_required", "pending", "approved", "rejected"]},
+            "approved_by": {"type": ["string", "null"]},
+            "approved_at": {"type": ["string", "null"]}
+          }
+        },
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "status", "approved_by", "approved_at"],
+          "properties": {
+            "required": {"type": "boolean"},
+            "status": {"type": "string", "enum": ["not_required", "pending", "approved", "rejected"]},
+            "approved_by": {"type": ["string", "null"]},
+            "approved_at": {"type": ["string", "null"]}
+          }
+        }
+      }
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewer": {
+      "type": "string"
+    },
+    "release_approver": {
+      "type": ["string", "null"]
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 10
+    },
+    "updated_at": {
+      "type": "string",
+      "minLength": 10
+    }
+  }
+}
