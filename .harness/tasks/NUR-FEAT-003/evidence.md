@@ -5,7 +5,7 @@
 - `AC-TASK-001`：离线合同通过。`FavoriteService` 使用显式幂等 `Add/Cancel`，Web/API 控制器不调用 toggle；商品卡片、详情、移动端导航和基础收藏页只调用独立 add/cancel URL，页面没有询价占位入口。证据：`tests/nursery/test_favorite_contract.py` 与本次 `nursery_favorite_contract` 输出。
 - `AC-TASK-002`：离线合同通过。favorite schema v1 固定 `(user_id, goods_id)` 唯一索引；迁移先扫描重复、发现冲突失败关闭且没有删除路径，运行时 Add 同时要求真实索引和匹配台账。真实 MySQL 并发尚未执行，列入 L4 集成验证。
 - `AC-TASK-003`：离线合同通过。控制器只把网关认证用户传给服务；读写条件固定包含认证 `user_id`；列表使用左连接并输出 `active/off_shelf/deleted`，缺失商品没有详情链接或伪价格。真实 A/B 会话越权和数据库状态流转尚未执行。
-- `AC-TASK-004`：离线合同通过。旧 Web/API 收藏写 action、`admin/goods/delete` 路由和 `goods_delete` 权限被拒绝；目录价格与 PX 范围回归继续通过；差异未修改 ShopXO 核心或 `config/shopxo.sql`。
+- `AC-TASK-004`：离线合同通过。旧 Web 收藏列表统一重定向到 nursery 左连接列表，导航同步改写；旧 API 收藏列表、旧 Web/API 收藏写 action、`admin/goods/delete` 路由和 `goods_delete` 权限被拒绝。目录价格与 PX 范围回归继续通过；差异未修改 ShopXO 核心或 `config/shopxo.sql`。
 
 ## 自动测试证据
 
@@ -23,7 +23,7 @@ TEST_RESULT: nursery_scope_regression exit_code=0
 TEST_COMMAND: harness_selftest ["python", "scripts/harness_selftest.py"]
 TEST_RESULT: harness_selftest exit_code=0
 
-本地运行：`.harness/runs/NUR-FEAT-003/20260713T223717586297Z-verify/`。最终报告记录 `passed=4 failed=0 blocked=0`；收藏合同 32 项、目录价格回归 30 项、范围回归 23 项、Harness 自检 60 项通过且 2 项平台相关测试按既有条件跳过。
+本地运行：`.harness/runs/NUR-FEAT-003/20260713T225005175873Z-verify/`。最终报告记录 `passed=4 failed=0 blocked=0`；收藏合同 33 项、目录价格回归 30 项、范围回归 23 项、Harness 自检 60 项通过且 2 项平台相关测试按既有条件跳过。运行清单确认 `workspace_fingerprint` 与 `post_test_workspace_fingerprint` 相同，Harness 控制面校验前后一致。
 
 ## 手工与页面证据
 

@@ -87,6 +87,30 @@
       "by": "Codex-Implementer",
       "reason": "",
       "at": "2026-07-13T22:38:53Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "独立审查发现旧收藏列表入口绕过新服务，修复后重新验证",
+      "at": "2026-07-13T22:47:21Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "已修复独立审查发现的旧收藏入口旁路与迁移台账就绪误判，开始全量复验",
+      "at": "2026-07-13T22:49:58Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "两项独立审查阻断已修复，最新 4/4 声明测试与 scope/evidence/review-pack 全部通过",
+      "at": "2026-07-13T22:52:26Z"
     }
   ]
 }

@@ -93,6 +93,10 @@ class Hook
         $controller = RequestController();
         $action = RequestAction();
         $plugins = (strtolower($controller) === 'plugins') ? PluginsRequestName() : '';
+        if(ScopePolicy::IsLegacyFavoriteListRoute($module, $controller, $action))
+        {
+            MyRedirect(PluginsHomeUrl('nursery', 'favorite', 'index'), true);
+        }
         if(ScopePolicy::IsRequestDenied($module, $controller, $plugins) || ScopePolicy::IsActionDenied($module, $controller, $action))
         {
             abort(404, '该功能在苗木展示站不可用');

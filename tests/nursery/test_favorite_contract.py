@@ -68,7 +68,11 @@ class FavoriteMigrationContractTests(unittest.TestCase):
         for forbidden in ("createuniqueindex(", "writeledger(", "->insert", "->update(", "db::execute("):
             self.assertNotIn(forbidden, preflight)
         self.assertIn("self::inspect($definition,true)", preflight)
-        self.assertIn("'migration_required'=>!$inspection['ready']", preflight)
+        self.assertIn("$ledger=self::readledger($definition,false)", preflight)
+        self.assertIn("$ready=$inspection['ready']&&$ledger!==null", preflight)
+        self.assertIn("'ready'=>$ready", preflight)
+        self.assertIn("'migration_required'=>!$ready", preflight)
+        self.assertIn("'ledger_present'=>$ledger!==null", preflight)
         self.assertIn("'write_performed'=>false", preflight)
 
     def test_duplicates_fail_before_any_unique_ddl(self) -> None:
@@ -251,18 +255,30 @@ class FavoriteRoutePolicyTests(unittest.TestCase):
         source = compact_code(read_utf8(POLICY_FILE))
         for token in (
             "publicconstweb_denied_actions=['goods'=>['favor'],'usergoodsfavor'=>['cancel','delete'],]",
-            "publicconstapi_denied_actions=['goods'=>['favor'],'usergoodsfavor'=>['cancel','delete'],]",
+            "publicconstapi_denied_actions=['goods'=>['favor'],'usergoodsfavor'=>['index','cancel','delete'],]",
             "publicconstadmin_denied_actions=['goods'=>['delete'],]",
         ):
             self.assertIn(token, source)
         action = method(POLICY_FILE, "IsActionDenied")
         self.assertIn("in_array($action,$map[$controller],true)", action)
 
-    def test_safe_read_and_goods_update_actions_are_not_denied(self) -> None:
+    def test_safe_web_reads_and_goods_update_actions_are_not_denied(self) -> None:
         source = compact_code(read_utf8(POLICY_FILE))
-        denied_sections = source[source.index("publicconstweb_denied_actions") : source.index("publicconstdenied_plugins")]
+        denied_sections = source[source.index("publicconstweb_denied_actions") : source.index("publicconstapi_denied_actions")]
         for allowed in ("statusupdate", "save", "detail", "index", "list"):
             self.assertNotIn("'" + allowed + "'", denied_sections)
+
+    def test_legacy_web_list_redirects_and_navigation_uses_nursery_listing(self) -> None:
+        route = method(POLICY_FILE, "IsLegacyFavoriteListRoute")
+        rewrite = method(POLICY_FILE, "RewriteLegacyFavoriteNavigation")
+        enforce = method(HOOK_FILE, "EnforceRequestScope")
+        self.assertIn("self::normalize($module)==='index'", route)
+        self.assertIn("self::normalize($controller)==='usergoodsfavor'", route)
+        self.assertIn("self::normalize($action)==='index'", route)
+        self.assertIn("pluginshomeurl('nursery','favorite','index')", rewrite)
+        self.assertIn("$item['contains']=['nurseryfavoriteindex']", rewrite)
+        self.assertIn("scopepolicy::islegacyfavoritelistroute($module,$controller,$action)", enforce)
+        self.assertIn("myredirect(pluginshomeurl('nursery','favorite','index'),true)", enforce)
 
     def test_system_begin_combines_controller_and_exact_action_guards(self) -> None:
         enforce = method(HOOK_FILE, "EnforceRequestScope")

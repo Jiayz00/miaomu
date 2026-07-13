@@ -49,7 +49,7 @@ class ScopePolicy
 
     public const API_DENIED_ACTIONS = [
         'goods' => ['favor'],
-        'usergoodsfavor' => ['cancel', 'delete'],
+        'usergoodsfavor' => ['index', 'cancel', 'delete'],
     ];
 
     public const ADMIN_DENIED_ACTIONS = [
@@ -244,6 +244,13 @@ class ScopePolicy
         return isset($map[$controller]) && in_array($action, $map[$controller], true);
     }
 
+    public static function IsLegacyFavoriteListRoute($module, $controller, $action)
+    {
+        return self::Normalize($module) === 'index'
+            && self::Normalize($controller) === 'usergoodsfavor'
+            && self::Normalize($action) === 'index';
+    }
+
     public static function IsPluginDenied($plugins)
     {
         $plugins = self::Normalize($plugins);
@@ -281,6 +288,8 @@ class ScopePolicy
                     $item[$children_key] = self::FilterNavigation($item[$children_key]);
                 }
             }
+
+            $item = self::RewriteLegacyFavoriteNavigation($item);
 
             if(self::IsNavigationItemDenied($item))
             {
@@ -454,6 +463,30 @@ class ScopePolicy
             $result[$key] = $item;
         }
         return self::PreserveListShape($data, $result);
+    }
+
+    private static function RewriteLegacyFavoriteNavigation($item)
+    {
+        foreach(['url', 'value', 'event_value'] as $key)
+        {
+            if(isset($item[$key]) && is_scalar($item[$key]) && self::IsLegacyFavoriteListUrl((string) $item[$key]))
+            {
+                $item[$key] = PluginsHomeUrl('nursery', 'favorite', 'index');
+                if($key === 'url')
+                {
+                    $item['contains'] = ['nurseryfavoriteindex'];
+                    $item['is_system'] = 0;
+                }
+            }
+        }
+        return $item;
+    }
+
+    private static function IsLegacyFavoriteListUrl($value)
+    {
+        $value = self::NormalizeUrl($value);
+        return preg_match('#(?:^|[?&])s=(?:index/)?usergoodsfavor/index(?:[.?#&/]|$)#', $value) === 1
+            || preg_match('#(?:^|/)(?:index/)?usergoodsfavor/index(?:[.?#&/]|$)#', $value) === 1;
     }
 
     private static function IsNavigationItemDenied($item)

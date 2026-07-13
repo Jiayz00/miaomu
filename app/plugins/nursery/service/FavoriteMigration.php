@@ -35,14 +35,16 @@ class FavoriteMigration
         try {
             $definition = self::Definition();
             $inspection = self::Inspect($definition, true);
-            self::ReadLedger($definition, false);
+            $ledger = self::ReadLedger($definition, false);
+            $ready = $inspection['ready'] && $ledger !== null;
             return DataReturn('苗木收藏结构只读预检通过', 0, [
                 'schema_version'    => self::FAVORITE_SCHEMA_VERSION,
-                'ready'             => $inspection['ready'],
-                'migration_required'=> !$inspection['ready'],
+                'ready'             => $ready,
+                'migration_required'=> !$ready,
                 'duplicate_groups'  => 0,
                 'duplicate_rows'    => 0,
                 'index_name'        => $inspection['index_name'],
+                'ledger_present'    => $ledger !== null,
                 'write_performed'   => false,
             ]);
         } catch(\Throwable $e) {
