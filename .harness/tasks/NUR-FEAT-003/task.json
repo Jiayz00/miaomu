@@ -6,7 +6,7 @@
   "priority": "P0",
   "phase": 2,
   "risk_level": "L3",
-  "status": "awaiting_review",
+  "status": "approved_for_merge",
   "requirement_ids": [
     "FR-FAV-001",
     "FR-FAV-002",
@@ -189,9 +189,9 @@
     },
     "merge": {
       "required": true,
-      "status": "pending",
-      "approved_by": null,
-      "approved_at": null
+      "status": "approved",
+      "approved_by": "Codex-Review",
+      "approved_at": "2026-07-13T22:59:23Z"
     },
     "release": {
       "required": false,
@@ -217,5 +217,5 @@
   "reviewer": "Codex-Review",
   "release_approver": null,
   "created_at": "2026-07-13T21:54:26Z",
-  "updated_at": "2026-07-13T22:52:26Z"
+  "updated_at": "2026-07-13T22:59:37Z"
 }

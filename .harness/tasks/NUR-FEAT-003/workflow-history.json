@@ -111,6 +111,50 @@
       "by": "Codex-Implementer",
       "reason": "两项独立审查阻断已修复，最新 4/4 声明测试与 scope/evidence/review-pack 全部通过",
       "at": "2026-07-13T22:52:26Z"
+    },
+    {
+      "type": "approval",
+      "stage": "merge",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/fav003_merge_review",
+      "codex_thread_id": "019f5da2-8990-7092-91b9-838245e94ca9",
+      "expected_agent_task": "/root/fav003_merge_review",
+      "observed_agent_task": "/root/fav003_merge_review",
+      "observed_codex_thread_id": "019f5da2-8990-7092-91b9-838245e94ca9",
+      "reason": "Independent re-review closed both P1 findings and confirmed clean, fingerprint-matched 4/4 verification evidence.",
+      "at": "2026-07-13T22:58:31Z",
+      "review_artifact_path": ".harness/tasks/NUR-FEAT-003/approval-merge.json",
+      "review_artifact_sha256": "f74216e759d05905a94e0fe608a74e61e9c95c6465360450707c071a4e150d00",
+      "approval_context_sha256": "c340f0a3105cd744817e58a129c02444156a7e1b2c400fa47891edb43482bf99",
+      "reviewed_at": "2026-07-13T22:57:04Z"
+    },
+    {
+      "type": "approval",
+      "stage": "merge",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/fav003_merge_review",
+      "codex_thread_id": "019f5da2-8990-7092-91b9-838245e94ca9",
+      "expected_agent_task": "/root/fav003_merge_review",
+      "observed_agent_task": "/root/fav003_merge_review",
+      "observed_codex_thread_id": "019f5da2-8990-7092-91b9-838245e94ca9",
+      "reason": "Independent re-review closed both P1 findings and confirmed clean, fingerprint-matched 4/4 verification evidence.",
+      "at": "2026-07-13T22:59:23Z",
+      "review_artifact_path": ".harness/tasks/NUR-FEAT-003/approval-merge.json",
+      "review_artifact_sha256": "f74216e759d05905a94e0fe608a74e61e9c95c6465360450707c071a4e150d00",
+      "approval_context_sha256": "c340f0a3105cd744817e58a129c02444156a7e1b2c400fa47891edb43482bf99",
+      "reviewed_at": "2026-07-13T22:57:04Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "approved_for_merge",
+      "by": "Codex-Review",
+      "reason": "Independent merge approval completed by /root/fav003_merge_review after both P1 findings were closed and all gates passed.",
+      "at": "2026-07-13T22:59:37Z"
     }
   ]
 }
