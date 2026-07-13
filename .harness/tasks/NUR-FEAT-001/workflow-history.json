@@ -127,6 +127,28 @@
       "by": "Codex-Implementer",
       "reason": "",
       "at": "2026-07-13T14:35:15Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/feat001_plan_review_v3",
+      "codex_thread_id": "019f5bc0-5bdd-78f2-bb07-29b9ad80f761",
+      "expected_agent_task": "/root/feat001_plan_review_v3",
+      "observed_agent_task": "/root/feat001_plan_review_v3",
+      "observed_codex_thread_id": "019f5bc0-5bdd-78f2-bb07-29b9ad80f761",
+      "reason": "Re-approved after independent review of DEC-PX-BASELINE-NAV, 23 canonical PX slugs, four direct-deny aliases, eight navigation-only slugs, shortcut-menu filtering, Event.php tracking, authorized paths, rollback, and deferred runtime gates against pinned ShopXO source.",
+      "at": "2026-07-13T14:39:30Z",
+      "review_artifact_path": ".harness/tasks/NUR-FEAT-001/approval-plan.json",
+      "review_artifact_sha256": "0fadaa6907ebaba528e5eb16704961d93f561691552fd85b728a612779585ea6",
+      "approval_context_sha256": "f758835ba35574bfa101f7f512e3a4259fc667b53c151bd66fb68fa60351c56d",
+      "reviewed_at": "2026-07-13T14:39:02Z",
+      "plan_artifacts_sha256": "f8a17444e2253f47703b7e6a01ee312b0e86b2421c78a48af1e3b225016034d0",
+      "decision_context_sha256": "00289b390e631150eb442ace000557511411325abdf6a764e36f5d531a934b4c",
+      "contract_sha256": "ca87a4da60e68dd2c9e4f099da67e5982f3be1c9926fe4be0bed1ed31ab3fd16",
+      "policy_sha256": "ce7f1db203324ad701fd537ec27d51587ee7c4c0dba4cd405ca8f69d99bbd9b8"
     }
   ]
 }
