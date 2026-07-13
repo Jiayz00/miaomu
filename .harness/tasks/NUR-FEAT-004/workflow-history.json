@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-FEAT-004",
+  "events": [
+    {
+      "type": "transition",
+      "from": "draft",
+      "to": "ready_for_analysis",
+      "by": "Codex-Implementer",
+      "reason": "32 项需求、两项已解决决策、源码影响分析和 L3 实施测试回滚方案已完成",
+      "at": "2026-07-13T23:21:59Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "需求摘录、影响分析、实施计划、测试计划与回滚说明已完整并通过 plan-check",
+      "at": "2026-07-13T23:22:11Z"
+    }
+  ]
+}

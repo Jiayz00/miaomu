@@ -53,23 +53,23 @@
     },
     {
       "id": "DEC-INQ-STATE",
-      "status": "open",
+      "status": "resolved",
       "title": "询价合法状态机",
       "affected_requirement_ids": ["FR-INQ-004", "FR-ADMIN-INQ-004", "AC-004"],
       "question": "定义状态、合法流转、操作者权限、终态与重开规则。",
-      "resolution": null,
-      "approved_by": null,
-      "approved_at": null
+      "resolution": "状态标识固定为 pending（待处理）、replied（已回复）、user_viewed（用户已查看）、communicating（沟通中）、completed（已完成）和 closed（已关闭）。成功创建询价只能进入 pending。具备询价回复权限的管理员可在 pending、replied、user_viewed 或 communicating 下追加回复；回复必须与回复明细、当次报价字段及审计记录在同一事务中写入且不可被普通编辑或删除，状态在非 replied 时同步转为 replied，已处于 replied 时仅追加回复而不伪造状态变化。只有该询价所属的已认证用户首次打开处于 replied 的详情时，系统才以条件更新方式将其转为 user_viewed；重复查看幂等，用户请求不得指定他人询价或直接提交目标状态。具备询价状态管理权限的管理员只可执行 pending→closed，replied→communicating|completed|closed，user_viewed→communicating|completed|closed，以及 communicating→completed|closed；communicating→replied 只能由新增回复触发，user_viewed→replied 也只能由新增回复触发。completed 与 closed 均为终态，普通回复和状态管理不得离开终态；确需重开时仅允许具备独立重开权限的管理员填写非空原因后执行 completed|closed→communicating，并记录专门审计事件。每次真实状态变化必须只追加历史，至少保存询价ID、前后状态、操作者类型与ID、发生时间、原因或触发来源、关联回复ID；并发更新必须校验当前状态，失败不得留下孤立回复或部分历史。任何流转都不得覆盖商品、规格、公开价格和用户需求快照，不得用当次回复价格改写商品公开参考价，也不得因商品下架、逻辑删除或终态而清除询价、回复及状态历史。",
+      "approved_by": "Codex-Product-Security-Review (/root/inq004_decision_review)",
+      "approved_at": "2026-07-13T23:04:11Z"
     },
     {
       "id": "DEC-DUP-WINDOW",
-      "status": "open",
+      "status": "resolved",
       "title": "重复询价判定",
       "affected_requirement_ids": ["BR-INQ-007", "FR-INQ-006"],
       "question": "定义时间窗口、内容规范化、规格/数量差异和管理员豁免。",
-      "resolution": null,
-      "approved_by": null,
-      "approved_at": null
+      "resolution": "重复窗口固定为 600 秒，从同一认证用户上一次成功受理的等价询价的数据库时间开始计算；被拦截的尝试不得刷新窗口。等价范围固定为认证上下文中的 user_id、经服务端验证的 goods_id、所选 SKU/规格稳定标识与规范化规格值、规范化采购数量和单位、联系人、联系电话、地区编码、详细地址、预计采购时间、运输/装卸/栽植布尔选项、用户说明，以及提交时解析的公开参考价格快照；任一规格、数量、单位、价格上下文或需求字段不同均不属于完全重复。指纹版本 dup-v1 对字符串执行 Unicode NFKC、CRLF/LF 统一和首尾空白清理，对手机号、地区、日期、十进制数量、枚举、布尔值按各自已验证的规范格式编码，空值与缺失统一表示；不得对自由文本删除标点、任意改写大小写或做可能合并不同语义的模糊匹配。最终使用字段名排序、类型明确的 UTF-8 canonical JSON，并以仓库外生产配置提供的实例密钥计算 HMAC-SHA-256；数据库、防重复日志和返回内容不得保存或暴露规范化明文、完整手机号或用户说明。数据库以 user_id、goods_id、fingerprint_version、fingerprint_digest 唯一守卫并在事务内加锁：首次受理原子创建询价与守卫；守卫存在且距 last_accepted_at 小于 600 秒时拒绝且不更新时间；已过期时在锁内原子创建新询价并更新 last_accepted_at 和 inquiry_id。缺少实例密钥、迁移、唯一约束或事务能力时询价提交必须失败关闭，不得退化为先查后写。完全重复防护与 NFR-SEC-004 频率限制分别执行，内容不同也不能绕过频控。P0 不提供管理员代用户提交或绕过重复检查的豁免；未来如新增代录，必须使用独立权限、独立入口、强制原因和审计事件另行决策，不得复用用户提交接口。",
+      "approved_by": "Codex-Product-Security-Review (/root/inq004_decision_review)",
+      "approved_at": "2026-07-13T23:04:11Z"
     },
     {
       "id": "DEC-METRIC-REPLY",

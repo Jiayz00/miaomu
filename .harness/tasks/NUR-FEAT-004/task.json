@@ -1,0 +1,312 @@
+{
+  "schema_version": 2,
+  "id": "NUR-FEAT-004",
+  "title": "询价快照、用户闭环与后台处理",
+  "type": "feature",
+  "priority": "P0",
+  "phase": 3,
+  "risk_level": "L3",
+  "status": "awaiting_plan_approval",
+  "requirement_ids": [
+    "FR-DETAIL-002",
+    "FR-FAV-003",
+    "FR-CENTER-001",
+    "FR-INQ-001",
+    "FR-INQ-002",
+    "FR-INQ-003",
+    "FR-INQ-004",
+    "FR-INQ-005",
+    "FR-INQ-006",
+    "FR-ADMIN-INQ-001",
+    "FR-ADMIN-INQ-002",
+    "FR-ADMIN-INQ-003",
+    "FR-ADMIN-INQ-004",
+    "BR-INQ-001",
+    "BR-INQ-002",
+    "BR-INQ-003",
+    "BR-INQ-004",
+    "BR-INQ-005",
+    "BR-INQ-006",
+    "BR-INQ-007",
+    "BR-DATA-001",
+    "BR-DATA-002",
+    "BR-DATA-003",
+    "NFR-SEC-001",
+    "NFR-SEC-002",
+    "NFR-SEC-004",
+    "NFR-SEC-005",
+    "NFR-SEC-006",
+    "AC-003",
+    "AC-004",
+    "AC-005",
+    "AC-009"
+  ],
+  "decision_ids": [
+    "DEC-DUP-WINDOW",
+    "DEC-INQ-STATE",
+    "DEC-PX-BASELINE-NAV"
+  ],
+  "business_goal": "在 nursery 插件边界内交付可真实使用的询价闭环：登录用户可从未收藏商品详情或自己的收藏发起询价，提交时不可变保存商品、规格、公开参考价和需求快照；用户只能查看自己的询价，管理员按独立权限筛选、回复、变更合法状态和审计查看完整手机号；回复与状态历史只追加，商品下架后历史仍可追溯，并以 600 秒 HMAC 内容防重和每用户 60 秒最多 5 次尝试限制并发滥用。",
+  "in_scope": [
+    "新增 nursery Web/API 询价表单、提交、本人分页列表和本人详情；user_id 只能来自 ShopXO 认证上下文，商品详情和可用收藏项均提供真实询价入口，收藏不是前置且询价不创建收藏。",
+    "提交时校验在架商品、所属规格和 NUR-FEAT-002 公开参考价真源，在同一事务内保存商品、图片、规格、公开参考价、商品状态、联系人和完整需求快照以及初始状态历史。",
+    "实现 pending、replied、user_viewed、communicating、completed、closed 状态机；回复、状态与关键管理员操作只追加留痕，终态仅允许具有 reopen 权限的管理员填写原因后重开。",
+    "新增管理员列表、详情、回复、状态更新、完整手机号 reveal 和重开动作；BaseService 声明 index/detail/reply/statusupdate/contactreveal/reopen 权限，列表与默认详情手机号脱敏，reveal 先写成功审计后才返回完整号码。",
+    "实现 600 秒完全重复防护：使用仓库外实例密钥 HMAC-SHA-256 计算规范化内容指纹；规格语义使用服务端逐项验证并有序 canonical 的 [{type,value}] 加规格公开价和单位，GoodsSpecBase.id 仅作快照引用；窗口内拒绝且不刷新时间，过期后在行锁内更新。",
+    "完整输入、规格和公开价校验通过后，以独立短事务实现每个认证用户首个尝试起算的 60 秒固定窗口最多 5 次提交尝试；频控计数先提交，再运行防重与询价事务，因此重复拒绝或后续业务回滚不撤销计数。第 6 次拒绝且不创建询价，窗口过期后在行锁内重置。",
+    "新增五张 nursery 自有询价表和 sxo_config 非敏感 schema v1 台账；使用 GET_LOCK、information_schema 实际结构核验、幂等前向迁移和中断后重试，不修改 config/shopxo.sql，不对 ShopXO 商品、用户或管理员表建立外键。",
+    "扩展详情、收藏列表、用户中心和后台菜单，提供 PC/H5 基础询价界面；为 config.json base.logo 配置项目内 public/static/plugins/nursery/images/logo.png，确保非超级管理员可配置六项插件权限；新增离线询价合同测试并回归收藏、目录公开价、PX 范围和 Harness。"
+  ],
+  "out_of_scope": [
+    "FR-INQ-007 新询价或回复通知、短信、邮件、站内信和任何通知重试队列。",
+    "FR-ADMIN-INQ-005 询价导出、个人数据批量导出及 DEC-PRIO-EXPORT；本任务不新增导出入口或权限。",
+    "行为事件、PV/UV、搜索采集、运营统计、看板、排行、预警、首次回复时长聚合和任何统计口径变更。",
+    "收藏时价格、价格历史、涨跌状态和公开参考价修改；管理员单次回复价格只能保存在回复中，不能覆盖商品公开价或提交快照。",
+    "询价附件或文件上传、自动报价、在线交易、库存锁定、订单转换、客服会话和复杂工单能力。",
+    "修改 ShopXO 核心服务、控制器、默认主题、config/shopxo.sql、vendor 或认证基础；不重新启用供应商、多商户、分销、购物车、订单、支付和售后。",
+    "访问远程服务器或数据库、执行真实迁移、安装插件、修改 Caddy/Nginx 或生产发布；PHP/MySQL/HTTP/browser 真实验收进入后续 L4 集成发布任务。"
+  ],
+  "business_invariants": [
+    "公开参考价在询价前继续可见；询价回复中的本次参考单价和费用只属于该回复，不得写回商品、规格公开价或覆盖提交快照。",
+    "收藏与询价相互独立；未收藏可提交，提交不自动收藏，取消收藏也不删除或改变询价。",
+    "普通用户所有列表、详情和写操作只使用认证 user_id；篡改 user_id、inquiry_id 或 goods_id 不能访问或探测他人记录。",
+    "商品编辑、下架、逻辑删除或缺失不改变既有询价快照、回复和历史；历史详情不以内连接当前商品作为可见前提。",
+    "询价主快照和需求在创建后不可修改，回复、状态历史及手机号 reveal 审计只追加、不覆盖、不由普通删除物理清除。",
+    "状态流转、防重复窗口和频率限制严格使用已批准决策与本合同数值；并发请求只能产生一个有效结果，不得用先查后写绕过。",
+    "完整手机号仅返回给具有 contactreveal 权限的已认证管理员，返回前必须记录管理员、询价、时间和动作，日志和证据不得包含完整号码。",
+    "PX 商城能力继续不可见且不可达，询价闭环不得依赖购物车、订单、支付、供应商、多商户或分销。"
+  ],
+  "dependencies": [
+    "ShopXO 6.9.0 固定上游 d1825c5404054b535255d8fcad675a5dae0ab633 和当前源码基线通过 source-check。",
+    "NUR-FEAT-001 已提供 nursery 请求范围、plugins_service_system_begin、导航/权限过滤和视图替换边界；DEC-PX-BASELINE-NAV 已解决。",
+    "NUR-FEAT-002 已提供 ReferencePriceService 与苗木目录/规格/公开参考价真源；询价必须从 GoodsSpecBase 和当前商品构造快照。",
+    "NUR-FEAT-003 已提供用户隔离收藏、下架保留、真实收藏页和商品物理删除入口封锁；本任务只在可用收藏项增加真实询价入口并更新旧离线合同。",
+    "app/index/controller/Plugins.php、app/api/controller/Plugins.php、app/admin/controller/Plugins.php 经 PluginsService::PluginsControlCall 调用插件控制器；index/api 上下文含 user，admin 上下文含 admin/admin_plugins。",
+    "PluginsService::PluginsAdminPowerMenu() 从 app/plugins/nursery/service/BaseService.php 读取 AdminPowerMenu，admin 插件网关按 control-action 校验角色权限；六个动作必须全部显式声明，否则未声明动作只受插件总权限。",
+    "当前 app/plugins/nursery/config.json 的 base.logo 为空；AdminRoleService 仅在插件 plugins/name/logo 均非空时把插件加入非超级管理员角色配置，因此本任务必须提供并引用项目内 logo。",
+    "plugins_service_goods_buy_nav_button_handle、plugins_service_users_center_left_menu_handle 和 plugins_service_admin_menu_data 已在 nursery config.json 注册，可扩展入口而无需修改核心。",
+    "当前 config/shopxo.sql 和 nursery 插件没有询价表；ShopXO 插件普通安装不可靠执行增量 SQL，因此必须提供显式受控 CLI 和运行时 AssertReady。",
+    "DEC-INQ-STATE 与 DEC-DUP-WINDOW 必须在计划批准前解决；本合同按其批准文本实现，不允许实现者另行解释。",
+    "本机可执行 Python 离线合同测试；PHP、Composer、MySQL、Docker、真实会话和浏览器测试必须在后续 L4 环境补测。"
+  ],
+  "allowed_paths": [
+    "app/plugins/nursery/**",
+    "public/static/plugins/nursery/**",
+    "scripts/nursery_inquiry.php",
+    "tests/nursery/**"
+  ],
+  "forbidden_paths": [
+    ".env",
+    ".env.*",
+    "rsakeys/**",
+    "vendor/**",
+    "runtime/**"
+  ],
+  "shopxo_core_change": {
+    "required": false,
+    "paths": [],
+    "reason": "已确认插件网关、BaseService 插件权限、三个现有 Hook、nursery 自有视图和静态资源足以实现询价闭环；不修改 app/service、核心控制器、默认主题或认证中间件。",
+    "registration": ""
+  },
+  "database_change": {
+    "required": true,
+    "affected_tables": [
+      "sxo_plugins_nursery_inquiry",
+      "sxo_plugins_nursery_inquiry_reply",
+      "sxo_plugins_nursery_inquiry_history",
+      "sxo_plugins_nursery_inquiry_duplicate_guard",
+      "sxo_plugins_nursery_inquiry_rate_limit",
+      "sxo_config"
+    ],
+    "migration_paths": [
+      "app/plugins/nursery/inquiry-schema-v1.json",
+      "app/plugins/nursery/service/InquiryMigration.php",
+      "scripts/nursery_inquiry.php"
+    ],
+    "fresh_install_baseline_exception": {
+      "requested": false,
+      "reason": "既有站点与 fresh 实例使用同一 schema v1 前向迁移；不修改 config/shopxo.sql，也不删除或改写现有业务数据。"
+    },
+    "rollback_plan": "普通应用回滚保留五张询价表、所有快照/回复/历史/审计、防重记录和 sxo_config 台账，不执行 DROP 或 DELETE。DDL 中断后根据 information_schema 实际结构和清单继续前向修复，全部结构核验通过后才补写台账。只有独立 L4 数据任务在可恢复备份、无业务记录、无依赖和精确删除清单均通过时才可删除新表；存在任何询价数据时禁止结构回退。",
+    "verification": "在隔离 MySQL 8 副本验证全新迁移、部分建表中断、重复执行、同名异构表/索引、台账缺失或哈希不符、并发迁移和运行时 AssertReady；核对五张表字段/索引/引擎/字符集、台账版本与清单哈希，不建立外键，不修改 config/shopxo.sql 或既有商品/用户/收藏数据。"
+  },
+  "new_dependency_allowed": false,
+  "network_access_required": false,
+  "acceptance_criteria": [
+    {
+      "id": "AC-TASK-001",
+      "requirement_ids": [
+        "FR-DETAIL-002",
+        "FR-FAV-003",
+        "FR-INQ-001",
+        "FR-INQ-002",
+        "BR-INQ-001",
+        "BR-INQ-002",
+        "BR-INQ-003",
+        "AC-003"
+      ],
+      "description": "登录用户在未收藏商品时可从详情直接打开并成功提交询价，也可从自己的可用收藏项发起；表单包含需求规定字段并校验商品/规格。提交前后 sxo_goods_favor 行数和状态不变，收藏与询价按钮并列且都不依赖购物车、订单或支付。"
+    },
+    {
+      "id": "AC-TASK-002",
+      "requirement_ids": [
+        "FR-INQ-003",
+        "BR-INQ-004",
+        "BR-INQ-006",
+        "BR-DATA-001",
+        "BR-DATA-002",
+        "AC-005"
+      ],
+      "description": "一次成功提交原子写入询价及初始历史，快照固定保存商品 ID、名称、图片、公开参考价、所选规格、商品状态和完整需求。随后修改价格、规格、下架、逻辑删除或模拟商品缺失，用户本人和授权管理员仍从快照查看原内容，回复与历史不丢失且普通操作无物理删除入口。"
+    },
+    {
+      "id": "AC-TASK-003",
+      "requirement_ids": [
+        "FR-INQ-004",
+        "FR-INQ-005",
+        "FR-ADMIN-INQ-003",
+        "FR-ADMIN-INQ-004",
+        "BR-INQ-005",
+        "BR-DATA-003",
+        "NFR-SEC-005",
+        "AC-004"
+      ],
+      "description": "管理员回复只追加完整回复行并按批准状态机更新当前状态和追加历史；用户首次查看 replied 询价原子转为 user_viewed。非法流转被拒绝，completed/closed 只能由具备 reopen 权限的管理员填写原因后转为 communicating。任意回复价格和费用均不写回商品公开价或提交快照。"
+    },
+    {
+      "id": "AC-TASK-004",
+      "requirement_ids": [
+        "FR-INQ-006",
+        "BR-INQ-007",
+        "NFR-SEC-004"
+      ],
+      "description": "规范化内容使用仓库外实例密钥 HMAC-SHA-256；规格指纹使用服务端逐项验证并有序编码的 [{type,value}]、规格价和单位，GoodsSpecBase.id 只作快照引用。等价内容在 600 秒内串行或并发只创建一条询价，拒绝不刷新守卫时间。完整校验后先以独立短事务提交 60 秒频控计数，再执行防重与询价事务；前 5 次可进入防重，第 6 次拒绝，重复拒绝或业务回滚均不撤销计数。"
+    },
+    {
+      "id": "AC-TASK-005",
+      "requirement_ids": [
+        "FR-CENTER-001",
+        "FR-INQ-005",
+        "NFR-SEC-001",
+        "AC-009"
+      ],
+      "description": "用户中心提供我的询价；用户 A/B 或匿名身份篡改 user_id、inquiry_id、goods_id 时只能读取本人数据且错误响应不泄露记录存在性。用户 API 与 Web 都以认证上下文为唯一所有权条件，普通用户不能回复、改状态、重开或查看完整管理员数据。"
+    },
+    {
+      "id": "AC-TASK-006",
+      "requirement_ids": [
+        "FR-ADMIN-INQ-001",
+        "FR-ADMIN-INQ-002",
+        "NFR-SEC-002",
+        "NFR-SEC-005",
+        "NFR-SEC-006",
+        "AC-009"
+      ],
+      "description": "项目内 nursery logo 使插件出现在非超级管理员角色配置中；后台菜单与 BaseService 显式声明 index/detail/reply/statusupdate/contactreveal/reopen 全部权限，未授权角色不能调用受限动作。列表默认脱敏手机号；contactreveal 仅接受已认证、具权限的 POST，审计成功后才返回完整号码；HMAC 密钥和生产配置不进入 Git 或 sxo_config。"
+    },
+    {
+      "id": "AC-TASK-007",
+      "requirement_ids": [
+        "BR-DATA-001",
+        "BR-DATA-002",
+        "BR-DATA-003"
+      ],
+      "description": "schema v1 在 GET_LOCK 内按清单核验并前向创建五张无外键的 nursery 表，结构异常时写入前失败或停在可重试状态；重复执行无操作成功，台账仅在实际结构完整后写入。实现差异不包含 ShopXO 核心或 config/shopxo.sql，询价、收藏、公开价、PX 范围和 Harness 离线合同全部通过。"
+    }
+  ],
+  "required_tests": [
+    {
+      "id": "nursery_inquiry_contract",
+      "description": "离线验证询价 schema/迁移、不可变快照、用户隔离、项目内 logo 与六项管理员权限、状态/回复历史、规格语义 HMAC 防重、独立限流事务、手机号 reveal 审计、真实入口和无核心修改。",
+      "command": [
+        "python",
+        "tests/nursery/test_inquiry_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "nursery_favorite_regression",
+      "description": "回归收藏唯一性、用户隔离和下架保留，并把原先禁止假询价入口的断言收敛为只允许真实 nursery Inquiry URL 且无询价副作用。",
+      "command": [
+        "python",
+        "tests/nursery/test_favorite_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "nursery_catalog_price_regression",
+      "description": "回归目录、规格和公开参考价真源，确认询价回复不会覆盖商品公开价。",
+      "command": [
+        "python",
+        "tests/nursery/test_catalog_price_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "nursery_scope_regression",
+      "description": "回归 PX 路由、导航、用户中心、后台菜单和 ShopXO 核心边界，只放行获批 nursery 询价入口。",
+      "command": [
+        "python",
+        "tests/nursery/test_scope_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "harness_selftest",
+      "description": "确认 L3 数据、权限、审批、范围、证据和状态门禁未被询价任务削弱。",
+      "command": [
+        "python",
+        "scripts/harness_selftest.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300
+    }
+  ],
+  "rollback": {
+    "required": true,
+    "plan": "未部署时只回退 app/plugins/nursery/**、public/static/plugins/nursery/**、scripts/nursery_inquiry.php 和 tests/nursery/** 中本任务差异。已部署时先关闭询价写入口并保留只读历史，再回退应用代码；五张表、所有快照/回复/历史/审计/守卫和 sxo_config 台账全部保留，不执行 DROP、TRUNCATE 或 DELETE。结构不完整时使用相同 schema v1 清单前向修复；任何删除结构或个人数据动作必须另立 L4 数据任务。",
+    "verification": "运行 source-check、询价合同、收藏/目录价格/PX 回归和 Harness 自检；在隔离数据库核对询价、回复、历史和审计行数未减少，台账与实际结构一致，商品公开价与收藏数据未变化，旧 PX 能力仍不可达。"
+  },
+  "manual_approvals": {
+    "plan": {
+      "required": true,
+      "status": "pending",
+      "approved_by": null,
+      "approved_at": null
+    },
+    "merge": {
+      "required": true,
+      "status": "pending",
+      "approved_by": null,
+      "approved_at": null
+    },
+    "release": {
+      "required": false,
+      "status": "not_required",
+      "approved_by": null,
+      "approved_at": null
+    }
+  },
+  "codex_role_bindings": {
+    "implementation": {
+      "agent_task": "/root",
+      "thread_id": "019f566b-dffa-7913-a608-bc2dffbd2bea"
+    },
+    "plan": {
+      "agent_task": "/root/inq004_plan_review"
+    },
+    "merge": {
+      "agent_task": "/root/inq004_merge_review"
+    },
+    "release": null
+  },
+  "owner": "Codex-Implementer",
+  "reviewer": "Codex-Review",
+  "release_approver": null,
+  "created_at": "2026-07-13T23:03:11Z",
+  "updated_at": "2026-07-13T23:22:11Z"
+}
