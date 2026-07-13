@@ -80,6 +80,16 @@
       "resolution": null,
       "approved_by": null,
       "approved_at": null
+    },
+    {
+      "id": "DEC-PX-BASELINE-NAV",
+      "status": "resolved",
+      "title": "ShopXO 默认插件入口的首版处理",
+      "affected_requirement_ids": ["FR-HOME-001", "FR-CENTER-001"],
+      "question": "默认 H5 和后台快捷入口中的未明确插件应永久拒绝、保留，还是仅在首版隐藏？",
+      "resolution": "明确 PX 的 membershiplevelvip、weixinliveplayer、shop、excellentbuyreturntocash 作为现有禁止能力的 ShopXO 等价标识，直达路由与入口均拒绝。activity、blog、signin、ask、brand、realstore、binding、invoice 缺少永久 PX 依据，首版仅从前后台导航和快捷入口隐藏，不加入永久直达拒绝集合；未来启用必须另立需求任务。首版部署只允许 nursery 插件启用，并验证其他插件未启用。",
+      "approved_by": "Codex-Product-Review (/root/feat001_impl_audit)",
+      "approved_at": "2026-07-13T14:33:56Z"
     }
   ]
 }

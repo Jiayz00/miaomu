@@ -22,6 +22,8 @@
 
 本任务先建立后续苗木功能共用的 `nursery` 插件，用已验证 Hook 同时收敛可见入口和直达路由。询价功能尚未实现，因此仅保留收藏、浏览历史、资料和安全等现有正向能力；“我的询价”由后续询价任务交付，不以占位页面冒充完成。
 
+源码复核确认两类不能遗漏的入口：`sxo_app_home_nav/sxo_app_center_nav` 使用 `/pages/plugins/<slug>/...`，其中 `membershiplevelvip`、`weixinliveplayer` 是会员等级和直播的 ShopXO 基线标识；`sxo_shortcut_menu` 还独立保存订单、售后、分销、优惠券和秒杀快捷入口。它们均受既有 PX 业务规则约束，不因路由或数据源不同而保留。
+
 ## 明确不做
 
 - 不实现询价、统计、价格历史、通知、排行榜或导出。
@@ -32,5 +34,5 @@
 
 ## 开放决策
 
-- `.harness/requirements-decisions.json` 中没有影响 `FR-HOME-001` 或 `FR-CENTER-001` 的开放决策。
+- `DEC-PX-BASELINE-NAV` 已解决：`membershiplevelvip`、`weixinliveplayer`、`shop`、`excellentbuyreturntocash` 是明确 PX 的 ShopXO 等价标识，直达路由与入口均拒绝；`activity`、`blog`、`signin`、`ask`、`brand`、`realstore`、`binding`、`invoice` 首版仅隐藏前后台入口，不永久扩大直达拒绝集合。首版部署只允许 nursery 插件启用。
 - 后续询价状态、重复窗口、价格历史和分析优先级决策不阻塞本任务。

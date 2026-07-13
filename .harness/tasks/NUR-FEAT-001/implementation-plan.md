@@ -8,18 +8,19 @@
    - API 控制器 10 个：`buy, cart, cashier, order, orderaftersale, ordernotify, paylog, useraddress, usergoodscomments, userintegral`。
    - Admin 控制器 12 个：`express, goodscart, goodscomments, integrallog, order, orderaftersale, payment, paylog, payrequestlog, refundlog, warehouse, warehousegoods`。
    - PX 插件标识 23 个：`agent, aftersale, bargain, cart, coupon, delivery, distribution, finance, groupbuy, integral, inventory, live, memberlevel, membership, merchant, multimerchant, order, payment, points, refund, seckill, supplier, wallet`。
+   - ShopXO 6.9.0 已确认等价标识 4 个：`membershiplevelvip`（会员等级）、`weixinliveplayer`（直播）、`shop`（商家店铺）、`excellentbuyreturntocash`（购买返现）。按 `DEC-PX-BASELINE-NAV`，`activity, blog, signin, ask, brand, realstore, binding, invoice` 仅进入固定的首版入口隐藏集合，不进入永久直达拒绝集合。
    所有比较先做字符串小写化，命中控制器即拒绝其全部 action；仅处理 `index/api/admin`，`install` 和其他模块默认不匹配。插件路由只在控制器为 `plugins` 时读取 `PluginsRequestName()`。测试发现允许控制器误入、任一锁定项缺失、集合被请求参数扩展或 action 可绕过即停止。
 3. 在 `Hook.php` 以 `hook_name` 白名单分派：
    - system begin 调用 `RequestModule/Controller/Action`，命中时使用 ThinkPHP `abort(404, ...)` 中断；插件请求额外检查 `pluginsname`。
-   - 数据库 header/footer 导航、顶部快捷导航、PC/H5 quick nav、H5 首页/用户中心导航、移动底部导航、用户中心 left/mini 导航根据结构化 `url/event_value/value/only_tag/type/control` 字段过滤并重建数组索引，不使用整段 HTML 字符串替换。
+   - 数据库 header/footer 导航、顶部快捷导航、PC/H5 quick nav、H5 首页/用户中心导航、移动底部导航、用户中心 left/mini 导航根据结构化 `url/event_value/value/only_tag/type/control` 字段过滤并重建数组索引；插件 URL 同时识别 `pluginsname/<slug>`、`pluginsname=<slug>` 和 `/pages/plugins/<slug>/...`，不使用整段 HTML 字符串替换。
    - 后台 `admin_left_menu` 递归过滤并移除空组：普通项按 `control`；ShopXO 动态插件项按规范化 `id` 或 `key` 是否严格等于 `plugins-<PX>`，并用 URL 中规范化的 `pluginsname=<PX>` 或插件路由段作为纵深校验。不得只依赖可本地化的菜单名称。`admin_power` 按被拒控制器加下划线的 key 前缀过滤；`admin_plugins` 和 `admin_all_plugins` 按 PX 插件标识过滤。该 Hook 每次 `PowerMenuInit()` 返回前运行，因此缓存中的上游原值也会重新过滤。
    - 商品按钮仅删除 `type=buy/cart`，保留 `show`、未来 `inquiry` 和未知扩展按钮。
-   - view assign 仅在 `index/index/index` 清空 `user_order_status`。
+   - view assign 在 `index/index/index` 清空 `user_order_status`；在 `admin/index/init` 过滤 `shortcut_menu_data`，删除 `menu` 非空但经权限裁剪后 `url` 为空的项，以及 URL/menu 指向被拒控制器或 PX 插件的项；不按可本地化名称判断。
    - view fetch 仅在 `index/user/index` 把模板路径替换为插件自有视图。
    未识别 Hook 不修改参数并返回空值。
-4. 在 `Event.php` 提供无数据库写入的标准生命周期回调，使 ShopXO 安装、启用、禁用与卸载流程可识别插件；不自动修改系统配置、管理员权限或历史数据。
+4. 在 `Event.php` 提供无数据库写入的标准生命周期回调，使 ShopXO 安装、启用、禁用与卸载流程可识别插件；不自动修改系统配置、管理员权限或历史数据。由于上游 `app/.gitignore` 会忽略该文件，提交前必须显式纳入 Git 索引并由测试证明全部插件文件已跟踪。
 5. 在 `view/index/user/index.html` 复用当前主题的公共头部、导航、用户菜单和页脚，保留用户资料、消息、收藏及浏览历史数据，仅删除订单状态、进行中订单、购物车、售后、评价和积分链接。页面不创建“我的询价”假入口，后续询价任务通过插件/主题扩展。
-6. 在 `tests/nursery/test_scope_contract.py` 使用 Python 标准库解析 JSON 和源码，逐项断言 15 个 Hook、8/10/12 个控制器、23 个 PX 插件标识、固定正向控制器、`abort` 语义、`plugins` 控制器限定、无动态请求扩展策略、四类后台菜单/权限过滤、插件菜单 `id/key/url` 识别、结构化导航过滤、按钮保留语义、替代视图无 PX URL及授权路径未引用核心文件，并用临时变异副本验证关键缺口会使测试失败。对每个 PX 标识构造无 `control`、仅 `id/key=plugins-<name>` 和插件 URL 的后台菜单项；删除任一识别分支或任一标识都必须使负变异失败。
+6. 在 `tests/nursery/test_scope_contract.py` 使用 Python 标准库解析 JSON、源码和 Git 索引，逐项断言 15 个 Hook、8/10/12 个控制器、23 个 PX 插件标识、4 个直达拒绝等价标识、8 个首版入口隐藏标识、固定正向控制器、`abort` 语义、`plugins` 控制器限定、无动态请求扩展策略、四类后台菜单/权限过滤、后台快捷菜单、插件菜单 `id/key/url` 与 H5 `/pages/plugins` 识别、结构化导航过滤、按钮保留语义、替代视图无 PX URL、全部插件文件已跟踪及授权路径未引用核心文件，并用临时变异副本验证关键缺口会使测试失败。默认快捷菜单负例覆盖 `menu=178/364` 和 distribution/coupon/seckill URL；8 个入口隐藏标识的直达请求必须保持不被永久 PX 策略拒绝；删除任一识别分支、任一规范标识或任一获批集合项都必须使负变异失败。
 
 ## 验证顺序
 

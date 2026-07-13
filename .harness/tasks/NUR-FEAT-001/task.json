@@ -6,21 +6,24 @@
   "priority": "P0",
   "phase": 1,
   "risk_level": "L3",
-  "status": "approved_for_implementation",
+  "status": "awaiting_plan_approval",
   "requirement_ids": [
     "FR-HOME-001",
     "FR-CENTER-001"
   ],
-  "decision_ids": [],
+  "decision_ids": [
+    "DEC-PX-BASELINE-NAV"
+  ],
   "business_goal": "以项目级 nursery 插件把 ShopXO 6.9.0 收敛为单一经营主体的苗木展示站：首页、商品详情、移动底部导航和用户中心不再提供购物车、结算、订单、支付、售后或积分入口，对应 Web、API、后台及已知商城插件路由同时失败关闭，且保留分类、搜索、商品展示、登录、资料、收藏和浏览历史能力。",
   "in_scope": [
     "创建可由 ShopXO 正常安装和启用的 nursery 插件骨架，并在 config.json 登记经过源码验证的系统、导航、商品按钮、视图和后台菜单钩子。",
     "使用固定大小写无关拒绝表，在 plugins_service_system_begin 阻断 index、api、admin 的购物车、结算、订单、支付、售后、积分及关联后台控制器，并阻断已知 PX 商城插件入口。",
     "Web 固定拒绝 buy、cart、order、orderaftersale、pay、useraddress、usergoodscomments、userintegral；API 固定拒绝 buy、cart、cashier、order、orderaftersale、ordernotify、paylog、useraddress、usergoodscomments、userintegral。",
     "后台固定拒绝 express、goodscart、goodscomments、integrallog、order、orderaftersale、payment、paylog、payrequestlog、refundlog、warehouse、warehousegoods；同步过滤 admin_left_menu、admin_power、admin_plugins 和 admin_all_plugins，插件菜单按 plugins-<name> 的 id/key 及插件 URL 识别。",
-    "过滤数据库头尾导航、顶部快捷导航、H5 首页/用户中心导航、移动底部导航、用户中心左侧/mini 导航中的排除能力，同时从商品详情按钮集合移除 buy 和 cart。",
-    "通过 plugins_view_assign_data 清除首页订单状态数据，并通过 plugins_view_fetch_begin 将用户中心首页切换到插件自有视图，彻底移除原模板硬编码的订单和购物车区块。",
-    "新增无第三方依赖的离线合同测试，验证插件清单、拒绝表、Hook 注册、正负路由边界、视图无 PX 链接以及未修改上游商城源码。"
+    "过滤 admin/index/init 的 shortcut_menu_data：移除经权限菜单裁剪后无法解析 URL 的快捷项，以及指向被拒控制器或 PX 插件的自定义快捷项。",
+    "过滤数据库头尾导航、顶部快捷导航、H5 首页/用户中心导航、移动底部导航、用户中心左侧/mini 导航中的排除能力；同时识别 pluginsname 路由和 /pages/plugins/<slug> H5 路由，并从商品详情按钮集合移除 buy 和 cart。",
+    "通过 plugins_view_assign_data 清除首页订单状态数据、过滤后台首页快捷菜单，并通过 plugins_view_fetch_begin 将用户中心首页切换到插件自有视图，彻底移除原模板硬编码的订单和购物车区块。",
+    "新增无第三方依赖的离线合同测试，验证插件清单、拒绝表、基线插件别名、H5 路由、后台快捷菜单、Hook 注册、正负路由边界、视图无 PX 链接、全部插件文件已被 Git 跟踪以及未修改上游商城源码。"
   ],
   "out_of_scope": [
     "物理删除 ShopXO 的供应商、多商户、分销、购物车、订单、支付、退款售后、积分、优惠券和营销源码或数据库表。",
@@ -40,6 +43,7 @@
     "ShopXO 6.9.0 固定上游 d1825c5404054b535255d8fcad675a5dae0ab633 已通过 source-check。",
     "plugins_service_system_begin 在 index/api/admin 公共控制器的业务动作之前触发，但其返回值被忽略，因此拒绝路径必须抛出 ThinkPHP HTTP 异常而不是只返回 DataReturn。",
     "插件必须经 ShopXO 安装并启用后由 PluginsAdminService 生成 app/event.php；本任务不手工维护该生成文件。",
+    "上游 app/.gitignore 会忽略任意层级的 Event.php；nursery/Event.php 必须以强制纳入 Git 索引的方式进入提交，并由合同测试验证干净克隆可获得全部插件文件。",
     "本机没有 PHP、Composer、MySQL 或 Docker；提交前可执行离线合同测试，真实运行时路由和页面验收必须在后续受控部署任务补齐。"
   ],
   "allowed_paths": [
@@ -79,7 +83,7 @@
         "FR-HOME-001",
         "FR-CENTER-001"
       ],
-      "description": "插件配置登记全部必要 Hook，首页顶部和移动底部导航、用户中心菜单/首页及商品详情均不再输出购物车、结算、订单、支付、售后或积分入口。"
+      "description": "插件配置登记全部必要 Hook，首页顶部和移动底部导航、用户中心菜单/首页、后台首页快捷菜单及商品详情均不再输出购物车、结算、订单、支付、售后或积分入口。"
     },
     {
       "id": "AC-TASK-002",
@@ -87,7 +91,7 @@
         "FR-HOME-001",
         "FR-CENTER-001"
       ],
-      "description": "任务合同列明的 Web 8 个、API 10 个、后台 12 个控制器，以及固定 PX 插件标识集合统一返回不可达；大小写变体和非 index action 不能绕过，后台四类菜单/权限数组不再含对应能力。"
+      "description": "任务合同列明的 Web 8 个、API 10 个、后台 12 个控制器、固定 23 个 PX 插件标识及 ShopXO 基线等价标识统一返回不可达；大小写变体、H5 /pages/plugins 路径和非 index action 不能绕过，后台四类菜单/权限数组及快捷菜单不再含对应能力。"
     },
     {
       "id": "AC-TASK-003",
@@ -101,7 +105,7 @@
   "required_tests": [
     {
       "id": "nursery_scope_contract",
-      "description": "离线验证 nursery 插件清单、Hook、固定拒绝表、菜单和按钮过滤、用户中心替换视图及正负路由边界。",
+      "description": "离线验证 nursery 插件清单与 Git 跟踪状态、Hook、固定拒绝表、基线插件别名、H5 路由、后台快捷菜单、导航和按钮过滤、用户中心替换视图及正负路由边界。",
       "command": [
         "python",
         "tests/nursery/test_scope_contract.py"
@@ -128,9 +132,9 @@
   "manual_approvals": {
     "plan": {
       "required": true,
-      "status": "approved",
-      "approved_by": "Codex-Review",
-      "approved_at": "2026-07-13T13:56:27Z"
+      "status": "pending",
+      "approved_by": null,
+      "approved_at": null
     },
     "merge": {
       "required": true,
@@ -162,5 +166,5 @@
   "reviewer": "Codex-Review",
   "release_approver": null,
   "created_at": "2026-07-13T13:24:31Z",
-  "updated_at": "2026-07-13T13:57:21Z"
+  "updated_at": "2026-07-13T14:35:15Z"
 }

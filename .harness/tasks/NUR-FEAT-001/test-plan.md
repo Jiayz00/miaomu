@@ -2,7 +2,7 @@
 
 ## 自动测试
 
-- `nursery_scope_contract`：执行 argv `['python', 'tests/nursery/test_scope_contract.py']`。结构化解析插件 `config.json`，逐项检查 15 个 Hook、Web/API/Admin 的 8/10/12 个拒绝控制器、23 个 PX 插件标识、正向控制器集合、异常中断、插件路由读取边界、`admin_left_menu/admin_power/admin_plugins/admin_all_plugins`、无 control 的 `plugins-<name>` 菜单 id/key/URL、结构化导航和按钮过滤、用户中心替代视图及禁止核心/SQL引用。对 23 个插件菜单逐项做临时负变异，不修改仓库业务文件。
+- `nursery_scope_contract`：执行 argv `['python', 'tests/nursery/test_scope_contract.py']`。结构化解析插件 `config.json`、PHP 源码和 Git 索引，逐项检查 15 个 Hook、Web/API/Admin 的 8/10/12 个拒绝控制器、23 个 PX 插件标识、4 个直达拒绝等价标识、8 个首版入口隐藏标识、正向控制器集合、异常中断、`pluginsname` 与 H5 `/pages/plugins/<slug>` 边界、`admin_left_menu/admin_power/admin_plugins/admin_all_plugins`、后台 `shortcut_menu_data`、无 control 的 `plugins-<name>` 菜单 id/key/URL、结构化导航和按钮过滤、用户中心替代视图、全部插件文件被跟踪及禁止核心/SQL引用。逐标识和关键分支做临时负变异，不修改仓库业务文件。
 - `harness_selftest`：执行 argv `['python', 'scripts/harness_selftest.py']`，确认任务没有绕过范围、审批、证据、符号链接或工作区变更门禁；平台不支持的符号链接用例只能记 skip。
 - Harness `verify` 以无 shell、清理敏感环境、超时和输出上限运行上述命令；任何退出码非 0、超时、输出溢出或工作区变更均失败。
 
@@ -14,8 +14,8 @@
 2. 展示型与普通商品详情：均无 buy/cart；展示型 show/电话咨询可保留；收藏入口仍可用；隐藏表单不能通过直达路由提交。
 3. 登录用户中心：仅保留资料、账号安全、收藏、浏览历史和消息相关现有能力；无订单、售后、购物车、评价或积分区块。
 4. Web/API 负例：逐个覆盖合同锁定的 Web 8 个和 API 10 个控制器，分别请求 `index` 和至少一个真实写 action，预期 HTTP 404/框架等价不可达，且购物车/订单/支付表无新增或修改；混合大小写控制器/action 也不可绕过。
-5. 后台最小权限管理员：逐个覆盖 12 个后台控制器；交易菜单不存在，`AdminIsPower` 对对应 action 返回 false，直接请求任意 action 均不可达；逐个构造或安装 23 个 PX 插件菜单形态，确认无 control 的 `id/key=plugins-<name>` 项也消失；商品分类、商品管理、用户查看和 nursery 菜单保持可用。分别在暖缓存和清缓存后重复。
-6. 插件负例：逐个覆盖 23 个固定 PX 插件标识，index/api/admin 的插件入口均不可达；`pluginsname=nursery` 和非 PX 测试插件不被策略拒绝。
+5. 后台最小权限管理员：逐个覆盖 12 个后台控制器；交易菜单不存在，`AdminIsPower` 对对应 action 返回 false，直接请求任意 action 均不可达；逐个构造或安装 23 个 PX 插件菜单形态，确认无 control 的 `id/key=plugins-<name>` 项也消失；后台首页快捷菜单不含默认 `menu=178/364` 和 distribution/coupon/seckill URL；商品分类、商品管理、用户查看和 nursery 菜单保持可用。分别在暖缓存和清缓存后重复。
+6. 插件负例：逐个覆盖 23 个固定 PX 插件标识和 4 个等价标识，index/api/admin 的插件入口及 H5 `/pages/plugins/<slug>` 导航均不可达；8 个首版未授权标识从前后台入口隐藏，但直达请求不被永久 PX 策略拒绝；`pluginsname=nursery`、`/pages/plugins/nursery/...` 和明确非 PX 的测试插件不被策略拒绝。部署另外验证只有 nursery 插件启用。
 7. 禁用插件并刷新缓存：确认事件映射移除、路由恢复部署前行为，用于证明回滚可控；随后按发布计划重新启用。
 
 ## 数据与权限

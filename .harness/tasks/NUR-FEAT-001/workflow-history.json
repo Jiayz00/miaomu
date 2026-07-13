@@ -79,6 +79,54 @@
       "by": "Codex-Implementer",
       "reason": "Independent L3 plan approval recorded after three review rounds and all P1 coverage gaps were closed",
       "at": "2026-07-13T13:57:21Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_implementation",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "Begin approved nursery scope plugin implementation after clean source-check and preflight",
+      "at": "2026-07-13T13:57:38Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-13T14:18:14Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "独立预审发现 H5 PX 路径与 Event.php 跟踪缺口，退回修正",
+      "at": "2026-07-13T14:22:46Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "blocked",
+      "by": "Codex-Implementer",
+      "reason": "独立预审发现后台快捷菜单缺口，已批准 plan 需修订并重新审批",
+      "at": "2026-07-13T14:28:17Z"
+    },
+    {
+      "type": "transition",
+      "from": "blocked",
+      "to": "ready_for_analysis",
+      "by": "Codex-Implementer",
+      "reason": "退回分析阶段修订合同、计划与测试",
+      "at": "2026-07-13T14:28:18Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-13T14:35:15Z"
     }
   ]
 }
