@@ -1,0 +1,67 @@
+{
+  "base": {
+    "plugins": "nursery",
+    "name": "苗木站",
+    "logo": "",
+    "author": "Jiayz00",
+    "author_url": "https://github.com/Jiayz00/miaomu",
+    "version": "1.0.0",
+    "desc": "单一经营主体苗木展示、收藏、询价与运营扩展",
+    "apply_terminal": [
+      "pc",
+      "h5"
+    ],
+    "apply_version": [
+      "6.9.0"
+    ],
+    "is_home": false
+  },
+  "extend": "",
+  "hook": {
+    "plugins_service_system_begin": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_navigation_header_handle": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_navigation_footer_handle": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_header_navigation_top_right_handle": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_quick_navigation_pc": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_quick_navigation_h5": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_app_home_navigation_h5": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_app_user_center_navigation_h5": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_bottom_navigation_handle": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_users_center_left_menu_handle": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_user_center_mini_navigation_handle": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_admin_menu_data": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_goods_buy_nav_button_handle": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_view_assign_data": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_view_fetch_begin": [
+      "app\\plugins\\nursery\\Hook"
+    ]
+  }
+}

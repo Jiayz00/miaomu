@@ -4,7 +4,7 @@
 
 `source-check` 已确认 ShopXO 6.9.0、固定上游 `d1825c5404054b535255d8fcad675a5dae0ab633`。当前 `app/plugins/` 和 `public/static/plugins/` 只有占位文件，`app/event.php` 不存在，前后台主题只有 `default`，业务源码与上游 tree 一致，苗木业务实现为 0。
 
-`FR-HOME-001` 和 `FR-CENTER-001` 要求去除排除的商城入口。现状中 `NavigationService::HomeHavTopRight()` 硬编码订单与购物车，`BottomNavigationData()` 硬编码购物车，`UserCenterLeftList()` 硬编码订单、售后、评价和积分；`app/index/view/default/user/index.html` 还硬编码订单、购物车区块。商品详情通过 `GoodsService::GoodsBuyButtonList()` 产生 buy/cart。Web、API 和后台商城控制器均可直接访问。
+`FR-HOME-001` 和 `FR-CENTER-001` 要求去除排除的商城入口。现状中 `NavigationService::HomeHavTopRight()` 硬编码订单与购物车，`BottomNavigationData()` 硬编码购物车，`UserCenterLeftList()` 硬编码订单、售后、评价和积分；`app/index/view/default/user/index.html` 还硬编码订单、购物车区块。商品详情通过 `GoodsService::GoodsBuyButtonList()` 产生 buy/cart。独立合并审查又确认 `module/goods/list/base` 在分类页和搜索 `layout=1` 中无条件输出购物车图标，`module/goods/slider/binding` 在动态商品模块中输出同类入口。Web、API 和后台商城控制器均可直接访问。
 
 仓库没有业务测试或 PHPUnit 配置；当前机器没有 PHP、Composer、MySQL、Docker。可执行的首层验证是 Python 标准库离线合同测试，运行时测试必须在后续受控 PHP/MySQL 环境补齐并如实记录。
 
@@ -19,7 +19,7 @@
    - `plugins_service_admin_menu_data`：递归过滤后台菜单，并同步移除 `admin_power` 中被拒绝控制器的 action key。
    - `plugins_view_assign_data`：在 `admin/index/init` 对 `shortcut_menu_data` 做第二次结构化裁剪；权限菜单已移除而未解析出 URL 的订单/售后项，以及直指 PX 插件的分销/优惠券/秒杀项不能继续显示。
    - `plugins_service_goods_buy_nav_button_handle`：从详情按钮集合移除 `buy`、`cart`，保留展示型 `show` 及未来 `inquiry`。
-4. 硬编码页面：`plugins_view_assign_data` 在前台首页清空 `user_order_status`，并在后台首页过滤独立快捷菜单数据；`plugins_view_fetch_begin` 仅对 `index/user/index` 替换为插件自有视图，从模板层移除订单和购物车区块。
+4. 硬编码页面：`plugins_view_assign_data` 在前台首页清空 `user_order_status`，并在后台首页过滤独立快捷菜单数据；`plugins_view_fetch_begin` 的 `view` 参数按引用传入，可把 `index/user/index` 替换为插件自有视图。商品模块使用固定精确表：直接 `module/goods/list/base`、`module/goods/slider/binding` 仅在 `DefaultTheme() === 'default'` 时替换；`../default/` 回退形式始终替换。两份插件商品视图只删除购物车节点，保留公开价格、商品链接和 `plugins_view_module_goods_inside_*` Hook；非 default 主题已提供的自有模板保持不变。
 5. 数据：本任务不查询、写入或迁移订单/支付/收藏/商品表；插件安装状态属于后续部署操作。历史商城表和数据不删除。
 
 固定路由策略在计划批准前锁定如下（全部小写比较，命中控制器后拒绝其所有 action）：
@@ -34,7 +34,7 @@
 
 ## 影响范围
 
-- 用户端：顶部、移动底部、商品详情和用户中心的交易入口消失；分类、搜索、商品、收藏和浏览历史继续使用上游链路。
+- 用户端：顶部、移动底部、分类/搜索图文列表、动态商品 slider、商品详情和用户中心的交易入口消失；分类、搜索、商品公开价格、收藏和浏览历史继续使用上游链路。
 - 管理端：交易型菜单和权限 key 被插件运行时过滤；`admin_left_menu` 先按 control 递归裁剪，再识别 ShopXO 注入的无 control 插件项（`id/key=plugins-<name>`，URL 含同一规范化 `pluginsname`）并按固定 PX 标识裁剪；`admin_power` 按 `<control>_` 前缀裁剪，`admin_plugins/admin_all_plugins` 按固定 PX 插件标识裁剪。后台首页 `shortcut_menu_data` 继续移除权限菜单已失效但记录仍存在的项和 PX 自定义 URL。源码与表仍存在，便于上游同步和可控回滚。
 - API：固定控制器拒绝表阻断购物车、结算、订单、支付、售后和积分的所有 action，不依赖 action 名逐项枚举。
 - 插件入口：当 `RequestController()` 为 `plugins` 时，以 `PluginsRequestName()` 读取并规范化 `pluginsname`，对锁定的 23 个 PX 标识和 4 个明确等价标识失败关闭；导航和快捷菜单同时解析 `pluginsname` 与 `/pages/plugins/<slug>`，并额外隐藏 8 个首版未授权入口；`nursery` 自身不受阻断。
@@ -48,8 +48,8 @@
 
 1. 配置：`site_type=4` 能隐藏详情 buy/cart 并显示“立即咨询”，`common_goods_close_buy_button` 也能关闭按钮，但二者都不能阻断直接 Web/API/后台路由，也不能移除全部硬编码用户中心区块，单独使用不足。
 2. 现有服务：NavigationService 和 AdminPowerService 提供完整数据，但直接修改它们属于核心差异，优先级低于已有 Hook。
-3. 已验证 Hook：系统开始、前后台导航、用户中心、商品按钮、视图赋值/抓取均存在且参数使用引用，能够完成本任务。
-4. `nursery` 插件：将固定策略、Hook 入口和替代视图集中管理，符合 ShopXO 插件结构并为后续公开价格、询价和分析提供边界。
+3. 已验证 Hook：系统开始、前后台导航、用户中心、商品按钮、视图赋值/抓取均存在且参数使用引用，能够完成本任务。商品 list/slider 的购物车节点没有独立结构化删除 Hook，故使用 view-fetch 的引用参数做固定模板映射；不采用 CSS 或前端脚本隐藏。
+4. `nursery` 插件：将固定策略、Hook 入口和三个页面类别的替代视图集中管理，符合 ShopXO 插件结构并为后续公开价格、询价和分析提供边界。
 5. 独立模块/核心适配：本任务无必要，不采用。
 
 ## 风险与边界
@@ -59,6 +59,7 @@
 - 控制器拒绝表过宽会误伤收藏、登录或苗木插件，过窄会留下 action 绕过；测试同时维护正例和控制器级负例。
 - 后台菜单缓存可能保留旧菜单；安装/启用/禁用后必须刷新 ShopXO 缓存，运行验收不能只检查新会话外观。
 - 插件替换用户中心视图只针对 `index/user/index`；其他资料、安全、收藏、浏览页面继续回退当前主题/默认主题。
+- 商品 list/slider 替代视图复制固定上游模板会增加同步面；合同测试必须证明插件版本等于固定上游版本仅删除批准的购物车节点，并要求升级 ShopXO 时显式重审。路径映射只接受四个精确规范值，不使用子串、正则或请求参数扩展；直接路径还要求当前主题严格为 default，防止覆盖未来 nursery 或其他非 default 主题的自有安全模板。
 - 第三方商城插件标识无法穷举；首版固定拒绝已知 PX 标识，部署时同时证明未安装未批准插件。
 - ShopXO 在后台一级菜单下动态注入的插件项没有 `control`，只有 `id/key=plugins-<name>` 和插件 URL；只按 control 过滤会漏项，合同测试必须覆盖全部 23 个 PX 插件菜单形态。
 - `ShortcutMenuService` 从独立表读取记录；订单/售后菜单被权限裁剪后 URL 为空但名称仍存在，自定义 PX URL 也不依赖左侧菜单。后台首页必须在 view assign 阶段再次过滤，测试覆盖默认菜单 `178`、`364` 与 distribution/coupon/seckill URL。
@@ -72,5 +73,7 @@
 - 新增：`app/plugins/nursery/Event.php`
 - 新增：`app/plugins/nursery/service/ScopePolicy.php`
 - 新增：`app/plugins/nursery/view/index/user/index.html`
+- 新增：`app/plugins/nursery/view/index/module/goods/list/base.html`
+- 新增：`app/plugins/nursery/view/index/module/goods/slider/binding.html`
 - 新增：`tests/nursery/test_scope_contract.py`
 - 不新增静态资源、迁移、install/update/uninstall SQL、`app/event.php` 或核心登记。

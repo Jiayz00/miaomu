@@ -14,7 +14,7 @@
   "decision_ids": [
     "DEC-PX-BASELINE-NAV"
   ],
-  "business_goal": "以项目级 nursery 插件把 ShopXO 6.9.0 收敛为单一经营主体的苗木展示站：首页、商品详情、移动底部导航和用户中心不再提供购物车、结算、订单、支付、售后或积分入口，对应 Web、API、后台及已知商城插件路由同时失败关闭，且保留分类、搜索、商品展示、登录、资料、收藏和浏览历史能力。",
+  "business_goal": "以项目级 nursery 插件把 ShopXO 6.9.0 收敛为单一经营主体的苗木展示站：首页、分类、搜索、动态商品模块、商品详情、移动底部导航和用户中心不再提供购物车、结算、订单、支付、售后或积分入口，对应 Web、API、后台及已知商城插件路由同时失败关闭，且保留分类、搜索、商品展示、公开价格、登录、资料、收藏和浏览历史能力。",
   "in_scope": [
     "创建可由 ShopXO 正常安装和启用的 nursery 插件骨架，并在 config.json 登记经过源码验证的系统、导航、商品按钮、视图和后台菜单钩子。",
     "使用固定大小写无关拒绝表，在 plugins_service_system_begin 阻断 index、api、admin 的购物车、结算、订单、支付、售后、积分及关联后台控制器，并阻断已知 PX 商城插件入口。",
@@ -23,7 +23,8 @@
     "过滤 admin/index/init 的 shortcut_menu_data：移除经权限菜单裁剪后无法解析 URL 的快捷项，以及指向被拒控制器或 PX 插件的自定义快捷项。",
     "过滤数据库头尾导航、顶部快捷导航、H5 首页/用户中心导航、移动底部导航、用户中心左侧/mini 导航中的排除能力；同时识别 pluginsname 路由和 /pages/plugins/<slug> H5 路由，并从商品详情按钮集合移除 buy 和 cart。",
     "通过 plugins_view_assign_data 清除首页订单状态数据、过滤后台首页快捷菜单，并通过 plugins_view_fetch_begin 将用户中心首页切换到插件自有视图，彻底移除原模板硬编码的订单和购物车区块。",
-    "新增无第三方依赖的离线合同测试，验证插件清单、拒绝表、基线插件别名、H5 路由、后台快捷菜单、Hook 注册、正负路由边界、视图无 PX 链接、全部插件文件已被 Git 跟踪以及未修改上游商城源码。"
+    "通过 plugins_view_fetch_begin 对 module/goods/list/base 和 module/goods/slider/binding 做受主题约束的固定精确映射：直接 module 路径仅在 DefaultTheme() 严格等于 default 时替换，显式 ../default 回退路径始终替换；改用插件自有同构视图并仅移除硬编码购物车节点，保留公开价格、商品链接、原有商品模块 Hook 及非 default 主题自有安全模板。",
+    "新增无第三方依赖的离线合同测试，验证插件清单、拒绝表、基线插件别名、H5 路由、后台快捷菜单、Hook 注册、正负路由边界、用户中心与商品模块替代视图无 PX 链接、替代商品模板仅偏离固定上游的购物车节点、默认主题与回退路径被替换而自定义主题自有模板保持不变、全部插件文件已被 Git 跟踪以及未修改上游商城源码。"
   ],
   "out_of_scope": [
     "物理删除 ShopXO 的供应商、多商户、分销、购物车、订单、支付、退款售后、积分、优惠券和营销源码或数据库表。",
@@ -44,6 +45,7 @@
     "plugins_service_system_begin 在 index/api/admin 公共控制器的业务动作之前触发，但其返回值被忽略，因此拒绝路径必须抛出 ThinkPHP HTTP 异常而不是只返回 DataReturn。",
     "插件必须经 ShopXO 安装并启用后由 PluginsAdminService 生成 app/event.php；本任务不手工维护该生成文件。",
     "上游 app/.gitignore 会忽略任意层级的 Event.php；nursery/Event.php 必须以强制纳入 Git 索引的方式进入提交，并由合同测试验证干净克隆可获得全部插件文件。",
+    "ShopXO 6.9.0 的 category/datalist 与 search layout=1 使用 module/goods/list/base，动态商品模块可使用 module/goods/slider/binding；两份默认模板均硬编码购物车入口且没有可删除该节点的结构化数据 Hook，因此使用既有 plugins_view_fetch_begin 映射到插件同构视图。MyView 对 default 主题和拥有自有模板的非 default 主题都可能传入直接 module 路径，故直接路径必须额外检查 DefaultTheme()===default，只有显式 ../default 回退路径可无条件替换。",
     "本机没有 PHP、Composer、MySQL 或 Docker；提交前可执行离线合同测试，真实运行时路由和页面验收必须在后续受控部署任务补齐。"
   ],
   "allowed_paths": [
@@ -83,7 +85,7 @@
         "FR-HOME-001",
         "FR-CENTER-001"
       ],
-      "description": "插件配置登记全部必要 Hook，首页顶部和移动底部导航、用户中心菜单/首页、后台首页快捷菜单及商品详情均不再输出购物车、结算、订单、支付、售后或积分入口。"
+      "description": "插件配置登记全部必要 Hook，默认主题及其显式回退的分类与搜索图文列表、动态商品 slider、首页顶部和移动底部导航、用户中心菜单/首页、后台首页快捷菜单及商品详情均不再输出购物车、结算、订单、支付、售后或积分入口，同时商品模块继续输出公开价格、商品链接和既有扩展 Hook，非 default 主题自有安全模板不被覆盖。"
     },
     {
       "id": "AC-TASK-002",
@@ -105,7 +107,7 @@
   "required_tests": [
     {
       "id": "nursery_scope_contract",
-      "description": "离线验证 nursery 插件清单与 Git 跟踪状态、Hook、固定拒绝表、基线插件别名、H5 路由、后台快捷菜单、导航和按钮过滤、用户中心替换视图及正负路由边界。",
+      "description": "离线验证 nursery 插件清单与 Git 跟踪状态、Hook、固定拒绝表、基线插件别名、H5 路由、后台快捷菜单、导航和按钮过滤、用户中心及商品列表/slider 替换视图、default/回退/自定义主题路径边界、与固定上游模板的受控差异以及正负路由边界。",
       "command": [
         "python",
         "tests/nursery/test_scope_contract.py"
@@ -134,7 +136,7 @@
       "required": true,
       "status": "approved",
       "approved_by": "Codex-Review",
-      "approved_at": "2026-07-13T14:39:30Z"
+      "approved_at": "2026-07-13T16:07:13Z"
     },
     "merge": {
       "required": true,
@@ -166,5 +168,5 @@
   "reviewer": "Codex-Review",
   "release_approver": null,
   "created_at": "2026-07-13T13:24:31Z",
-  "updated_at": "2026-07-13T14:42:56Z"
+  "updated_at": "2026-07-13T16:08:00Z"
 }
