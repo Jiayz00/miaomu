@@ -6,7 +6,7 @@
   "priority": "P0",
   "phase": 1,
   "risk_level": "L3",
-  "status": "approved_for_merge",
+  "status": "closed",
   "requirement_ids": [
     "FR-HOME-001",
     "FR-CENTER-001"
@@ -169,5 +169,5 @@
   "reviewer": "Codex-Review",
   "release_approver": null,
   "created_at": "2026-07-13T13:24:31Z",
-  "updated_at": "2026-07-13T17:00:14Z"
+  "updated_at": "2026-07-13T17:01:47Z"
 }

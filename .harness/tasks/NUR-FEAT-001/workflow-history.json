@@ -413,6 +413,14 @@
       "by": "Codex-Implementer",
       "reason": "第三轮独立合并审查批准，list/slider 可见入口与用户中心递归缺陷均已关闭",
       "at": "2026-07-13T17:00:14Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_merge",
+      "to": "closed",
+      "by": "Codex-Implementer",
+      "reason": "独立合并审批与干净提交 release-check 均通过，源码任务完成；PHP/MySQL/HTTP/browser 与递归冒烟由后续 L4 发布任务继续阻断",
+      "at": "2026-07-13T17:01:47Z"
     }
   ]
 }
