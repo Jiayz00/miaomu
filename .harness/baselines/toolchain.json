@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-12T17:31:02Z",
+  "generated_at": "2026-07-13T03:10:34Z",
   "source_commit": "d1825c5404054b535255d8fcad675a5dae0ab633",
-  "generated_from_head": "d1825c5404054b535255d8fcad675a5dae0ab633",
+  "generated_from_head": "651e893ab010c325767feb8977b2dd69241038b2",
   "upstream_remote": "https://github.com/gongfuxiang/shopxo.git",
   "shopxo_version": "6.9.0",
   "invalidated_by": [

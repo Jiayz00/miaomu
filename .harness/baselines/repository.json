@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-12T17:31:02Z",
+  "generated_at": "2026-07-13T03:10:34Z",
   "source_commit": "d1825c5404054b535255d8fcad675a5dae0ab633",
-  "generated_from_head": "d1825c5404054b535255d8fcad675a5dae0ab633",
+  "generated_from_head": "651e893ab010c325767feb8977b2dd69241038b2",
   "upstream_remote": "https://github.com/gongfuxiang/shopxo.git",
   "shopxo_version": "6.9.0",
   "invalidated_by": [
@@ -18,23 +18,24 @@
     },
     "branch": {
       "status": "confirmed",
-      "value": "nursery/main",
+      "value": "chore/NUR-HARNESS-002-v1-bootstrap",
       "evidence": "git branch --show-current"
     },
     "commit": {
       "status": "confirmed",
-      "value": "d1825c5404054b535255d8fcad675a5dae0ab633",
+      "value": "651e893ab010c325767feb8977b2dd69241038b2",
       "evidence": "git rev-parse HEAD"
     },
     "remotes": {
       "status": "confirmed",
       "value": {
+        "origin": "https://github.com/Jiayz00/miaomu.git",
         "upstream": "https://github.com/gongfuxiang/shopxo.git"
       },
       "evidence": "git remote/get-url (credentials redacted)"
     },
     "shopxo_source": {
-      "status": "blocked",
+      "status": "confirmed",
       "value": [
         {
           "path": "composer.json",
@@ -54,7 +55,7 @@
         {
           "path": "app/common.php",
           "kind": "file",
-          "status": "not_available"
+          "status": "confirmed"
         }
       ],
       "evidence": "required path existence checks"
@@ -62,7 +63,7 @@
     "worktree": {
       "status": "confirmed",
       "value": {
-        "changed_paths": 47
+        "changed_paths": 0
       },
       "evidence": "git status --porcelain=v1 -z"
     }
@@ -92,9 +93,9 @@
       {
         "path": "app/common.php",
         "kind": "file",
-        "status": "not_available"
+        "status": "confirmed"
       }
     ]
   },
-  "facts_sha256": "e2b096f7ab82f9f0eaa9bf2f96a68262f26315141865ffea7b253ddbb823a906"
+  "facts_sha256": "0b6c22b143260bb73290bd6248b4b5a7b7add6e42bf18c2fd6018061dab673ca"
 }
