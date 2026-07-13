@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-FEAT-001",
+  "events": [
+    {
+      "type": "transition",
+      "from": "draft",
+      "to": "ready_for_analysis",
+      "by": "Codex-Implementer",
+      "reason": "Requirement excerpts, source impact analysis, implementation plan, test plan and rollback design completed for first nursery business task",
+      "at": "2026-07-13T13:31:58Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "Submit nursery scope plugin plan for independent L3 review",
+      "at": "2026-07-13T13:31:59Z"
+    }
+  ]
+}
