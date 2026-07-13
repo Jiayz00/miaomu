@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "status": "candidate_inputs_not_runtime_evidence",
+  "target": {
+    "platform": "linux/amd64",
+    "deployment_root": "/root/jia/miaomu",
+    "main_project": "miaomu",
+    "restore_project": "miaomu_restore"
+  },
+  "images": {
+    "php_base": {
+      "reference": "php:8.2-fpm-bookworm@sha256:a335d57be82b3a392fe5c6287571de29d0b11c491826c783318ccb785dc0f262",
+      "verification": "NUR-OPS-001 must resolve the linux/amd64 platform digest and image ID"
+    },
+    "composer": {
+      "reference": "composer:2.8@sha256:5248900ab8b5f7f880c2d62180e40960cd87f60149ec9a1abfd62ac72a02577c",
+      "verification": "NUR-OPS-001 must resolve the linux/amd64 platform digest and image ID"
+    },
+    "mysql": {
+      "reference": "mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b",
+      "verification": "NUR-OPS-001 must resolve the linux/amd64 platform digest and image ID"
+    }
+  },
+  "external_caddy": {
+    "managed_by_this_compose": false,
+    "container": "jia-caddy",
+    "required_version": "2.11.2",
+    "network_mode": "host",
+    "smoke_listener": "127.0.0.1:88",
+    "public_listener_forbidden": "38.12.21.18:88",
+    "existing_health_url": "https://supervise.jiayyy.cn"
+  },
+  "fpm_socket": {
+    "main_volume": "miaomu_fpm_socket",
+    "restore_volume": "miaomu_restore_fpm_socket",
+    "container_path": "/run/miaomu-fpm/php-fpm.sock",
+    "gid": 10001,
+    "mode": "0660",
+    "authorized_consumers": [
+      "miaomu app",
+      "external jia-caddy"
+    ]
+  },
+  "external_files": {
+    "database_config": "/etc/miaomu/config/database.php",
+    "mysql_app_password": "/etc/miaomu/secrets/mysql_app_password",
+    "mysql_root_password": "/etc/miaomu/secrets/mysql_root_password",
+    "generated_event": "/etc/miaomu/generated/event.php",
+    "shared_required_uid": 0,
+    "shared_required_gid": 10001,
+    "shared_required_mode": "0440",
+    "root_secret_required_uid": 0,
+    "root_secret_required_gid": 0,
+    "root_secret_required_mode": "0400"
+  },
+  "restore_external_files": {
+    "database_config": "/etc/miaomu-restore/config/database.php",
+    "mysql_app_password": "/etc/miaomu-restore/secrets/mysql_app_password",
+    "mysql_root_password": "/etc/miaomu-restore/secrets/mysql_root_password",
+    "generated_event": "/etc/miaomu-restore/generated/event.php",
+    "shared_required_uid": 0,
+    "shared_required_gid": 10001,
+    "shared_required_mode": "0440",
+    "root_secret_required_uid": 0,
+    "root_secret_required_gid": 0,
+    "root_secret_required_mode": "0400"
+  },
+  "service_identities": {
+    "app": {
+      "steady_uid": 10001,
+      "steady_gid": 10001,
+      "supplemental_groups": []
+    },
+    "db": {
+      "bootstrap_uid": 0,
+      "steady_uid": 999,
+      "steady_gid": 999,
+      "steady_marker": "/var/lib/mysql/.miaomu-steady",
+      "bootstrap_health_overlays": [
+        "compose.bootstrap.yaml",
+        "compose.restore.bootstrap.yaml"
+      ],
+      "steady_health_mode": "steady",
+      "supplemental_groups": [],
+      "bootstrap_capabilities": [
+        "CHOWN",
+        "SETGID",
+        "SETUID"
+      ],
+      "secret_handoff": "bootstrap copies without output while tmpfs is root-only, chmod files 0400 then chown files and directory 999:999 mode 0700, execs the official entrypoint, and requires an independently gated mysql-owned steady marker plus restart that unsets credentials before direct gosu mysql steady state"
+    }
+  },
+  "event_generation": {
+    "target": "/var/www/html/app/event.php",
+    "initializer": "/usr/local/lib/miaomu/nursery-bootstrap.php",
+    "bootstrap_mode": "0660",
+    "steady_mode": "0440",
+    "owner_uid": 0,
+    "group_gid": 10001,
+    "allowed_enabled_plugins": [
+      "nursery"
+    ],
+    "official_service": "app\\service\\PluginsAdminService",
+    "requires_read_only_restart": true
+  },
+  "runtime_rules": {
+    "long_lived_services": [
+      "app",
+      "db"
+    ],
+    "published_ports": [],
+    "docker_socket_allowed": false,
+    "watchtower_allowed": false,
+    "source_read_only": true,
+    "writable_paths": [
+      "/var/www/html/runtime",
+      "/var/www/html/public/static/upload",
+      "/var/www/html/public/download",
+      "/run/miaomu-fpm",
+      "/tmp"
+    ],
+    "runtime_sanitizer": {
+      "path": "/usr/local/bin/miaomu-runtime-sanitize",
+      "main_pruned_paths": [
+        "cache",
+        "session",
+        "temp",
+        "admin/temp",
+        "index/temp",
+        "api/temp",
+        "data/config_data"
+      ],
+      "restore_clears_entire_runtime": true,
+      "runs_before_initializer_and_readiness": true
+    },
+    "downloads_exposed_by_caddy": false,
+    "backend_external_access": false
+  }
+}

@@ -1,0 +1,66 @@
+# This fragment is merged into the existing Caddy v2.11.2 configuration by NUR-OPS-001.
+http://127.0.0.1:88 {
+	root * /var/www/html/public
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	route {
+		@download path_regexp download (?i)^/download(?:/|$)
+		respond @download 404
+
+		@sensitiveEntry path_regexp sensitiveEntry (?i)^/(?:install|core|router)\.php(?:/|$)
+		respond @sensitiveEntry 404
+
+		@hidden path_regexp hidden (?i)(?:^|/)\.[^/]+
+		respond @hidden 404
+
+		@sensitivePath path_regexp sensitivePath (?i)^/(?:app|config|extend|runtime|rsakeys|sourcecode|vendor)(?:/|$)|^/composer\.(?:json|lock)$
+		respond @sensitivePath 404
+
+		@aceDemo path_regexp aceDemo (?i)^/static/common/lib/ace-builds/demo/.*\.php(?:/|$)
+		respond @aceDemo 404
+
+		handle /index.php {
+			php_fastcgi unix//run/miaomu-fpm/php-fpm.sock {
+				root /var/www/html/public
+				env SCRIPT_FILENAME /var/www/html/public/index.php
+			}
+		}
+
+		handle /admin.php {
+			php_fastcgi unix//run/miaomu-fpm/php-fpm.sock {
+				root /var/www/html/public
+				env SCRIPT_FILENAME /var/www/html/public/admin.php
+			}
+		}
+
+		handle /api.php {
+			php_fastcgi unix//run/miaomu-fpm/php-fpm.sock {
+				root /var/www/html/public
+				env SCRIPT_FILENAME /var/www/html/public/api.php
+			}
+		}
+
+		@scriptLike path_regexp scriptLike (?i)\.(?:php[0-9]*|phtml|phar)(?:/|$)
+		respond @scriptLike 404
+
+		@static file
+		handle @static {
+			file_server
+		}
+
+		handle {
+			rewrite * /index.php
+			php_fastcgi unix//run/miaomu-fpm/php-fpm.sock {
+				root /var/www/html/public
+				env SCRIPT_FILENAME /var/www/html/public/index.php
+			}
+		}
+	}
+}

@@ -1,0 +1,247 @@
+{
+  "name": "miaomu",
+  "services": {
+    "app": {
+      "build": {
+        "context": "..",
+        "dockerfile": "deploy/docker/app/Dockerfile",
+        "target": "runtime",
+        "args": {
+          "MIAOMU_RELEASE_SHA": "${MIAOMU_RELEASE_SHA:?set a 40-character release commit}"
+        }
+      },
+      "image": "miaomu-app:${MIAOMU_RELEASE_SHA:?set a 40-character release commit}",
+      "platform": "linux/amd64",
+      "user": "10001:10001",
+      "init": true,
+      "read_only": true,
+      "restart": "unless-stopped",
+      "pull_policy": "never",
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": {
+        "MIAOMU_ENV": "production",
+        "MIAOMU_RELEASE_SHA": "${MIAOMU_RELEASE_SHA:?set a 40-character release commit}",
+        "TZ": "Asia/Shanghai"
+      },
+      "secrets": [
+        "mysql_app_password"
+      ],
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/etc/miaomu/config/database.php",
+          "target": "/var/www/html/config/database.php",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/etc/miaomu/generated/event.php",
+          "target": "/var/www/html/app/event.php",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "volume",
+          "source": "runtime",
+          "target": "/var/www/html/runtime"
+        },
+        {
+          "type": "volume",
+          "source": "uploads",
+          "target": "/var/www/html/public/static/upload"
+        },
+        {
+          "type": "volume",
+          "source": "downloads",
+          "target": "/var/www/html/public/download"
+        },
+        {
+          "type": "volume",
+          "source": "fpm_socket",
+          "target": "/run/miaomu-fpm"
+        }
+      ],
+      "networks": [
+        "backend"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "php",
+          "/usr/local/lib/miaomu/environment_check.php",
+          "--health"
+        ],
+        "interval": "15s",
+        "timeout": "8s",
+        "retries": 12,
+        "start_period": "60s"
+      },
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=64m"
+      ],
+      "pids_limit": 128,
+      "cpus": 2.0,
+      "mem_limit": "1024m",
+      "stop_grace_period": "30s",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5"
+        }
+      },
+      "labels": {
+        "com.centurylinklabs.watchtower.enable": "false",
+        "com.jiayz00.miaomu.role": "application"
+      }
+    },
+    "db": {
+      "image": "mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b",
+      "platform": "linux/amd64",
+      "entrypoint": [
+        "/bin/sh",
+        "/usr/local/bin/miaomu-mysql-entrypoint"
+      ],
+      "command": [
+        "mysqld",
+        "--character-set-server=utf8mb4",
+        "--collation-server=utf8mb4_unicode_ci",
+        "--default-time-zone=+08:00",
+        "--local-infile=0",
+        "--max-connections=100",
+        "--skip-name-resolve"
+      ],
+      "read_only": true,
+      "restart": "unless-stopped",
+      "pull_policy": "never",
+      "environment": {
+        "MYSQL_DATABASE": "miaomu",
+        "MYSQL_USER": "miaomu_app",
+        "MYSQL_PASSWORD_FILE": "/run/secrets/mysql_app_password",
+        "MYSQL_ROOT_PASSWORD_FILE": "/run/secrets/mysql_root_password",
+        "TZ": "Asia/Shanghai"
+      },
+      "secrets": [
+        "mysql_app_password",
+        "mysql_root_password"
+      ],
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "./mysql-entrypoint.sh",
+          "target": "/usr/local/bin/miaomu-mysql-entrypoint",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "./mysql-healthcheck.sh",
+          "target": "/usr/local/bin/miaomu-mysql-healthcheck",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "volume",
+          "source": "db_data",
+          "target": "/var/lib/mysql"
+        }
+      ],
+      "networks": [
+        "backend"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "/bin/sh",
+          "/usr/local/bin/miaomu-mysql-healthcheck",
+          "steady"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 20,
+        "start_period": "60s"
+      },
+      "cap_drop": [
+        "ALL"
+      ],
+      "cap_add": [
+        "CHOWN",
+        "SETGID",
+        "SETUID"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=128m,uid=999,gid=999",
+        "/run/mysqld:rw,nosuid,nodev,size=16m,uid=999,gid=999,mode=0770",
+        "/run/miaomu-db-secrets:rw,noexec,nosuid,nodev,size=1m,uid=0,gid=0,mode=0700"
+      ],
+      "pids_limit": 256,
+      "cpus": 2.0,
+      "mem_limit": "1536m",
+      "stop_grace_period": "60s",
+      "logging": {
+        "driver": "json-file",
+        "options": {
+          "max-size": "10m",
+          "max-file": "5"
+        }
+      },
+      "labels": {
+        "com.centurylinklabs.watchtower.enable": "false",
+        "com.jiayz00.miaomu.role": "database"
+      }
+    }
+  },
+  "networks": {
+    "backend": {
+      "name": "miaomu_backend",
+      "internal": true
+    }
+  },
+  "volumes": {
+    "runtime": {
+      "name": "miaomu_runtime"
+    },
+    "uploads": {
+      "name": "miaomu_uploads"
+    },
+    "downloads": {
+      "name": "miaomu_downloads"
+    },
+    "fpm_socket": {
+      "name": "miaomu_fpm_socket"
+    },
+    "db_data": {
+      "name": "miaomu_db_data"
+    }
+  },
+  "secrets": {
+    "mysql_app_password": {
+      "file": "/etc/miaomu/secrets/mysql_app_password"
+    },
+    "mysql_root_password": {
+      "file": "/etc/miaomu/secrets/mysql_root_password"
+    }
+  }
+}

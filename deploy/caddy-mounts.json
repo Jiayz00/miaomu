@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "status": "planned_external_change_not_applied",
+  "service": "jia-caddy",
+  "required_caddy_version": "2.11.2",
+  "required_network_mode": "host",
+  "mounts": [
+    {
+      "type": "bind",
+      "source": "/root/jia/miaomu/public",
+      "target": "/var/www/html/public",
+      "read_only": true
+    },
+    {
+      "type": "volume",
+      "source": "miaomu_uploads",
+      "target": "/var/www/html/public/static/upload",
+      "read_only": true
+    },
+    {
+      "type": "volume",
+      "source": "miaomu_fpm_socket",
+      "target": "/run/miaomu-fpm",
+      "read_only": true
+    }
+  ],
+  "supplemental_groups": [
+    10001
+  ],
+  "forbidden_mounts": [
+    "miaomu_downloads",
+    "miaomu_runtime",
+    "miaomu_db_data",
+    "/etc/miaomu",
+    "/var/run/docker.sock"
+  ],
+  "change_strategy": {
+    "new_mount_or_group": "validate the complete candidate Caddyfile and shared Compose, then recreate only jia-caddy",
+    "configuration_only_when_all_mounts_and_group_exist": "validate the complete candidate Caddyfile, then reload",
+    "shared_stack_down_allowed": false
+  },
+  "required_health_checks": {
+    "before_change": "https://supervise.jiayyy.cn",
+    "after_change": "https://supervise.jiayyy.cn",
+    "after_rollback": "https://supervise.jiayyy.cn"
+  }
+}

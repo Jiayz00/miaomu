@@ -1,0 +1,60 @@
+<?php
+declare(strict_types=1);
+
+$secretPath = '/run/secrets/mysql_app_password';
+$secretStat = @lstat($secretPath);
+if(
+    $secretStat === false
+    || !is_file($secretPath)
+    || is_link($secretPath)
+    || !is_readable($secretPath)
+    || ($secretStat['size'] ?? 0) <= 0
+    || ($secretStat['uid'] ?? -1) !== 0
+    || ($secretStat['gid'] ?? -1) !== 10001
+    || (($secretStat['mode'] ?? 0) & 0777) !== 0440
+)
+{
+    throw new RuntimeException('database credential is unavailable');
+}
+
+$databaseCredential = @file_get_contents($secretPath);
+if($databaseCredential === false)
+{
+    throw new RuntimeException('database credential is unavailable');
+}
+$databaseCredential = rtrim($databaseCredential, "\r\n");
+if($databaseCredential === '' || str_contains($databaseCredential, "\0"))
+{
+    throw new RuntimeException('database credential is unavailable');
+}
+
+return [
+    'default'         => 'mysql',
+    'time_query_rule' => [],
+    'auto_timestamp'  => true,
+    'datetime_format' => 'Y-m-d H:i:s',
+    'connections'     => [
+        'mysql' => [
+            'type'            => 'mysql',
+            'hostname'        => 'db',
+            'database'        => 'miaomu_restore',
+            'username'        => 'miaomu_restore_app',
+            ('pass'.'word')   => $databaseCredential,
+            'hostport'        => '3306',
+            'params'          => [
+                \PDO::ATTR_CASE => \PDO::CASE_LOWER,
+                \PDO::ATTR_EMULATE_PREPARES => true,
+            ],
+            'charset'         => 'utf8mb4',
+            'prefix'          => 'sxo_',
+            'deploy'          => 0,
+            'rw_separate'     => false,
+            'master_num'      => 1,
+            'slave_no'        => '',
+            'fields_strict'   => true,
+            'break_reconnect' => false,
+            'trigger_sql'     => false,
+            'fields_cache'    => false,
+        ],
+    ],
+];

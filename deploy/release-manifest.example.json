@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "release_sha": "REPLACE_WITH_40_CHARACTER_GIT_COMMIT",
+  "target_platform": "linux/amd64",
+  "projects": {
+    "main": "miaomu",
+    "restore": "miaomu_restore"
+  },
+  "socket": {
+    "main_volume": "miaomu_fpm_socket",
+    "restore_volume": "miaomu_restore_fpm_socket",
+    "path": "/run/miaomu-fpm/php-fpm.sock",
+    "gid": 10001,
+    "mode": "0660"
+  },
+  "database_config_sha256": "REPLACE_WITH_SHA256",
+  "restore_database_config_sha256": "REPLACE_WITH_SHA256",
+  "generated_events": {
+    "main": {
+      "state": "pending",
+      "sha256": null
+    },
+    "restore": {
+      "state": "pending",
+      "sha256": null
+    }
+  },
+  "images": {
+    "php_base": {
+      "reference": "php:8.2-fpm-bookworm@sha256:a335d57be82b3a392fe5c6287571de29d0b11c491826c783318ccb785dc0f262",
+      "platform_digest": "REPLACE_WITH_SHA256",
+      "image_id": "REPLACE_WITH_SHA256"
+    },
+    "composer": {
+      "reference": "composer:2.8@sha256:5248900ab8b5f7f880c2d62180e40960cd87f60149ec9a1abfd62ac72a02577c",
+      "platform_digest": "REPLACE_WITH_SHA256",
+      "image_id": "REPLACE_WITH_SHA256"
+    },
+    "mysql": {
+      "reference": "mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b",
+      "platform_digest": "REPLACE_WITH_SHA256",
+      "image_id": "REPLACE_WITH_SHA256"
+    },
+    "app": {
+      "reference": "miaomu-app:REPLACE_WITH_RELEASE_SHA",
+      "image_id": "REPLACE_WITH_SHA256"
+    }
+  },
+  "caddy": {
+    "container": "jia-caddy",
+    "version": "2.11.2",
+    "config_sha256": "REPLACE_WITH_SHA256",
+    "compose_sha256": "REPLACE_WITH_SHA256"
+  }
+}

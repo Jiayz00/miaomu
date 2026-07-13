@@ -258,6 +258,156 @@
       "by": "Codex-Implementer",
       "reason": "Independent reviewer approved permissioned Unix-socket deployment plan",
       "at": "2026-07-13T19:41:31Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_implementation",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "Approved plan committed and preflight locked",
+      "at": "2026-07-13T19:42:32Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-13T21:04:43Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-13T21:21:48Z"
+    },
+    {
+      "type": "approval",
+      "stage": "merge",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/ops003_merge_review",
+      "codex_thread_id": "019f5d5b-fc41-7f43-9140-bf495ce2e5d4",
+      "expected_agent_task": "/root/ops003_merge_review",
+      "observed_agent_task": "/root/ops003_merge_review",
+      "observed_codex_thread_id": "019f5d5b-fc41-7f43-9140-bf495ce2e5d4",
+      "reason": "Independent L3 merge review passed all scope, evidence, deployment-contract, Caddy, MySQL, event and runtime-sanitizer gates",
+      "at": "2026-07-13T21:33:53Z",
+      "review_artifact_path": ".harness/tasks/NUR-OPS-003/approval-merge.json",
+      "review_artifact_sha256": "1332f4104baba628c0195dc256f547a831e08163cd278f83a4f37134a31dac2b",
+      "approval_context_sha256": "59c620dabdd640104ec573fe3de74a9645696699e1acfd9d7d7b4f666a8a3158",
+      "reviewed_at": "2026-07-13T21:32:22Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "发布说明固定标题调整使旧合并审批上下文失效，按合法链重置后重新审查。",
+      "at": "2026-07-13T21:39:53Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "固定发布说明标题后复用未过期的业务验证证据。",
+      "at": "2026-07-13T21:40:07Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "固定发布说明标题后的审查包已重新生成并通过。",
+      "at": "2026-07-13T21:40:29Z"
+    },
+    {
+      "type": "approval",
+      "stage": "merge",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/ops003_merge_review",
+      "codex_thread_id": "019f5d5b-fc41-7f43-9140-bf495ce2e5d4",
+      "expected_agent_task": "/root/ops003_merge_review",
+      "observed_agent_task": "/root/ops003_merge_review",
+      "observed_codex_thread_id": "019f5d5b-fc41-7f43-9140-bf495ce2e5d4",
+      "reason": "Targeted re-review confirmed the release-note change only restores the required heading; reviewed deployment content and refreshed gates remain unchanged and passing",
+      "at": "2026-07-13T21:41:45Z",
+      "review_artifact_path": ".harness/tasks/NUR-OPS-003/approval-merge.json",
+      "review_artifact_sha256": "e974f4e3dea84da7eca85f7b73d44f0f9e77b9be884333cfcaf718bcfc68a13a",
+      "approval_context_sha256": "8840ca287be6a0c8f90057f37790c634a7ab3ffa08c57167ddb0056df52aefaa",
+      "reviewed_at": "2026-07-13T21:41:09Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "approved_for_merge",
+      "by": "Codex-Implementer",
+      "reason": "独立 reviewer 已对固定标题后的上下文重新批准。",
+      "at": "2026-07-13T21:42:02Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_merge",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "在最终验证前固定业务暂存状态，避免暂存改变审批指纹。",
+      "at": "2026-07-13T21:44:54Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "按先暂存再验证的稳定工作区顺序重置合并审批。",
+      "at": "2026-07-13T21:45:00Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "业务部署制品已按最终暂存状态固定。",
+      "at": "2026-07-13T21:45:17Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "最终暂存态 verify、证据和审查包均已通过。",
+      "at": "2026-07-13T21:48:32Z"
+    },
+    {
+      "type": "approval",
+      "stage": "merge",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/ops003_merge_review",
+      "codex_thread_id": "019f5d5b-fc41-7f43-9140-bf495ce2e5d4",
+      "expected_agent_task": "/root/ops003_merge_review",
+      "observed_agent_task": "/root/ops003_merge_review",
+      "observed_codex_thread_id": "019f5d5b-fc41-7f43-9140-bf495ce2e5d4",
+      "reason": "Final staged-state review confirmed the refreshed 3/3 verify and review pack match workspace 33d3f97f, with only Git staging state changed and no implementation drift",
+      "at": "2026-07-13T21:49:59Z",
+      "review_artifact_path": ".harness/tasks/NUR-OPS-003/approval-merge.json",
+      "review_artifact_sha256": "fbfe135d3f769b707fddc4331ad938a14d431e650dfd7fd07d50acf63feacac2",
+      "approval_context_sha256": "ef74884eecbdd713cdf349f2aa1188f6acd04388d3b5bf5dcb9d574caa183c1b",
+      "reviewed_at": "2026-07-13T21:49:10Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "approved_for_merge",
+      "by": "Codex-Implementer",
+      "reason": "最终暂存态已由独立 reviewer 重新批准。",
+      "at": "2026-07-13T21:50:24Z"
     }
   ]
 }

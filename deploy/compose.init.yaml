@@ -1,0 +1,19 @@
+{
+  "name": "miaomu",
+  "services": {
+    "app": {
+      "restart": "no",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/etc/miaomu/generated/event.php",
+          "target": "/var/www/html/app/event.php",
+          "read_only": false,
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    }
+  }
+}

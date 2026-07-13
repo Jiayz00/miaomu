@@ -6,7 +6,7 @@
   "priority": "P0",
   "phase": 1,
   "risk_level": "L3",
-  "status": "approved_for_implementation",
+  "status": "approved_for_merge",
   "requirement_ids": [
     "NFR-SEC-006",
     "NFR-PERF-005"
@@ -148,9 +148,9 @@
     },
     "merge": {
       "required": true,
-      "status": "pending",
-      "approved_by": null,
-      "approved_at": null
+      "status": "approved",
+      "approved_by": "Codex-Review",
+      "approved_at": "2026-07-13T21:49:59Z"
     },
     "release": {
       "required": false,
@@ -176,5 +176,5 @@
   "reviewer": "Codex-Review",
   "release_approver": null,
   "created_at": "2026-07-13T03:44:16Z",
-  "updated_at": "2026-07-13T19:41:31Z"
+  "updated_at": "2026-07-13T21:50:24Z"
 }
