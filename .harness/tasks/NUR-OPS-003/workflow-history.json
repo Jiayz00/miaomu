@@ -17,6 +17,24 @@
       "by": "Codex",
       "reason": "",
       "at": "2026-07-13T03:50:44Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "approved",
+      "by": "Jiayz00",
+      "reason": "项目负责人已在当前任务中明确批准 NUR-OPS-003 计划",
+      "at": "2026-07-13T03:55:37Z",
+      "plan_artifacts_sha256": "187c5ab5add87b51fa008f01643ba371540340615f44dbe3a10e8cdc83ee403d",
+      "decision_context_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "approved_for_implementation",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T03:55:38Z"
     }
   ]
 }
