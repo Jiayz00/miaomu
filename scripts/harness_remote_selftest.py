@@ -359,6 +359,44 @@ class RemoteBrokerTests(unittest.TestCase):
         )
         return result.stdout.strip()
 
+    def _git_bytes(self, root: Path, *arguments: str) -> bytes:
+        result = subprocess.run(
+            [str(self.real_git), "-C", str(root), *arguments],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=20,
+        )
+        return result.stdout
+
+    def _git_config_names(
+        self, root: Path, payload: bytes, *, follow_includes: bool = False
+    ) -> tuple[str, ...]:
+        result = subprocess.run(
+            [
+                str(self.real_git),
+                "-C",
+                str(root),
+                "config",
+                "--file",
+                "-",
+                "--includes" if follow_includes else "--no-includes",
+                "--null",
+                "--name-only",
+                "--list",
+            ],
+            input=payload,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=20,
+        )
+        self.assertTrue(result.stdout.endswith(b"\0"))
+        return tuple(
+            item.decode("utf-8", errors="strict").casefold()
+            for item in result.stdout[:-1].split(b"\0")
+        )
+
     @staticmethod
     def _write_plan_artifacts(root: Path, task_id: str) -> None:
         task_dir = root / ".harness" / "tasks" / task_id
@@ -1195,6 +1233,114 @@ class RemoteBrokerTests(unittest.TestCase):
         )
         self.assertEqual(list(stage_dir.iterdir()), [])
 
+    def test_clean_core_autocrlf_checkout_launches_verified_head_blobs(self) -> None:
+        root, _task, _state = self._sealed_repository()
+        tracked_sources = (
+            "scripts/harness.py",
+            "scripts/harness_remote.py",
+        )
+        self.assertEqual(self._git(root, "config", "core.autocrlf"), "true")
+        self._git(root, "checkout-index", "--force", "--", *tracked_sources)
+        self.assertEqual(
+            self._git(root, "status", "--porcelain=v1", "--untracked-files=all"),
+            "",
+        )
+        head_sources = {
+            relative: self._git_bytes(root, "cat-file", "blob", f"HEAD:{relative}")
+            for relative in tracked_sources
+        }
+        worktree_sources = {
+            relative: (root / relative).read_bytes() for relative in tracked_sources
+        }
+        for relative in tracked_sources:
+            with self.subTest(relative=relative):
+                self.assertIn(b"\r\n", worktree_sources[relative])
+                self.assertNotEqual(worktree_sources[relative], head_sources[relative])
+                self.assertEqual(
+                    worktree_sources[relative].replace(b"\r\n", b"\n"),
+                    head_sources[relative],
+                )
+
+        observed_frames: list[bytes] = []
+        run_bounded_process = remote._run_bounded_process
+
+        def observe_release_launcher(*args, **kwargs):
+            argv = args[0]
+            stdin_handle = kwargs.get("stdin_handle")
+            if remote._RELEASE_CHECK_LAUNCHER in argv:
+                if stdin_handle is None:
+                    raise AssertionError("verified launcher lacks framed sources")
+                offset = stdin_handle.tell()
+                observed_frames.append(stdin_handle.read())
+                stdin_handle.seek(offset)
+            return run_bounded_process(*args, **kwargs)
+
+        runner = RecordingTransport()
+        with mock.patch.object(
+            remote, "_run_bounded_process", side_effect=observe_release_launcher
+        ):
+            evidence = self._repository_broker(root, runner=runner).execute(
+                "upload_release", allow_mutating=True
+            )
+        self.assertTrue(evidence["success"])
+        self.assertEqual(len(observed_frames), 1)
+        framed = observed_frames[0]
+        remote_size = int.from_bytes(framed[:8], "big")
+        remote_start = 8
+        remote_end = remote_start + remote_size
+        harness_size = int.from_bytes(framed[remote_end : remote_end + 8], "big")
+        harness_start = remote_end + 8
+        harness_end = harness_start + harness_size
+        self.assertEqual(harness_end, len(framed))
+        self.assertEqual(
+            framed[remote_start:remote_end],
+            head_sources["scripts/harness_remote.py"],
+        )
+        self.assertEqual(
+            framed[harness_start:harness_end],
+            head_sources["scripts/harness.py"],
+        )
+        self.assertNotEqual(
+            framed[remote_start:remote_end],
+            worktree_sources["scripts/harness_remote.py"],
+        )
+
+    def test_tracked_harness_rejects_non_crlf_and_bare_cr_drift(self) -> None:
+        root, _task, _state = self._sealed_repository()
+        harness_path = root / "scripts" / "harness.py"
+        remote_path = root / "scripts" / "harness_remote.py"
+        head_harness = self._git_bytes(
+            root, "cat-file", "blob", "HEAD:scripts/harness.py"
+        )
+        head_remote = self._git_bytes(
+            root, "cat-file", "blob", "HEAD:scripts/harness_remote.py"
+        )
+        harness_path.write_bytes(head_harness)
+        broker = self._repository_broker(root)
+
+        remote_path.write_bytes(head_remote.replace(b"\n", b"\r\n"))
+        _harness_path, harness_bytes, _remote_path, remote_bytes = (
+            broker._validate_tracked_harness()
+        )
+        self.assertEqual(harness_bytes, head_harness)
+        self.assertEqual(remote_bytes, head_remote)
+
+        crlf_remote = head_remote.replace(b"\n", b"\r\n")
+        invalid_sources = {
+            "content": head_remote + b"# content drift\n",
+            "non_newline_byte": bytes([head_remote[0] ^ 1]) + head_remote[1:],
+            "bare_cr": head_remote.replace(b"\n", b"\r", 1),
+            "crlf_content": crlf_remote + b"# content drift\r\n",
+            "crlf_with_bare_cr": crlf_remote.replace(b"\r\n", b"\r", 1),
+        }
+        for label, payload in invalid_sources.items():
+            with self.subTest(label=label):
+                remote_path.write_bytes(payload)
+                with self.assertRaisesRegex(
+                    remote.RemoteBrokerError, "differs from the clean release commit"
+                ):
+                    broker._validate_tracked_harness()
+
     def test_only_exact_deployment_root_bootstrap_skips_prior_cd(self) -> None:
         root, _task, _state = self._sealed_repository()
         runner = RecordingTransport()
@@ -1492,6 +1638,309 @@ class RemoteBrokerTests(unittest.TestCase):
             )
         self.assertFalse(marker.exists())
         self.assertEqual(self.runner.calls, [])
+
+    def test_git_config_forbidden_section_roots_cover_modern_and_legacy_syntax(
+        self,
+    ) -> None:
+        forbidden_sections = (
+            (
+                "modern_filter",
+                '[FiLtEr "de]mo"] # trailing comment\n\tclean = danger\n',
+                "filter.de]mo.clean",
+            ),
+            (
+                "legacy_filter",
+                "[FiLtEr.DeMo] ; trailing comment\n\tclean = danger\n",
+                "filter.demo.clean",
+            ),
+            (
+                "modern_include_if",
+                '[IncludeIf "gitdir:D:/path/with]bracket/"] # comment\n'
+                "\tpath = D:/never/config\n",
+                "includeif.gitdir:d:/path/with]bracket/.path",
+            ),
+            (
+                "legacy_include_if",
+                "[IncludeIf.Condition] ; comment\n\tpath = D:/never/config\n",
+                "includeif.condition.path",
+            ),
+            (
+                "modern_include",
+                r'[Include "ex\"tra"] ; comment' + "\n\tpath = D:/never/config\n",
+                'include.ex"tra.path',
+            ),
+            (
+                "legacy_include",
+                "[Include.Extra] # comment\n\tpath = D:/never/config\n",
+                "include.extra.path",
+            ),
+            (
+                "modern_alias",
+                r'[AlIaS "extra\\path"] # comment' + "\n\trun = status\n",
+                "alias.extra\\path.run",
+            ),
+            (
+                "legacy_alias",
+                "[AlIaS.Extra] ; comment\n\trun = status\n",
+                "alias.extra.run",
+            ),
+        )
+        for label, config_text, parsed_key in forbidden_sections:
+            with self.subTest(label=label):
+                root, _task, _state = self._sealed_repository()
+                broker = self._repository_broker(root)
+                payload = config_text.encode("utf-8")
+                self.assertIn(parsed_key, self._git_config_names(root, payload))
+                config_path = root / ".git" / "config"
+                with config_path.open("ab") as handle:
+                    handle.write(b"\n" + payload)
+                with self.assertRaisesRegex(
+                    remote.RemoteBrokerError, "execution-capable section"
+                ):
+                    broker._validate_git_execution_policy()
+
+    def test_git_config_safe_subsections_are_not_misclassified(self) -> None:
+        root, _task, _state = self._sealed_repository()
+        broker = self._repository_broker(root)
+        safe_config = (
+            "\n[remote.origin] # legacy comment\n"
+            "\turl = https://example.invalid/origin.git\n"
+            r'[remote "ori]gin"] ; modern comment' + "\n"
+            "\tpushurl = https://example.invalid/push.git\n"
+            r'[remote "quo\"ted\\path"] # escaped subsection' + "\n"
+            "\tfetch = +refs/heads/*:refs/remotes/upstream/*\n"
+            "[branch.main] ; legacy comment\n"
+            "\tremote = origin\n"
+            '[branch "rel]ease"] # modern comment\n'
+            "\tmerge = refs/heads/release\n"
+        )
+        payload = safe_config.encode("utf-8")
+        parsed = self._git_config_names(root, payload)
+        self.assertEqual(
+            parsed,
+            (
+                "remote.origin.url",
+                "remote.ori]gin.pushurl",
+                'remote.quo"ted\\path.fetch',
+                "branch.main.remote",
+                "branch.rel]ease.merge",
+            ),
+        )
+        config_path = root / ".git" / "config"
+        with config_path.open("ab") as handle:
+            handle.write(payload)
+        broker._validate_git_execution_policy()
+
+    def test_git_config_worktree_extension_is_rejected(self) -> None:
+        root, _task, _state = self._sealed_repository()
+        broker = self._repository_broker(root)
+        payload = b"[extensions]\n\tworktreeConfig = true\n"
+        self.assertEqual(
+            self._git_config_names(root, payload),
+            ("extensions.worktreeconfig",),
+        )
+        config_path = root / ".git" / "config"
+        with config_path.open("ab") as handle:
+            handle.write(b"\n" + payload)
+        (root / ".git" / "config.worktree").write_text(
+            "[core]\n\tbare = false\n", encoding="utf-8"
+        )
+        with self.assertRaisesRegex(
+            remote.RemoteBrokerError, "additional config source"
+        ):
+            broker._validate_git_execution_policy()
+
+    def test_git_config_parser_does_not_follow_include_or_execute_pager(self) -> None:
+        root, _task, _state = self._sealed_repository()
+        broker = self._repository_broker(root)
+        marker = root.parent / "config-parser-marker"
+        pager_script = root.parent / "config-parser-pager.py"
+        pager_script.write_text(
+            "from pathlib import Path\n"
+            "import sys\n"
+            "Path(sys.argv[1]).write_text('executed', encoding='utf-8')\n",
+            encoding="utf-8",
+        )
+        included_config = root.parent / "included-config"
+        included_config.write_text(
+            "[marker]\n\tfollowed = true\n",
+            encoding="utf-8",
+        )
+
+        def quote_config_value(value: str) -> str:
+            return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+        pager_command = " ".join(
+            quote_config_value(str(value))
+            for value in (Path(sys.executable), pager_script, marker)
+        )
+        payload = (
+            "[include]\n"
+            f"\tpath = {quote_config_value(included_config.as_posix())}\n"
+            "[pager]\n"
+            f"\tconfig = {quote_config_value(pager_command)}\n"
+        ).encode("utf-8")
+        self.assertIn(
+            "marker.followed",
+            self._git_config_names(root, payload, follow_includes=True),
+        )
+        (root / ".git" / "config").write_bytes(payload)
+        self.assertEqual(
+            broker._repository_config_keys(payload),
+            ("include.path", "pager.config"),
+        )
+        self.assertFalse(marker.exists())
+        with self.assertRaisesRegex(
+            remote.RemoteBrokerError, "execution-capable section"
+        ):
+            broker._validate_git_execution_policy()
+        self.assertFalse(marker.exists())
+
+    def test_git_config_structured_helper_keys_remain_fail_closed(self) -> None:
+        forbidden_helpers = (
+            (
+                "modern_diff_command",
+                '[DiFf "de]mo"] # comment\n\tcommand = danger\n',
+                "diff.de]mo.command",
+            ),
+            (
+                "legacy_diff_external",
+                "[DiFf.DeMo] ; comment\n\texternal = danger\n",
+                "diff.demo.external",
+            ),
+            (
+                "dotted_diff_textconv",
+                '[diff "nested.name"]\n\ttextconv = danger\n',
+                "diff.nested.name.textconv",
+            ),
+            (
+                "core_hooks_path",
+                "[CoRe]\n\thooksPath = danger\n",
+                "core.hookspath",
+            ),
+            (
+                "core_attributes_file",
+                "[CoRe]\n\tattributesFile = danger\n",
+                "core.attributesfile",
+            ),
+        )
+        for label, config_text, parsed_key in forbidden_helpers:
+            with self.subTest(label=label):
+                root, _task, _state = self._sealed_repository()
+                broker = self._repository_broker(root)
+                payload = config_text.encode("utf-8")
+                self.assertIn(parsed_key, self._git_config_names(root, payload))
+                (root / ".git" / "config").write_bytes(payload)
+                with self.assertRaisesRegex(
+                    remote.RemoteBrokerError, "execution-capable helper"
+                ):
+                    broker._validate_git_execution_policy()
+
+    def test_git_config_parser_fails_closed_on_parse_and_output_errors(self) -> None:
+        root, _task, _state = self._sealed_repository()
+        broker = self._repository_broker(root)
+        with self.assertRaisesRegex(remote.RemoteBrokerError, "not valid UTF-8"):
+            broker._repository_config_keys(b"\xff")
+        with self.assertRaisesRegex(remote.RemoteBrokerError, "cannot be parsed"):
+            broker._repository_config_keys(b"[broken\nkey = value\n")
+
+        valid_payload = b"[core]\nrepositoryformatversion = 0\n"
+        invalid_outcomes = (
+            (
+                "output_limit",
+                remote.ProcessOutcome(
+                    exit_code=0,
+                    stdout=b"core.repositoryformatversion\0",
+                    stderr=b"",
+                    stdout_bytes=remote.MAX_CONTROL_JSON_BYTES + 1,
+                    stderr_bytes=0,
+                    timed_out=False,
+                    output_limited=True,
+                    duration_ms=1,
+                ),
+                "cannot be parsed",
+            ),
+            (
+                "invalid_encoding",
+                remote.ProcessOutcome(
+                    exit_code=0,
+                    stdout=b"\xff\0",
+                    stderr=b"",
+                    stdout_bytes=2,
+                    stderr_bytes=0,
+                    timed_out=False,
+                    output_limited=False,
+                    duration_ms=1,
+                ),
+                "key is not valid UTF-8",
+            ),
+            (
+                "empty_key",
+                remote.ProcessOutcome(
+                    exit_code=0,
+                    stdout=b"\0",
+                    stderr=b"",
+                    stdout_bytes=1,
+                    stderr_bytes=0,
+                    timed_out=False,
+                    output_limited=False,
+                    duration_ms=1,
+                ),
+                "empty key",
+            ),
+            (
+                "missing_nul",
+                remote.ProcessOutcome(
+                    exit_code=0,
+                    stdout=b"core.repositoryformatversion",
+                    stderr=b"",
+                    stdout_bytes=28,
+                    stderr_bytes=0,
+                    timed_out=False,
+                    output_limited=False,
+                    duration_ms=1,
+                ),
+                "invalid structured keys",
+            ),
+        )
+        for label, outcome, error_pattern in invalid_outcomes:
+            with self.subTest(label=label), mock.patch.object(
+                remote, "_run_bounded_process", return_value=outcome
+            ):
+                with self.assertRaisesRegex(
+                    remote.RemoteBrokerError, error_pattern
+                ):
+                    broker._repository_config_keys(valid_payload)
+
+    def test_git_config_parser_uses_stable_payload_through_stdin(self) -> None:
+        root, _task, _state = self._sealed_repository()
+        broker = self._repository_broker(root)
+        config_path = root / ".git" / "config"
+        original_payload = config_path.read_bytes()
+        observed_payloads: list[bytes] = []
+        run_bounded_process = remote._run_bounded_process
+
+        def replace_config_after_stable_read(*args, **kwargs):
+            argv = args[0]
+            if "--name-only" in argv:
+                stdin_handle = kwargs.get("stdin_handle")
+                if stdin_handle is None:
+                    raise AssertionError("structured config parser lacks stdin")
+                offset = stdin_handle.tell()
+                observed_payloads.append(stdin_handle.read())
+                stdin_handle.seek(offset)
+                config_path.write_text(
+                    "[alias]\n\tpwn = status\n", encoding="utf-8"
+                )
+            return run_bounded_process(*args, **kwargs)
+
+        with mock.patch.object(
+            remote,
+            "_run_bounded_process",
+            side_effect=replace_config_after_stable_read,
+        ):
+            broker._validate_git_execution_policy()
+        self.assertEqual(observed_payloads, [original_payload])
 
     def test_worktree_attributes_transform_is_rejected_before_release_check(self) -> None:
         root, _task, _state = self._sealed_repository()

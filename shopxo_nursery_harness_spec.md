@@ -524,6 +524,10 @@ python scripts/harness.py --help
 
 broker 的内部 release-check launcher 例外不回读磁盘 sibling：它把已稳定读取并与 Git 校验的 broker bytes 执行为内存 module，再用私有 token/module 对象身份上下文注入同一进程的 Harness。Harness 仅在该上下文与 `sys.modules['harness_remote']` 对象身份一致时复用；环境变量、argv 或普通直接 CLI 不能触发此分支。由此关闭“校验后替换磁盘 broker，再诱导 Harness 重载”的 TOCTOU 窗口。
 
+broker 对已跟踪的 `scripts/harness.py` 与 `scripts/harness_remote.py` 使用稳定句柄读取工作树，只承认两种 Git 等价：原始 bytes 与 HEAD blob 完全相同；或在原始 bytes 不同时，工作树所有 CRLF 窄化为 LF 后与 HEAD blob 完全相同。不得进行 `splitlines`、Unicode、空白、bare CR 或其他宽泛归一化；任何非换行内容漂移都失败关闭。等价验证成功后，内部 launcher 的 framing 必须传递已验证的 HEAD blob bytes，而不是工作树原始 bytes。
+
+仓库级 Git config 不得自行复刻 section header 语法。broker 必须稳定读取 `.git/config` 一次，把同一 payload 通过匿名稳定句柄送入固定系统 Git 的 `config --file - --no-includes --null --name-only --list`，在清理后的固定环境中只取得 NUL 分隔 key names；不得重开原配置、跟随 include、继承可执行 helper/pager 或输出 value。规范化 key casefold 后，按 root 拒绝 `alias`、`filter`、`include`、`includeIf`，拒绝会增加 `config.worktree` 配置源的 `extensions.worktreeConfig`，并按 root 与末级 key 拒绝 diff 的 `command`/`external`/`textconv` 及 core 的 `hooksPath`/`attributesFile`。Git 非零退出、stderr、超时、输出超限、非法 UTF-8、空 key 或损坏 framing 都必须失败关闭；合法复杂 quoted subsection、`remote.origin` 和 `branch.main` 不得误拒。
+
 缺少 PHP、Composer、数据库、浏览器或测试夹具时返回 warning/blocked/failure，不得标记为 passed。
 
 ---

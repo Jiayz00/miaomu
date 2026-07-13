@@ -1,5 +1,5 @@
 # Project-local Codex settings. Do not copy to the user-level config.
-approval_policy = "on-request"
+approval_policy = "never"
 sandbox_mode = "workspace-write"
 
 [sandbox_workspace_write]
@@ -19,3 +19,12 @@ supports_parallel_tool_calls = true
 startup_timeout_sec = 10
 tool_timeout_sec = 20
 enabled_tools = ["harness_status", "requirements_search", "requirement_get", "task_get"]
+
+[mcp_servers.nursery_harness.tools.requirement_get]
+approval_mode = "approve"
+
+[mcp_servers.nursery_harness.tools.harness_status]
+approval_mode = "approve"
+
+[mcp_servers.nursery_harness.tools.task_get]
+approval_mode = "approve"

@@ -3145,6 +3145,84 @@ class RemoteExecutionBroker:
                     f"{label} enables a forbidden Git content transformation",
                 )
 
+    def _repository_config_keys(self, config_payload: bytes) -> tuple[str, ...]:
+        try:
+            config_payload.decode("utf-8-sig", errors="strict")
+        except UnicodeError as exc:
+            raise RemoteBrokerError(
+                "release_check_invalid",
+                "repository-local Git config is not valid UTF-8",
+            ) from exc
+        if self._git_executable is None:
+            raise RemoteBrokerError(
+                "release_seal_invalid",
+                "trusted Git is unavailable to parse repository-local config",
+            )
+        with tempfile.TemporaryFile(mode="w+b") as stable_config:
+            stable_config.write(config_payload)
+            stable_config.flush()
+            os.fsync(stable_config.fileno())
+            stable_config.seek(0)
+            outcome = _run_bounded_process(
+                (
+                    str(self._git_executable),
+                    "-C",
+                    str(self._repository_root),
+                    "config",
+                    "--file",
+                    "-",
+                    "--no-includes",
+                    "--null",
+                    "--name-only",
+                    "--list",
+                ),
+                15,
+                MAX_CONTROL_JSON_BYTES,
+                cwd=self._repository_root,
+                environment=_minimal_git_environment(
+                    self._git_executable, self._repository_root
+                ),
+                stdin_handle=stable_config,
+            )
+        if (
+            outcome.launch_error
+            or outcome.timed_out
+            or outcome.output_limited
+            or outcome.exit_code != 0
+            or outcome.stderr
+        ):
+            raise RemoteBrokerError(
+                "release_check_invalid",
+                "repository-local Git config cannot be parsed safely",
+            )
+        if not outcome.stdout or not outcome.stdout.endswith(b"\0"):
+            raise RemoteBrokerError(
+                "release_check_invalid",
+                "repository-local Git config returned invalid structured keys",
+            )
+        raw_keys = outcome.stdout[:-1].split(b"\0")
+        if not raw_keys or any(not raw_key for raw_key in raw_keys):
+            raise RemoteBrokerError(
+                "release_check_invalid",
+                "repository-local Git config returned an empty key",
+            )
+        try:
+            keys = tuple(
+                raw_key.decode("utf-8", errors="strict").casefold()
+                for raw_key in raw_keys
+            )
+        except UnicodeError as exc:
+            raise RemoteBrokerError(
+                "release_check_invalid",
+                "repository-local Git config key is not valid UTF-8",
+            ) from exc
+        if any(not key or not key.split(".", 1)[0] for key in keys):
+            raise RemoteBrokerError(
+                "release_check_invalid",
+                "repository-local Git config returned an empty key",
+            )
+        return keys
+
     def _validate_git_execution_policy(self) -> None:
         config_path = _safe_repository_entry(
             self._repository_root,
@@ -3157,35 +3235,23 @@ class RemoteExecutionBroker:
             label="repository-local Git config",
             maximum_bytes=MAX_CONTROL_JSON_BYTES,
         )
-        try:
-            config_text = config_payload.decode("utf-8-sig", errors="strict")
-        except UnicodeError as exc:
-            raise RemoteBrokerError(
-                "release_check_invalid",
-                "repository-local Git config is not valid UTF-8",
-            ) from exc
-        current_section = ""
-        for line in config_text.splitlines():
-            active = line.strip()
-            if not active or active.startswith(("#", ";")):
-                continue
-            section_match = re.fullmatch(r"\[\s*([^\]]+)\s*\]", active)
-            if section_match:
-                current_section = section_match.group(1).strip().casefold()
-                section_name = re.split(r"[\s\"]", current_section, maxsplit=1)[0]
-                if section_name in {"alias", "filter", "include", "includeif"}:
-                    raise RemoteBrokerError(
-                        "release_check_invalid",
-                        "repository-local Git config enables an execution-capable section",
-                    )
-                continue
-            key = active.split("=", 1)[0].strip().casefold()
+        for key in self._repository_config_keys(config_payload):
+            root = key.split(".", 1)[0]
+            leaf = key.rsplit(".", 1)[-1]
+            if key == "extensions.worktreeconfig":
+                raise RemoteBrokerError(
+                    "release_check_invalid",
+                    "repository-local Git config enables an additional config source",
+                )
+            if root in {"alias", "filter", "include", "includeif"}:
+                raise RemoteBrokerError(
+                    "release_check_invalid",
+                    "repository-local Git config enables an execution-capable section",
+                )
             if (
-                current_section == "core"
-                and key in {"hookspath", "attributesfile"}
+                root == "core" and leaf in {"hookspath", "attributesfile"}
             ) or (
-                current_section.startswith("diff")
-                and key in {"command", "external", "textconv"}
+                root == "diff" and leaf in {"command", "external", "textconv"}
             ):
                 raise RemoteBrokerError(
                     "release_check_invalid",
@@ -3287,18 +3353,38 @@ class RemoteExecutionBroker:
                 f"HEAD:{relative}",
                 output_limit=MAX_TRACKED_HARNESS_BYTES,
             )
-            worktree_sha256 = hashlib.sha256(worktree_bytes).digest()
             head_sha256 = hashlib.sha256(head_bytes).digest()
+
+            def matches_head(candidate: bytes) -> bool:
+                return (
+                    len(candidate) == len(head_bytes)
+                    and hmac.compare_digest(
+                        hashlib.sha256(candidate).digest(), head_sha256
+                    )
+                    and hmac.compare_digest(candidate, head_bytes)
+                )
+
+            matches_exactly = matches_head(worktree_bytes)
+            if not matches_exactly:
+                narrowed_bytes = worktree_bytes.replace(b"\r\n", b"\n")
+                matches_crlf_checkout = (
+                    b"\r\n" in worktree_bytes
+                    and b"\r" not in narrowed_bytes
+                    and matches_head(narrowed_bytes)
+                )
+            else:
+                matches_crlf_checkout = False
             if (
                 len(head_bytes) > MAX_TRACKED_HARNESS_BYTES
-                or not hmac.compare_digest(worktree_sha256, head_sha256)
-                or not hmac.compare_digest(worktree_bytes, head_bytes)
+                or not (matches_exactly or matches_crlf_checkout)
             ):
                 raise RemoteBrokerError(
                     "release_check_invalid",
                     f"{label} differs from the clean release commit",
                 )
-            return path, worktree_bytes
+            # The stable worktree read proves checkout equivalence. Execute the
+            # verified Git blob so checkout policy cannot select launcher bytes.
+            return path, head_bytes
 
         harness_path, harness_bytes = tracked_path(
             "scripts/harness.py", label="release-check executable"

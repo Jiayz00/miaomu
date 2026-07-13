@@ -123,6 +123,10 @@ python -I -S -B scripts/harness.py remote-exec NUR-OPS-001 deploy_release --allo
 
 broker 内部执行 release-check 时先稳定读取并核对 Git 中的 Harness 与 broker bytes，再通过仅存在于内存 `script_globals` 的对象身份上下文把已验证 broker module 交给 Harness。该内部入口不使用环境变量或 argv 作为信任信号；校验后磁盘 sibling 被替换或暂时不存在时，也不得重新读取它或接受其伪造输出。普通直接隔离 CLI 没有该私有上下文，仍按精确 sibling 路径加载。
 
+已跟踪的 `scripts/harness.py` 与 `scripts/harness_remote.py` 先通过稳定句柄读取工作树。原始 bytes 可逐字节等于 HEAD；原始 bytes 不同时，只接受 Git `core.autocrlf` 场景下所有 CRLF 窄化为 LF 后逐字节等于 HEAD。bare CR 不能作为行尾等价，Unicode/空白归一化和其他内容漂移均拒绝。通过后 launcher 只执行已验证的 HEAD blob bytes，不执行工作树原始字节。
+
+仓库级 Git config 只稳定读取一次，并通过匿名临时句柄将同一份 bytes 送入固定系统 Git 的 `config --file - --no-includes --null --name-only --list`；不重开配置、不跟随 include，也不输出 value。Git 规范化的 key names 再按 root/末级 key 判定风险：`alias`、`filter`、`include`、`includeIf`、会引入 `config.worktree` 的 `extensions.worktreeConfig` 及危险 diff/core helper 失败关闭，普通复杂 quoted subsection 与 `remote.origin` 等安全配置不被误拒。Git 解析失败、输出超限、非法 UTF-8、空 key 或损坏的 NUL framing 均拒绝。
+
 ## 项目级 Codex 能力
 
 - `.codex/config.toml`：最小权限默认值和本地只读 MCP。

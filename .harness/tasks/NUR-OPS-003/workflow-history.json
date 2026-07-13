@@ -138,6 +138,22 @@
       "by": "Codex-Implementer",
       "reason": "Adopt locked Codex role bindings and review artifact attestations after independent Harness rejection",
       "at": "2026-07-13T07:31:22Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "Harness v2 bootstrap merged; submit locked Caddy two-service plan for independent reapproval",
+      "at": "2026-07-13T10:55:06Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "ready_for_analysis",
+      "by": "Codex-Implementer",
+      "reason": "Plan reapproval rejected: Windows core.autocrlf causes false release-check drift; repair Harness bootstrap before resubmission",
+      "at": "2026-07-13T11:06:36Z"
     }
   ]
 }
