@@ -204,12 +204,12 @@ class FavoriteServiceContractTests(unittest.TestCase):
 
     def test_web_writes_are_ajax_post_with_session_bound_csrf(self) -> None:
         validate = method(SERVICE_FILE, "ValidateWebWrite")
-        token = method(SERVICE_FILE, "WebCsrfToken")
+        nonce = method(SERVICE_FILE, "WebRequestNonce")
         self.assertIn("!request()->ispost()||!is_ajax", validate)
-        self.assertIn("mysession(self::csrf_session_key)", validate)
+        self.assertIn("mysession(self::nonce_session_key)", validate)
         self.assertIn("hash_equals($expected,$provided)", validate)
-        self.assertIn("random_bytes(32)", token)
-        self.assertIn("mysession(self::csrf_session_key,$token)", token)
+        self.assertIn("random_bytes(32)", nonce)
+        self.assertIn("mysession(self::nonce_session_key,$nonce)", nonce)
 
     def test_api_writes_are_post_and_use_gateway_user_context(self) -> None:
         source = compact_code(read_utf8(API_CONTROLLER_FILE))
@@ -305,7 +305,7 @@ class FavoriteUiContractTests(unittest.TestCase):
             self.assertIn("nursery-favorite-action", source)
             self.assertIn("data-add-url", source)
             self.assertIn("data-cancel-url", source)
-            self.assertIn("data-csrf-token", source)
+            self.assertIn("data-request-nonce", source)
             self.assertNotIn("common-goods-favor-submit-event", source)
             self.assertNotIn("__goods_favor_url__", source)
 
@@ -336,7 +336,7 @@ class FavoriteUiContractTests(unittest.TestCase):
         source = compact_code(read_utf8(JS_FILE))
         self.assertIn("varurl=active?button.attr('data-cancel-url'):button.attr('data-add-url')", source)
         self.assertIn("button.data('favorite-pending')===true", source)
-        self.assertIn("data:{goods_id:goodsid,csrf_token:", source)
+        self.assertIn("data:{goods_id:goodsid,request_nonce:", source)
         self.assertIn("updatestate(goodsid,nextactive)", source)
         for forbidden in ("__goods_favor_url__", "data-toggle", "is_mandatory_favor"):
             self.assertNotIn(forbidden, source)

@@ -110,7 +110,7 @@
             timeout: 10000,
             data: {
                 goods_id: goodsId,
-                csrf_token: button.attr('data-csrf-token') || ''
+                request_nonce: button.attr('data-request-nonce') || ''
             },
             success: function(response)
             {

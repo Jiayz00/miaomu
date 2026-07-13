@@ -71,6 +71,22 @@
       "by": "Codex-Implementer",
       "reason": "",
       "at": "2026-07-13T22:34:38Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-13T22:37:16Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-13T22:38:53Z"
     }
   ]
 }

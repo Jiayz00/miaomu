@@ -23,7 +23,7 @@ TEST_RESULT: nursery_scope_regression exit_code=0
 TEST_COMMAND: harness_selftest ["python", "scripts/harness_selftest.py"]
 TEST_RESULT: harness_selftest exit_code=0
 
-本地运行：`.harness/runs/NUR-FEAT-003/20260713T223144492914Z-verify/`。最终报告记录 `passed=4 failed=0 blocked=0`；收藏合同 32 项、目录价格回归 30 项、范围回归 23 项、Harness 自检 60 项通过且 2 项平台相关测试按既有条件跳过。
+本地运行：`.harness/runs/NUR-FEAT-003/20260713T223717586297Z-verify/`。最终报告记录 `passed=4 failed=0 blocked=0`；收藏合同 32 项、目录价格回归 30 项、范围回归 23 项、Harness 自检 60 项通过且 2 项平台相关测试按既有条件跳过。
 
 ## 手工与页面证据
 

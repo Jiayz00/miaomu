@@ -22,7 +22,7 @@ class Favorite
         }
         MyViewAssign([
             'favorite_data' => $result['data'],
-            'csrf_token'    => FavoriteService::WebCsrfToken(),
+            'request_nonce' => FavoriteService::WebRequestNonce(),
         ]);
         return MyView('../../../plugins/nursery/view/index/favorite/index');
     }

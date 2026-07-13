@@ -7,7 +7,7 @@ use app\service\ResourcesService;
 
 class FavoriteService
 {
-    private const CSRF_SESSION_KEY = 'nursery_favorite_csrf_v1';
+    private const NONCE_SESSION_KEY = 'nursery_favorite_nonce_v1';
     private const MAX_GOODS_ID = 4294967295;
 
     public static function Add($user, $params = [])
@@ -131,15 +131,15 @@ class FavoriteService
         }
     }
 
-    public static function WebCsrfToken()
+    public static function WebRequestNonce()
     {
-        $token = MySession(self::CSRF_SESSION_KEY);
-        if(!is_string($token) || preg_match('/^[a-f0-9]{64}$/D', $token) !== 1)
+        $nonce = MySession(self::NONCE_SESSION_KEY);
+        if(!is_string($nonce) || preg_match('/^[a-f0-9]{64}$/D', $nonce) !== 1)
         {
-            $token = bin2hex(random_bytes(32));
-            MySession(self::CSRF_SESSION_KEY, $token);
+            $nonce = bin2hex(random_bytes(32));
+            MySession(self::NONCE_SESSION_KEY, $nonce);
         }
-        return $token;
+        return $nonce;
     }
 
     public static function ValidateWebWrite($params = [])
@@ -148,8 +148,8 @@ class FavoriteService
         {
             return DataReturn('收藏写操作仅接受站内异步 POST 请求', -1);
         }
-        $provided = isset($params['csrf_token']) && is_string($params['csrf_token']) ? $params['csrf_token'] : '';
-        $expected = MySession(self::CSRF_SESSION_KEY);
+        $provided = isset($params['request_nonce']) && is_string($params['request_nonce']) ? $params['request_nonce'] : '';
+        $expected = MySession(self::NONCE_SESSION_KEY);
         if(!is_string($expected) || strlen($expected) !== 64 || strlen($provided) !== 64 || !hash_equals($expected, $provided))
         {
             return DataReturn('收藏请求校验失败，请刷新页面后重试', -1);

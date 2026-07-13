@@ -143,7 +143,7 @@ class Hook
         {
             return;
         }
-        $params['data']['nursery_favorite_csrf'] = FavoriteService::WebCsrfToken();
+        $params['data']['nursery_favorite_nonce'] = FavoriteService::WebRequestNonce();
         $params['data']['nursery_favorite_add_url'] = PluginsHomeUrl('nursery', 'favorite', 'add');
         $params['data']['nursery_favorite_cancel_url'] = PluginsHomeUrl('nursery', 'favorite', 'cancel');
         $params['data']['nursery_favorite_list_url'] = PluginsHomeUrl('nursery', 'favorite', 'index');
@@ -164,7 +164,7 @@ class Hook
             $active = !empty($item['active']);
             $item['type'] = 'nursery-favorite';
             $item['class'] = trim(($item['class'] ?? '').' nursery-favorite-action');
-            $item['document'] = 'data-favorite-status="'.($active ? '1' : '0').'" data-csrf-token="'.htmlspecialchars(FavoriteService::WebCsrfToken(), ENT_QUOTES, 'UTF-8').'" data-add-url="'.htmlspecialchars(PluginsHomeUrl('nursery', 'favorite', 'add'), ENT_QUOTES, 'UTF-8').'" data-cancel-url="'.htmlspecialchars(PluginsHomeUrl('nursery', 'favorite', 'cancel'), ENT_QUOTES, 'UTF-8').'"';
+            $item['document'] = 'data-favorite-status="'.($active ? '1' : '0').'" data-request-nonce="'.htmlspecialchars(FavoriteService::WebRequestNonce(), ENT_QUOTES, 'UTF-8').'" data-add-url="'.htmlspecialchars(PluginsHomeUrl('nursery', 'favorite', 'add'), ENT_QUOTES, 'UTF-8').'" data-cancel-url="'.htmlspecialchars(PluginsHomeUrl('nursery', 'favorite', 'cancel'), ENT_QUOTES, 'UTF-8').'"';
         }
         unset($item);
     }

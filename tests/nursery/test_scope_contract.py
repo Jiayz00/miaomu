@@ -1307,7 +1307,7 @@ def strip_favorite_view_additions(source: str, label: str) -> str:
     for token in (
         "data-gid=",
         "data-favorite-status=",
-        "data-csrf-token=",
+        "data-request-nonce=",
         "data-add-url=",
         "data-cancel-url=",
         "aria-pressed=",

@@ -43,7 +43,7 @@
                             {{else /}}
                                 <span class="nursery-favorite-view-disabled"><i class="iconfont icon-eye-slash"></i><span>暂不可查看</span></span>
                             {{/if}}
-                            <button type="button" class="am-btn am-btn-danger am-btn-sm nursery-favorite-action" data-gid="{{$item.goods_id}}" data-favorite-status="1" data-csrf-token="{{$csrf_token}}" data-add-url="{{:PluginsHomeUrl('nursery', 'favorite', 'add')}}" data-cancel-url="{{:PluginsHomeUrl('nursery', 'favorite', 'cancel')}}" data-remove-on-cancel="1" aria-label="取消收藏 {{$item.title}}" aria-pressed="true"><i class="iconfont icon-delete"></i><span>取消收藏</span></button>
+                            <button type="button" class="am-btn am-btn-danger am-btn-sm nursery-favorite-action" data-gid="{{$item.goods_id}}" data-favorite-status="1" data-request-nonce="{{$request_nonce}}" data-add-url="{{:PluginsHomeUrl('nursery', 'favorite', 'add')}}" data-cancel-url="{{:PluginsHomeUrl('nursery', 'favorite', 'cancel')}}" data-remove-on-cancel="1" aria-label="取消收藏 {{$item.title}}" aria-pressed="true"><i class="iconfont icon-delete"></i><span>取消收藏</span></button>
                         </div>
                     </div>
                 </article>
