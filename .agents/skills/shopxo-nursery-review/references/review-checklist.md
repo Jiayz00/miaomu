@@ -46,3 +46,11 @@
 - Approval is asserted only from self-editable task fields.
 - A required source/control-plane file, task, active state, verify manifest, review pack, executable, cwd, or changed file traverses a symlink or Windows junction.
 - Evidence omits any required test's exact `TEST_COMMAND` or `TEST_RESULT: <id> exit_code=0`, or ignores timeout/output-limit/control-plane integrity failures.
+
+## Remote release
+
+- A raw SSH/SCP/curl command bypasses the project broker, or a broker action is not present byte-for-byte in the approved contract.
+- Host, port, user, SHA256 host-key fingerprint, identity/known_hosts reference, managed root, cwd or argv differs from the plan approval context.
+- A mutating action runs before independent release approval, `approved_for_merge`, a clean committed worktree and a matching `release-seal`.
+- A bound Codex approval is missing its fixed ordinary JSON artifact, uses a different agent task, reuses the implementation thread, or its artifact/context canonical SHA no longer matches history.
+- Shared Caddy changes omit the original config/Compose/container snapshot, pre-change validation, existing-site regression or a contracted rollback action.

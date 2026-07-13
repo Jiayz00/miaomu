@@ -71,6 +71,8 @@
       "docs/product/REQUIREMENTS_TRACEABILITY.md",
       "docs/architecture/SHOPXO_BOUNDARY.md",
       "scripts/harness.py",
+      "scripts/harness_remote.py",
+      "scripts/harness_remote_selftest.py",
       "scripts/harness_selftest.py",
       "scripts/harness.ps1",
       "scripts/harness.sh",
@@ -90,6 +92,9 @@
       ".harness/tasks/{task_id}/evidence.md",
       ".harness/tasks/{task_id}/review.md",
       ".harness/tasks/{task_id}/release-note.md",
+      ".harness/tasks/{task_id}/approval-plan.json",
+      ".harness/tasks/{task_id}/approval-merge.json",
+      ".harness/tasks/{task_id}/approval-release.json",
       ".harness/runs/{task_id}/**",
       ".harness/reports/{task_id}/**",
       ".harness/state/active-task.json"
@@ -155,8 +160,9 @@
     }
   },
   "execution": {
-    "production_access": "deny",
-    "secret_access": "deny",
+    "production_access": "task_scoped_explicit",
+    "secret_access": "external_reference_only",
+    "network_access": "task_scoped_explicit",
     "max_test_timeout_seconds": 3600,
     "max_captured_output_bytes": 1048576,
     "production_environment_markers": {
@@ -208,6 +214,8 @@
       ".agents/skills/shopxo-nursery-review/agents/openai.yaml",
       ".agents/skills/shopxo-nursery-review/references/review-checklist.md",
       "scripts/harness.py",
+      "scripts/harness_remote.py",
+      "scripts/harness_remote_selftest.py",
       "scripts/harness_selftest.py",
       "scripts/harness.ps1",
       "scripts/harness.sh",

@@ -10,4 +10,12 @@ else
   exit 127
 fi
 
-exec "$PYTHON" "$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/harness.py" "$@"
+HARNESS_SCRIPT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/harness.py"
+case "${1-}" in
+  remote-actions|remote-exec|release-seal|release-check)
+    exec "$PYTHON" -I -S -B "$HARNESS_SCRIPT" "$@"
+    ;;
+  *)
+    exec "$PYTHON" "$HARNESS_SCRIPT" "$@"
+    ;;
+esac

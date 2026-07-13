@@ -20,7 +20,7 @@
 4. 只修改任务 `allowed_paths` 授权的路径。
 5. 执行任务声明的真实测试并保留退出码和证据。
 6. 运行 `scope-check`、`evidence-check` 和 `review-pack`。
-7. L3/L4、数据库、权限、统计口径或 ShopXO 核心修改必须由独立人员审批；需要 release 审批时，release_approver 必须与 owner/reviewer 不同。
+7. L3/L4、数据库、权限、统计口径或 ShopXO 核心修改必须由独立角色审批。按项目负责人的明确授权，owner、reviewer、release_approver 可由不同 Codex 代理承担；实现代理不得批准自己的变更，审批必须引用独立审查与真实验证证据。
 8. 数据库升级必须提供版本化 forward migration；`config/shopxo.sql` 不能作为既有站点的唯一升级脚本，fresh-install 例外必须为 L4 且写明不存在既有实例。
 
 ## 业务不变量
@@ -36,7 +36,7 @@
 ## 禁止事项
 
 - 修改用户级或全局 Codex 配置；项目能力只能放在本仓库的 `.codex/`、`.agents/` 和 `.harness/`。
-- 访问生产密钥、生产数据库或自动发布生产环境。
+- 读取密钥内容、访问未授权数据库，或执行未写入 L4 `remote_execution` 合同的远程/发布动作；SSH 只能引用仓库外凭据，原始 `ssh/scp/curl` 命令保持禁止，远程动作只能经 `python -I -S -B scripts/harness.py remote-exec`（或自动添加这些 flags 的项目 wrapper）。
 - 直接在保护分支实现功能、强制推送、破坏性重置或清理工作区。
 - 物理删除 ShopXO 原有商城核心能力来“精简”系统。
 - 未登记就修改 ShopXO 核心路径或数据库结构。
@@ -53,4 +53,4 @@
 - Harness CLI：`python scripts/harness.py --help`。
 - 项目 MCP：`nursery_harness`，仅提供需求、任务和 Harness 状态的只读工具。
 
-Harness 自身首次搭建或修复属于 bootstrap 例外，可在没有业务任务合同的情况下修改 `.harness/**`、`.codex/**`、`.agents/**`、`.github/**`、三份既有 `docs/product|architecture` Harness 文档、三个 `scripts/harness.*` 入口、`.gitignore`、`AGENTS.md`、`HARNESS.md`、Harness 规格和需求规格书；例外不得用于苗木业务代码。权威清单以 `.harness/harness.json` 的 `paths.bootstrap_allowed` 为准。
+Harness 自身首次搭建或修复属于 bootstrap 例外，可在没有业务任务合同的情况下修改 `.harness/**`、`.codex/**`、`.agents/**`、`.github/**`、三份既有 `docs/product|architecture` Harness 文档、项目级 `scripts/harness*` 入口与自测、`.gitignore`、`AGENTS.md`、`HARNESS.md`、Harness 规格和需求规格书；例外不得用于苗木业务代码。权威清单以 `.harness/harness.json` 的 `paths.bootstrap_allowed` 为准。

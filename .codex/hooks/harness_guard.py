@@ -42,6 +42,8 @@ BOOTSTRAP_PATTERNS = (
     "ShopXO苗木平台需求规格说明书_V1.0.md",
     ".gitignore",
     "scripts/harness.py",
+    "scripts/harness_remote.py",
+    "scripts/harness_remote_selftest.py",
     "scripts/harness_selftest.py",
     "scripts/harness.ps1",
     "scripts/harness.sh",
@@ -52,6 +54,165 @@ PLAN_ARTIFACT_NAMES = (
     "impact-analysis.md",
     "implementation-plan.md",
     "test-plan.md",
+)
+
+TASK_CONTRACT_EDITABLE_STATUSES = frozenset({"draft", "ready_for_analysis"})
+TASK_CONTRACT_LOCKED_STATUSES = frozenset(
+    {
+        "awaiting_plan_approval",
+        "approved_for_implementation",
+        "implementing",
+        "verifying",
+        "awaiting_review",
+        "approved_for_merge",
+        "closed",
+        "blocked",
+        "cancelled",
+    }
+)
+
+SHELL_NETWORK_CLIENT_BASENAMES = frozenset(
+    {
+        "ssh",
+        "scp",
+        "sftp",
+        "curl",
+        "wget",
+        "ftp",
+        "nc",
+        "ncat",
+        "telnet",
+        "plink",
+        "pscp",
+        "invoke-webrequest",
+        "invoke-restmethod",
+        "iwr",
+        "irm",
+        "start-bitstransfer",
+        "test-netconnection",
+        "resolve-dnsname",
+    }
+)
+SHELL_DYNAMIC_EXECUTION_BASENAMES = frozenset({"invoke-expression", "iex"})
+SHELL_POWERSHELL_BASENAMES = frozenset({"powershell", "powershell_ise", "pwsh"})
+SHELL_EXECUTABLE_SUFFIXES = (".exe", ".com", ".cmd", ".bat", ".ps1")
+SHELL_TOKEN_SPLIT_RE = re.compile(r"[\s\"'`=,:;|&(){}\[\]<>]+")
+SHELL_WORD_RE = re.compile(
+    r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|[^\s]+'
+)
+SHELL_STRING_LITERAL_RE = re.compile(
+    r'"(?P<double>(?:\\.|[^"\\])*)"|'
+    r"'(?P<single>(?:\\.|[^'\\])*)'|"
+    r"`(?P<backtick>(?:\\.|[^`\\])*)`"
+)
+JS_COMMAND_LITERAL_RE = re.compile(
+    r"(?i)\bcommand\s*:\s*(?:"
+    r'"(?P<double>(?:\\.|[^"\\])*)"|'
+    r"'(?P<single>(?:\\.|[^'\\])*)'|"
+    r"`(?P<backtick>(?:\\.|[^`\\])*)`"
+    r")"
+)
+DOTNET_NETWORK_TYPE_RE = re.compile(
+    r"(?i)\b(?:System\.)?Net\."
+    r"(?:WebClient|WebRequest|HttpWebRequest|Dns|Http\.HttpClient|Sockets\b)"
+)
+DOTNET_SHORT_NETWORK_TYPE_RE = re.compile(
+    r"(?i)(?:\[\s*|\bNew-Object\s+(?:-TypeName\s+)?)"
+    r"(?:WebClient|HttpClient|WebRequest|HttpWebRequest|TcpClient|UdpClient|Dns)\b"
+)
+POWERSHELL_ENCODED_COMMAND_RE = re.compile(
+    r"(?i)(?:^|[\s\"'`])[-/](?:EncodedCommand|Enc)\b"
+)
+POWERSHELL_DYNAMIC_CALL_RE = re.compile(
+    r"(?is)(?<!&)&\s*(?:\(|\{|\[|\$(?:\{|[A-Za-z_]))"
+)
+POWERSHELL_STRING_CONCAT_RE = re.compile(
+    r"(?is)(?P<expression>"
+    r"(?:(?:\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*')\s*\+\s*)+"
+    r"(?:\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*')"
+    r")"
+)
+POWERSHELL_CONCAT_CALL_RE = re.compile(
+    r"(?is)(?:(?:\[(?:System\.)?String\])::|(?:System\.)?String\.)"
+    r"Concat\s*\((?P<arguments>[^)]{0,2048})\)"
+)
+POWERSHELL_DYNAMIC_START_RE = re.compile(
+    r"(?is)\bStart-Process\b[^\r\n;|]{0,512}"
+    r"(?:\(|\$(?:\{|[A-Za-z_])|\[\s*(?:System\.)?String\s*\]::\s*Concat\b|"
+    r"(?:\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*')\s*\+)"
+)
+GIT_UNCONDITIONAL_WRITE_SUBCOMMANDS = frozenset(
+    {
+        "hash-object",
+        "update-index",
+        "write-tree",
+        "commit-tree",
+        "update-ref",
+        "read-tree",
+        "checkout-index",
+        "fast-import",
+        "mktree",
+        "replace",
+    }
+)
+GIT_EXISTING_BLOCKED_SUBCOMMANDS = frozenset(
+    {
+        "apply",
+        "am",
+        "checkout",
+        "restore",
+        "reset",
+        "clean",
+        "stash",
+        "merge",
+        "rebase",
+        "cherry-pick",
+        "revert",
+    }
+)
+GIT_NOTES_WRITE_ACTIONS = frozenset(
+    {"add", "append", "copy", "edit", "merge", "prune", "remove"}
+)
+GIT_WORKTREE_WRITE_ACTIONS = frozenset(
+    {"add", "lock", "move", "prune", "remove", "repair", "unlock"}
+)
+GIT_CONFIG_WRITE_FLAGS = frozenset(
+    {
+        "--add",
+        "--replace-all",
+        "--unset",
+        "--unset-all",
+        "--rename-section",
+        "--remove-section",
+        "--edit",
+        "-e",
+    }
+)
+GIT_CONFIG_WRITE_ACTIONS = frozenset(
+    {"set", "unset", "rename-section", "remove-section", "edit"}
+)
+GIT_CONFIG_READ_ACTIONS = frozenset({"get", "list"})
+GIT_CONFIG_READ_FLAGS = frozenset(
+    {"--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l"}
+)
+GIT_ENV_CONFIG_INJECTION_RE = re.compile(
+    r"(?i)\bGIT_CONFIG_(?:COUNT|KEY_\d+|VALUE_\d+|PARAMETERS|SYSTEM|GLOBAL)\b"
+)
+EXACT_HARNESS_REMOTE_CLI_RE = re.compile(
+    r"^\s*python\s+-I\s+-S\s+-B\s+scripts[\\/]+harness\.py\s+(?:"
+    r"(?:remote-actions|release-seal|release-check)\s+"
+    r"NUR-(?:FEAT|BUG|UI|DATA|SEC|OPS|DOC|REFACTOR|HARNESS)-\d{3}"
+    r"(?:\s+--base-ref\s+[^\s]+)?(?:\s+--json)?|"
+    r"remote-exec\s+"
+    r"NUR-(?:FEAT|BUG|UI|DATA|SEC|OPS|DOC|REFACTOR|HARNESS)-\d{3}\s+"
+    r"[a-z][a-z0-9_-]{2,63}"
+    r"(?:\s+(?:--allow-mutating|--json)){0,2}"
+    r")\s*$",
+    re.I,
+)
+SENSITIVE_HARNESS_CLI_FRAGMENT_RE = re.compile(
+    r"(?i)\bscripts[\\/]+harness\.py\s+"
+    r"(?:remote-actions|remote-exec|release-seal|release-check)\b"
 )
 
 
@@ -158,7 +319,6 @@ SHELL_DIRECT_WRITE_PATTERNS = (
         r"(?:ci|install|update|upgrade|add|remove|uninstall|require|sync|lock|dump-autoload)\b"
     ),
     re.compile(r"(?i)\b(?:tar\s+[^\r\n;]*-[^\r\n;]*x|unzip\b|7z\s+x\b|Expand-Archive\b)"),
-    re.compile(r"(?i)(?:^|[\s;&|])(?:curl|wget|ftp|ssh|scp|sftp|nc|ncat|telnet)\b"),
     re.compile(
         r"(?i)\b(?:python(?:3)?|py)\s+-c\b|\bphp\s+-r\b|"
         r"\bnode\s+(?:-e|--eval)\b|\bruby\s+-e\b|\bperl\s+-e\b"
@@ -269,6 +429,344 @@ def extract_patch_paths(text: str) -> list[str]:
     return paths
 
 
+def task_control_file(path: str) -> tuple[str, str] | None:
+    parts = path.split("/")
+    if (
+        len(parts) == 4
+        and parts[0].casefold() == ".harness"
+        and parts[1].casefold() == "tasks"
+    ):
+        return parts[2], parts[3].casefold()
+    return None
+
+
+def existing_task_contract_patch_error(path: str) -> str | None:
+    control_file = task_control_file(path)
+    if control_file is None or control_file[1] != "task.json":
+        return None
+    task_id = control_file[0]
+    task_path = TASKS_DIR / task_id / "task.json"
+    if not task_path.exists():
+        return None
+    try:
+        if path_is_link_like(task_path) or not task_path.is_file():
+            raise ValueError("task.json is not a regular repository file")
+        task_path.resolve(strict=True).relative_to(ROOT.resolve())
+        task = json.loads(task_path.read_text(encoding="utf-8"))
+        if not isinstance(task, dict) or task.get("id") != task_id:
+            raise ValueError("task id does not match its directory")
+        status = task.get("status")
+        if not isinstance(status, str):
+            raise ValueError("task status is missing or invalid")
+    except (OSError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        return f"已有任务合同无法安全读取，只能由 Harness CLI 修复：{task_id}（{exc}）"
+    if status in TASK_CONTRACT_EDITABLE_STATUSES:
+        return None
+    if status not in TASK_CONTRACT_LOCKED_STATUSES:
+        return f"任务 {task_id} 的未知状态 {status} 禁止直接修改 task.json。"
+    return (
+        f"任务 {task_id} 当前状态 {status} 已锁定 task.json；"
+        "请使用 Harness CLI 状态流转，需调整计划时先退回 ready_for_analysis。"
+    )
+
+
+def is_exact_harness_remote_cli(text: str) -> bool:
+    return EXACT_HARNESS_REMOTE_CLI_RE.fullmatch(text) is not None
+
+
+def strip_exact_harness_remote_cli_literals(text: str) -> str:
+    if is_exact_harness_remote_cli(text):
+        return ""
+
+    def replace(match: re.Match[str]) -> str:
+        body = string_literal_body(match)
+        return " " if is_exact_harness_remote_cli(body) else match.group(0)
+
+    return SHELL_STRING_LITERAL_RE.sub(replace, text)
+
+
+def string_literal_body(match: re.Match[str]) -> str:
+    for name in ("double", "single", "backtick"):
+        body = match.groupdict().get(name)
+        if body is not None:
+            return body
+    return ""
+
+
+def shell_token_basename(raw_token: str) -> str:
+    token = raw_token.strip().strip('"\'`').rstrip(",")
+    basename = re.split(r"[\\/]+", token)[-1].casefold()
+    for suffix in SHELL_EXECUTABLE_SUFFIXES:
+        if basename.endswith(suffix):
+            return basename[: -len(suffix)]
+    return basename
+
+
+def shell_network_client(text: str) -> str | None:
+    for raw_token in SHELL_TOKEN_SPLIT_RE.split(text):
+        if not raw_token:
+            continue
+        basename = shell_token_basename(raw_token)
+        if basename in SHELL_NETWORK_CLIENT_BASENAMES:
+            return basename
+    return None
+
+
+def dynamic_client_name(value: str) -> str | None:
+    compact = re.sub(r"\s+", "", value)
+    if DOTNET_NETWORK_TYPE_RE.search(compact) or DOTNET_SHORT_NETWORK_TYPE_RE.search(
+        compact
+    ):
+        return "dotnet-network"
+    basename = shell_token_basename(compact)
+    if basename in SHELL_NETWORK_CLIENT_BASENAMES | SHELL_DYNAMIC_EXECUTION_BASENAMES:
+        return basename
+    return None
+
+
+def powershell_encoded_command(text: str) -> bool:
+    if not any(
+        shell_token_basename(raw_token) in SHELL_POWERSHELL_BASENAMES
+        for raw_token in SHELL_TOKEN_SPLIT_RE.split(text)
+    ):
+        return False
+    if POWERSHELL_ENCODED_COMMAND_RE.search(text):
+        return True
+    for raw_token in SHELL_TOKEN_SPLIT_RE.split(text):
+        token = raw_token.casefold()
+        if not token.startswith(("-", "/")):
+            continue
+        candidate = token[1:]
+        if candidate and "encodedcommand".startswith(candidate):
+            return True
+    return False
+
+
+def powershell_dynamic_network_error(text: str) -> str | None:
+    if DOTNET_NETWORK_TYPE_RE.search(text) or DOTNET_SHORT_NETWORK_TYPE_RE.search(text):
+        return "禁止通过 PowerShell/.NET 网络类型绕过项目远程执行 broker。"
+    if powershell_encoded_command(text):
+        return "禁止 PowerShell EncodedCommand；编码载荷无法由 Hook 可靠审计。"
+    for raw_token in SHELL_TOKEN_SPLIT_RE.split(text):
+        if shell_token_basename(raw_token) in SHELL_DYNAMIC_EXECUTION_BASENAMES:
+            return "禁止 Invoke-Expression/iex 动态执行；远程动作必须使用固定 Harness CLI。"
+    if POWERSHELL_DYNAMIC_CALL_RE.search(text):
+        return "禁止 PowerShell 计算型 call operator；不得动态构造可执行客户端。"
+    if POWERSHELL_DYNAMIC_START_RE.search(text):
+        return "禁止 Start-Process 动态构造可执行客户端。"
+    for match in POWERSHELL_STRING_CONCAT_RE.finditer(text):
+        joined = "".join(
+            string_literal_body(item)
+            for item in SHELL_STRING_LITERAL_RE.finditer(match.group("expression"))
+        )
+        client = dynamic_client_name(joined)
+        if client is not None:
+            return f"禁止通过字符串拼接动态构造网络/执行客户端 {client}。"
+    for match in POWERSHELL_CONCAT_CALL_RE.finditer(text):
+        joined = "".join(
+            string_literal_body(item)
+            for item in SHELL_STRING_LITERAL_RE.finditer(match.group("arguments"))
+        )
+        client = dynamic_client_name(joined)
+        if client is not None:
+            return f"禁止通过 String.Concat 动态构造网络/执行客户端 {client}。"
+    return None
+
+
+def shell_words(text: str) -> list[str]:
+    words: list[str] = []
+    for match in SHELL_WORD_RE.finditer(text):
+        value = match.group(0).strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        value = value.strip("(),{}[]").rstrip(",")
+        if value:
+            words.append(value)
+    return words
+
+
+def split_shell_segments(text: str) -> list[str]:
+    segments: list[str] = []
+    current: list[str] = []
+    quote: str | None = None
+    escaped = False
+    for character in text:
+        if escaped:
+            current.append(character)
+            escaped = False
+            continue
+        if quote is not None and character == "\\":
+            current.append(character)
+            escaped = True
+            continue
+        if character in {'"', "'", "`"}:
+            current.append(character)
+            if quote is None:
+                quote = character
+            elif quote == character:
+                quote = None
+            continue
+        if quote is None and character in {"\r", "\n", ";", "|", "&"}:
+            segment = "".join(current).strip()
+            if segment:
+                segments.append(segment)
+            current = []
+            continue
+        current.append(character)
+    segment = "".join(current).strip()
+    if segment:
+        segments.append(segment)
+    return segments
+
+
+def git_command_fragments(text: str) -> list[str]:
+    matches = list(JS_COMMAND_LITERAL_RE.finditer(text))
+    if matches:
+        return [string_literal_body(match) for match in matches]
+    return [text]
+
+
+def git_subcommand(
+    words: list[str], git_index: int
+) -> tuple[str | None, list[str], str | None]:
+    index = git_index + 1
+    options_with_values = {"-C", "--git-dir", "--work-tree", "--namespace", "--super-prefix"}
+    while index < len(words):
+        raw = words[index]
+        lowered = raw.casefold()
+        if raw == "-C":
+            index += 2
+            continue
+        if raw == "-c" or raw.startswith("-c"):
+            return None, [], "禁止 git -c 配置注入；不得动态注入 alias/filter/attributes。"
+        if lowered == "--config-env" or lowered.startswith("--config-env="):
+            return None, [], "禁止 git --config-env 配置注入。"
+        if lowered == "--exec-path" or lowered.startswith("--exec-path="):
+            return None, [], "禁止覆盖 Git exec-path 动态执行外部子命令。"
+        option_name = lowered.split("=", 1)[0]
+        if raw in options_with_values or option_name in {
+            "--git-dir",
+            "--work-tree",
+            "--namespace",
+            "--super-prefix",
+        }:
+            index += 1 if "=" in raw else 2
+            continue
+        if raw.startswith("-"):
+            index += 1
+            continue
+        return shell_token_basename(raw), words[index + 1 :], None
+    return None, [], None
+
+
+def first_git_action(arguments: list[str], *, value_options: set[str]) -> str | None:
+    index = 0
+    while index < len(arguments):
+        raw = arguments[index]
+        lowered = raw.casefold()
+        option_name = lowered.split("=", 1)[0]
+        if option_name in value_options:
+            index += 1 if "=" in raw else 2
+            continue
+        if raw.startswith("-"):
+            index += 1
+            continue
+        return lowered
+    return None
+
+
+def git_symbolic_ref_writes(arguments: list[str]) -> bool:
+    if any(item.casefold() == "--delete" for item in arguments):
+        return True
+    positionals: list[str] = []
+    index = 0
+    while index < len(arguments):
+        raw = arguments[index]
+        lowered = raw.casefold()
+        if lowered == "-m":
+            index += 2
+            continue
+        if raw.startswith("-"):
+            index += 1
+            continue
+        positionals.append(raw)
+        index += 1
+    return len(positionals) >= 2
+
+
+def git_config_writes(arguments: list[str]) -> bool:
+    lowered_arguments = [item.casefold() for item in arguments]
+    if any(item.split("=", 1)[0] in GIT_CONFIG_WRITE_FLAGS for item in lowered_arguments):
+        return True
+
+    explicit_read = any(
+        item.split("=", 1)[0] in GIT_CONFIG_READ_FLAGS for item in lowered_arguments
+    )
+    options_with_values = {"--file", "--blob", "--type", "-t", "--default"}
+    positionals: list[str] = []
+    index = 0
+    options_terminated = False
+    while index < len(arguments):
+        raw = arguments[index]
+        lowered = raw.casefold()
+        if not options_terminated and raw == "--":
+            options_terminated = True
+            index += 1
+            continue
+        option_name = lowered.split("=", 1)[0]
+        if not options_terminated and option_name in options_with_values:
+            index += 1 if "=" in raw else 2
+            continue
+        if not options_terminated and raw.startswith("-"):
+            index += 1
+            continue
+        positionals.append(lowered)
+        index += 1
+
+    if positionals and positionals[0] in GIT_CONFIG_WRITE_ACTIONS:
+        return True
+    if explicit_read or (positionals and positionals[0] in GIT_CONFIG_READ_ACTIONS):
+        return False
+    return len(positionals) >= 2
+
+
+def git_write_error(text: str) -> str | None:
+    if GIT_ENV_CONFIG_INJECTION_RE.search(text):
+        return "禁止通过 GIT_CONFIG_* 环境变量注入 Git alias/filter/attributes。"
+    for fragment in git_command_fragments(text):
+        for segment in split_shell_segments(fragment):
+            words = shell_words(segment)
+            for index, word in enumerate(words):
+                if shell_token_basename(word) != "git":
+                    continue
+                subcommand, arguments, parse_error = git_subcommand(words, index)
+                if parse_error:
+                    return parse_error
+                if subcommand in GIT_UNCONDITIONAL_WRITE_SUBCOMMANDS:
+                    return f"禁止直接运行写型 Git plumbing：git {subcommand}。"
+                if subcommand in GIT_EXISTING_BLOCKED_SUBCOMMANDS:
+                    return f"禁止通过 git {subcommand} 直接改写或丢弃工作区。"
+                if subcommand == "push" and any(
+                    item.casefold() in {"--force", "-f"}
+                    or item.casefold().startswith("--force=")
+                    for item in arguments
+                ):
+                    return "禁止强制推送。"
+                if subcommand == "symbolic-ref" and git_symbolic_ref_writes(arguments):
+                    return "禁止使用 git symbolic-ref 写入或删除引用。"
+                if subcommand == "notes":
+                    action = first_git_action(arguments, value_options={"--ref"})
+                    if action in GIT_NOTES_WRITE_ACTIONS:
+                        return f"禁止使用 git notes {action} 修改 notes 引用。"
+                if subcommand == "worktree":
+                    action = first_git_action(arguments, value_options=set())
+                    if action in GIT_WORKTREE_WRITE_ACTIONS:
+                        return f"禁止使用 git worktree {action} 修改工作区。"
+                if subcommand == "config" and git_config_writes(arguments):
+                    return "禁止通过 git config 写入 repo/global 配置或注入 filter/attributes/alias/hooksPath。"
+    return None
+
+
 def canonical_json_hash(value: Any) -> str:
     data = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
@@ -349,6 +847,7 @@ def immutable_contract(task: dict[str, Any]) -> dict[str, Any]:
         "shopxo_core_change",
         "database_change",
         "required_tests",
+        "codex_role_bindings",
         "owner",
         "reviewer",
         "release_approver",
@@ -389,7 +888,12 @@ def policy_contract(task: dict[str, Any]) -> dict[str, Any]:
     value.update(
         {
             key: task.get(key)
-            for key in ("new_dependency_allowed", "network_access_required", "rollback")
+            for key in (
+                "new_dependency_allowed",
+                "network_access_required",
+                "remote_execution",
+                "rollback",
+            )
         }
     )
     return value
@@ -471,6 +975,14 @@ def check_apply_patch(tool_input: Any) -> str | None:
     if any(path.startswith(".harness/state/") for path in paths):
         return "活动任务状态只能由 Harness CLI 更新。"
 
+    for path in paths:
+        control_file = task_control_file(path)
+        if control_file is not None and control_file[1] == "workflow-history.json":
+            return "workflow-history.json 只能由 Harness CLI 更新。"
+        task_error = existing_task_contract_patch_error(path)
+        if task_error:
+            return task_error
+
     task = None
     error = None
     if STATE_FILE.is_file():
@@ -481,7 +993,7 @@ def check_apply_patch(tool_input: Any) -> str | None:
     if task is not None:
         task_id = str(task.get("id", ""))
         if any(path == f".harness/tasks/{task_id}/task.json" for path in paths):
-            return "活动任务的授权合同在 preflight 后锁定；修改后必须重新人工审批。"
+            return "活动任务的授权合同在 preflight 后锁定；修改后必须重新独立审批。"
         protected_harness_paths = (
             ".codex/**",
             ".agents/**",
@@ -491,6 +1003,8 @@ def check_apply_patch(tool_input: Any) -> str | None:
             "docs/product/REQUIREMENTS_TRACEABILITY.md",
             "docs/architecture/SHOPXO_BOUNDARY.md",
             "scripts/harness.py",
+            "scripts/harness_remote.py",
+            "scripts/harness_remote_selftest.py",
             "scripts/harness_selftest.py",
             "scripts/harness.ps1",
             "scripts/harness.sh",
@@ -504,6 +1018,9 @@ def check_apply_patch(tool_input: Any) -> str | None:
             f".harness/tasks/{task_id}/evidence.md",
             f".harness/tasks/{task_id}/review.md",
             f".harness/tasks/{task_id}/release-note.md",
+            f".harness/tasks/{task_id}/approval-plan.json",
+            f".harness/tasks/{task_id}/approval-merge.json",
+            f".harness/tasks/{task_id}/approval-release.json",
         )
         if str(task.get("type", "")).lower() != "harness":
             for path in paths:
@@ -546,12 +1063,21 @@ def check_apply_patch(tool_input: Any) -> str | None:
 
 
 def check_shell(tool_input: Any, *, strip_patch_blocks: bool = False) -> str | None:
-    text = "\n".join(collect_strings(tool_input))
+    policy_values = [
+        strip_exact_harness_remote_cli_literals(value)
+        for value in collect_strings(tool_input)
+    ]
+    text = "\n".join(policy_values)
     if strip_patch_blocks:
         text = re.sub(
             r"\*\*\* Begin Patch[\s\S]*?\*\*\* End Patch",
             "",
             text,
+        )
+    if SENSITIVE_HARNESS_CLI_FRAGMENT_RE.search(text):
+        return (
+            "敏感 Harness 命令必须使用精确隔离启动形式："
+            "python -I -S -B scripts/harness.py <command> ..."
         )
     for pattern in SHELL_DIRECT_WRITE_PATTERNS:
         if pattern.search(text):
@@ -559,6 +1085,19 @@ def check_shell(tool_input: Any, *, strip_patch_blocks: bool = False) -> str | N
                 "禁止通过 shell 直接写入、移动或删除项目文件；"
                 "请使用 apply_patch 让 Hook 校验路径，或使用固定 Harness CLI。"
             )
+    powershell_error = powershell_dynamic_network_error(text)
+    if powershell_error:
+        return powershell_error
+    network_client = shell_network_client(text)
+    if network_client is not None:
+        return (
+            f"禁止直接调用网络客户端 {network_client}；"
+            "远程动作只能使用精确的 python -I -S -B scripts/harness.py remote-exec 合同命令。"
+        )
+    for value in policy_values:
+        git_error = git_write_error(value)
+        if git_error:
+            return git_error
     for pattern, reason in SHELL_BLOCK_PATTERNS:
         if pattern.search(text):
             return reason

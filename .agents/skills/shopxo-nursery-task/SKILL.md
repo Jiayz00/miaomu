@@ -55,7 +55,9 @@ python scripts/harness.py review-pack <TASK_ID>
 
 Before `release-check`, complete `release-note.md`. For a task with required
 release approval, the recorded `release_approver` must be different from both
-the owner and reviewer. Record merge/release approvals, then transition to
+the owner and reviewer. These roles may be separate Codex agents when the
+project owner has explicitly authorized autonomous approvals; the implementing
+agent must not record its own review or release approval. Record merge/release approvals, then transition to
 `approved_for_merge`; that transition performs the pre-transition readiness
 check. Run standalone `release-check` only after the transition so CLI/CI can
 prove the state was not skipped.
@@ -64,6 +66,12 @@ Report missing tools or fixtures as `blocked`, and report unexecuted work separa
 
 `verify` runs commands without a shell, with offline/sensitive-environment cleanup and bounded stdout/stderr. A timeout, output-limit breach, business-worktree mutation, or Harness/control-plane mutation is a failed verification. If a damaged or stale active state cannot be removed by a normal transition, use the CLI `state-recover` flow; never delete it manually.
 
+## Remote Execution
+
+Run network, SSH, deployment, database initialization, shared-gateway edits, or remote smoke tests only for an L4 operations task with `network_access_required=true` and a locked `remote_execution` contract. Raw SSH/SCP/curl remains prohibited: invoke `remote-actions`, `remote-exec`, `release-seal`, and standalone `release-check` only as `python -I -S -B scripts/harness.py ...` (or through a project wrapper that adds those flags). Use the pinned host fingerprint, external user-SSH file references, managed roots and structured argv. Never read credential or application-secret contents. Before any mutating action, require independent release approval, `approved_for_merge`, a clean committed worktree and `release-seal`. Inventory shared services before changes, preserve pre-change snapshots, validate configuration before reload, and execute only the declared rollback action when a gate fails. Isolated startup prevents repository stdlib shadowing; it is not a platform signature for the Python executable.
+
+The broker's internal release-check launcher must reuse its already verified in-memory broker module through the private script-globals object-identity context. It must not re-read the sibling broker after validation, and no environment variable or argv value may select that trusted path. Direct isolated CLI calls continue to load the exact sibling file.
+
 ## Stop Conditions
 
-Stop and request human direction for an open requirement decision, production action, ShopXO core deletion, unresolved user-data access rule, analytics definition change, destructive migration, or L3/L4 approval. Do not widen the task to solve these implicitly.
+Stop for an open requirement decision, contract-external remote action, ShopXO core deletion, unresolved user-data access rule, analytics definition change, or destructive migration. L3/L4 approvals may proceed through distinct Codex reviewer/release agents only when the project owner has explicitly authorized that mode and the required evidence is complete. Do not widen the task implicitly.

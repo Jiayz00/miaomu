@@ -3,6 +3,8 @@ approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 
 [sandbox_workspace_write]
+# Repository configuration never opens network access globally. An authorized
+# L4 broker run still requires the surrounding Codex session/tool permission.
 network_access = false
 
 [features]

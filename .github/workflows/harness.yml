@@ -59,6 +59,9 @@ jobs:
       - name: Harness core regression tests
         run: python scripts/harness_selftest.py
 
+      - name: Harness remote broker regression tests
+        run: python scripts/harness_remote_selftest.py
+
       - name: Environment discovery
         run: python scripts/harness.py doctor
 
@@ -100,7 +103,7 @@ jobs:
            inputs.release_check == true)
         env:
           TASK_ID: ${{ steps.task.outputs.task_id }}
-        run: python scripts/harness.py release-check "$TASK_ID" --base-ref "$GITHUB_BASE_SHA"
+        run: python -I -S -B scripts/harness.py release-check "$TASK_ID" --base-ref "$GITHUB_BASE_SHA"
 
       - name: Upload Harness evidence
         if: always()

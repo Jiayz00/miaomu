@@ -36,10 +36,18 @@ If no defect is found, state residual risks and unverified areas. Do not modify 
 
 Reject symlinked or junction-backed source/control-plane/task/evidence/report paths, `config/shopxo.sql` as the only existing-site upgrade path, missing per-test evidence markers, output-limit failures, or required tests that changed either business files or the Harness control plane.
 
-Only an independent reviewer may record approval. When the review is approved,
+Only an independent reviewer may record approval. A separate Codex review agent
+may act as reviewer when explicitly authorized by the project owner, but the
+implementation agent may not assume that identity. When the review is approved,
 write the exact standalone marker `REVIEW_RESULT: APPROVED` in `review.md`, record
-the reviewer identity/date, then use `task-approval ... merge`; task fields alone
-are not proof of identity.
+the reviewer identity/date, create the fixed `approval-merge.json` matching the
+CLI-computed context, then use `task-approval ... merge` with the contracted
+agent task. Task/thread fields and the artifact are self-asserted audit context,
+not cryptographic proof of identity.
 
 For L4 or any task declaring release approval, corroborate a second approval by
-the contracted `release_approver`, who must differ from both owner and reviewer.
+the contracted release agent, who must differ from both owner and reviewer and
+must inspect the remote contract, host fingerprint, exact action argv, managed
+roots, backup, rollback, shared-service diff, clean release commit/seal, and
+latest verification evidence before approving. Reject raw SSH/SCP execution or
+mutating broker evidence whose Git commit does not match the release seal.

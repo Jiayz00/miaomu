@@ -35,6 +35,109 @@
       "by": "Codex",
       "reason": "",
       "at": "2026-07-13T03:55:38Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_implementation",
+      "to": "implementing",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T03:55:53Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T04:29:11Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T04:31:49Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "implementing",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T04:34:50Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T04:35:44Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T04:36:41Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "implementing",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T04:44:11Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "blocked",
+      "by": "Codex",
+      "reason": "用户要求取消新建 Nginx 并复用服务器现有 Caddy，已批准实施计划失效，必须重新分析。",
+      "at": "2026-07-13T05:14:17Z"
+    },
+    {
+      "type": "transition",
+      "from": "blocked",
+      "to": "ready_for_analysis",
+      "by": "Codex",
+      "reason": "按用户最新架构与自动审批策略重新分析任务。",
+      "at": "2026-07-13T05:14:33Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "Caddy two-service plan passed independent review",
+      "at": "2026-07-13T06:35:45Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/compose_stack_review",
+      "codex_thread_id": "019f597f-6833-7511-8020-361e7b27e19c",
+      "reason": "Caddy two-service plan independently reviewed and approved",
+      "at": "2026-07-13T06:42:47Z",
+      "plan_artifacts_sha256": "1e7346fc19052e57ad921258757b49fe72a12d8264e31fcb1bfef52df5785668",
+      "decision_context_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "contract_sha256": "8a8270b7bdfe7081ffb1b223d4b95960f23395d616de67f7aaf0e5b65d7a3334",
+      "policy_sha256": "1934127249a83381c157dcd391ad822927348beda1344934004fd3dd298ae072"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "ready_for_analysis",
+      "by": "Codex-Implementer",
+      "reason": "Adopt locked Codex role bindings and review artifact attestations after independent Harness rejection",
+      "at": "2026-07-13T07:31:22Z"
     }
   ]
 }

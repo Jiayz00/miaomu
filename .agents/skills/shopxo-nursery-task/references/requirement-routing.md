@@ -4,7 +4,9 @@ Record the selected `PRIORITY` and `PHASE`, plus the source rationale, in
 `requirement.md`. The Harness checks that those markers match `task.json`, but
 does not infer routing truth from prose automatically. A conflict or ambiguous
 cross-phase requirement must be resolved in `.harness/requirements-decisions.json`
-and approved by a reviewer before implementation.
+and approved by an independent reviewer role before implementation. Under the
+project's autonomous mode, that role may be a separate Codex agent but never the
+implementing agent.
 
 ## Phase routing
 

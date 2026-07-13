@@ -192,6 +192,103 @@ class HarnessCoreTests(unittest.TestCase):
         for name, lines in documents.items():
             (directory / name).write_text("\n\n".join(lines) + "\n", encoding="utf-8")
 
+    def enable_codex_bindings(
+        self,
+        task: dict[str, object],
+        *,
+        implementation_thread: str = "11111111-1111-4111-8111-111111111111",
+    ) -> None:
+        task["codex_role_bindings"] = {
+            "implementation": {
+                "agent_task": "/root",
+                "thread_id": implementation_thread,
+            },
+            "plan": {"agent_task": "/root/plan_review"},
+            "merge": {"agent_task": "/root/merge_review"},
+            "release": {"agent_task": "/root/release_review"},
+        }
+
+    def write_approval_artifact(
+        self,
+        task_id: str,
+        task: dict[str, object],
+        *,
+        stage: str,
+        status: str,
+        actor: str,
+        agent_task: str,
+        thread_id: str,
+        findings: list[str] | None = None,
+    ) -> Path:
+        context = self.harness.approval_context(task_id, task, stage)
+        path = self.root / ".harness/tasks" / task_id / f"approval-{stage}.json"
+        path.write_text(
+            json_text(
+                {
+                    "schema_version": 1,
+                    "task_id": task_id,
+                    "stage": stage,
+                    "decision": status,
+                    "actor": actor,
+                    "agent_task": agent_task,
+                    "codex_thread_id": thread_id,
+                    "result_marker": (
+                        "APPROVED" if status == "approved" else "REJECTED"
+                    ),
+                    "approval_context_sha256": harness_module.canonical_json_hash(
+                        context
+                    ),
+                    "reviewed_at": "2026-07-12T00:00:02Z",
+                    "findings": findings or [],
+                    "summary": "独立代理已复核当前阶段的合同、证据与阻断项。",
+                }
+            ),
+            encoding="utf-8",
+        )
+        return path
+
+    def approve_bound_stage(
+        self,
+        task_id: str,
+        *,
+        stage: str,
+        actor: str,
+        status: str = "approved",
+        reason: str = "independent review",
+        thread_id: str | None = None,
+    ) -> harness_module.GateResult:
+        task = self.harness.load_task(task_id)
+        bindings = task.get("codex_role_bindings")
+        assert isinstance(bindings, dict)
+        binding = bindings.get(stage)
+        assert isinstance(binding, dict)
+        agent_task = str(binding["agent_task"])
+        if thread_id is None:
+            thread_id = {
+                "plan": "33333333-3333-4333-8333-333333333333",
+                "merge": "44444444-4444-4444-8444-444444444444",
+                "release": "55555555-5555-4555-8555-555555555555",
+            }[stage]
+        self.write_approval_artifact(
+            task_id,
+            task,
+            stage=stage,
+            status=status,
+            actor=actor,
+            agent_task=agent_task,
+            thread_id=thread_id,
+            findings=["审批拒绝的具体阻断项。"] if status == "rejected" else None,
+        )
+        with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": thread_id}):
+            return self.harness.task_approval(
+                task_id,
+                stage=stage,
+                status=status,
+                actor=actor,
+                reason=reason,
+                agent_task=agent_task,
+            )
+
     def write_plan_approved_task(self, task_id: str) -> dict[str, object]:
         task = self.task_value(task_id, status="approved_for_implementation")
         self.write_task(task_id, task)
@@ -209,6 +306,8 @@ class HarnessCoreTests(unittest.TestCase):
         )
         plan_hash = self.harness.plan_artifacts_sha256(task_id)
         decision_hash = self.harness.decision_context_sha256(task)
+        contract_hash = harness_module.plan_review_contract_hash(task)
+        policy_hash = harness_module.plan_review_policy_hash(task)
         self.write_history(
             task_id,
             [
@@ -237,6 +336,8 @@ class HarnessCoreTests(unittest.TestCase):
                     "at": approved_at,
                     "plan_artifacts_sha256": plan_hash,
                     "decision_context_sha256": decision_hash,
+                    "contract_sha256": contract_hash,
+                    "policy_sha256": policy_hash,
                 },
                 {
                     "type": "transition",
@@ -268,6 +369,202 @@ class HarnessCoreTests(unittest.TestCase):
         self.assertTrue(any("task_runtime_allowed" in item for item in gate.errors))
         self.assertTrue(any("max_test_timeout_seconds" in item for item in gate.errors))
         self.assertTrue(any("max_captured_output_bytes" in item for item in gate.errors))
+
+    def test_remote_execution_requires_explicit_l4_operations_contract(self) -> None:
+        task = self.task_value("NUR-OPS-990")
+        task["type"] = "operations"
+        task["network_access_required"] = True
+        missing = self.harness.remote_execution_contract_errors(task)
+        self.assertTrue(any("remote_execution" in item for item in missing))
+
+        task["remote_execution"] = {
+            "authorization": {
+                "mode": "user_explicit",
+                "thread_id": "019f566b-dffa-7913-a608-bc2dffbd2bea",
+                "authorized_at": "2026-07-13T00:00:00+08:00",
+                "scope": "Authorize the contracted personal-site deployment only.",
+            },
+            "environment": "authorized_personal_site",
+            "host": "38.12.21.18",
+            "port": 22,
+            "user": "root",
+            "host_key_fingerprint": "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+            "identity_reference": "user-ssh-file:Jia-8u8g",
+            "known_hosts_reference": "user-ssh-file:known_hosts",
+            "deployment_root": "/root/jia/miaomu",
+            "managed_roots": ["/root/jia/miaomu", "/root/jia/caddy"],
+            "allowed_actions": [
+                {
+                    "id": "read_inventory",
+                    "transport": "ssh",
+                    "mode": "read_only",
+                    "cwd": "/root/jia/miaomu",
+                    "argv": ["docker", "version"],
+                    "timeout_seconds": 60,
+                }
+            ],
+            "forbidden_actions": sorted(harness_module.REMOTE_FORBIDDEN_ACTIONS),
+        }
+        self.assertEqual(self.harness.remote_execution_contract_errors(task), [])
+
+        hook = runpy.run_path(str(PROJECT_ROOT / ".codex/hooks/harness_guard.py"))
+        self.assertEqual(
+            set(harness_module.HARNESS_POLICY_PATTERNS),
+            set(hook["BOOTSTRAP_PATTERNS"]),
+        )
+        self.assertEqual(
+            harness_module.policy_contract_hash(task),
+            hook["canonical_json_hash"](hook["policy_contract"](task)),
+        )
+
+        task["remote_execution"]["deployment_root"] = "/"
+        self.assertTrue(self.harness.remote_execution_contract_errors(task))
+        task["remote_execution"]["deployment_root"] = "/root/jia/miaomu"
+        task["remote_execution"]["identity_reference"] = "external:actual-secret"
+        self.assertTrue(self.harness.remote_execution_contract_errors(task))
+        task["remote_execution"]["identity_reference"] = "user-ssh-file:Jia-8u8g"
+
+        task["type"] = "feature"
+        self.assertTrue(self.harness.remote_execution_contract_errors(task))
+        task["type"] = "operations"
+        task["network_access_required"] = False
+        self.assertTrue(self.harness.remote_execution_contract_errors(task))
+
+    def test_remote_cli_uses_repository_factory_and_seals_upload_artifacts(self) -> None:
+        task_id = "NUR-OPS-989"
+        task = self.task_value(task_id, status="approved_for_merge")
+        task["type"] = "operations"
+        task["network_access_required"] = True
+        ok_gate = harness_module.GateResult("stub")
+        upload_facts = [
+            {
+                "action_id": "upload_release",
+                "repo_path": ".harness/runs/NUR-OPS-989/release.tar",
+                "size": 17,
+                "sha256": "a" * 64,
+            }
+        ]
+        state = {"schema_version": 1, "task_id": task_id}
+        release_head = "b" * 40
+
+        with (
+            mock.patch.object(self.harness, "release_check", return_value=ok_gate),
+            mock.patch.object(self.harness, "load_task", return_value=task),
+            mock.patch.object(self.harness, "repository_dirty_paths", return_value=[]),
+            mock.patch.object(self.harness, "head", return_value=release_head),
+            mock.patch.object(self.harness, "read_active_state", return_value=state),
+            mock.patch.object(
+                harness_module.RemoteExecutionBroker,
+                "release_upload_artifact_facts",
+                return_value=upload_facts,
+            ) as artifact_facts,
+        ):
+            seal = self.harness._release_seal_locked(task_id)
+
+        self.assertTrue(seal.ok, seal.errors)
+        artifact_facts.assert_called_once_with(task_id)
+        sealed_state = json.loads(self.harness.state_file.read_text(encoding="utf-8"))
+        self.assertEqual(sealed_state["release_commit"], release_head)
+        self.assertEqual(sealed_state["release_upload_artifacts"], upload_facts)
+
+        broker = mock.Mock()
+        broker.action_ids.side_effect = lambda *, mode: (
+            ("read_inventory",) if mode == "read_only" else ("upload_release",)
+        )
+        broker.execute.return_value = {
+            "success": True,
+            "action_sha256": "c" * 64,
+            "failure_kind": None,
+        }
+        with (
+            mock.patch.object(self.harness, "task_check", return_value=ok_gate),
+            mock.patch.object(self.harness, "load_task", return_value=task),
+            mock.patch.object(self.harness, "validate_active_state", return_value=ok_gate),
+            mock.patch.object(
+                harness_module.RemoteExecutionBroker,
+                "from_repository",
+                return_value=broker,
+            ) as repository_factory,
+        ):
+            actions = self.harness.remote_actions(task_id)
+            execution = self.harness._remote_execute_locked(
+                task_id,
+                action_id="read_inventory",
+                allow_mutating=False,
+            )
+
+        self.assertTrue(actions.ok, actions.errors)
+        self.assertTrue(execution.ok, execution.errors)
+        self.assertEqual(actions.data["read_only_actions"], ["read_inventory"])
+        self.assertEqual(actions.data["mutating_actions"], ["upload_release"])
+        self.assertEqual(
+            repository_factory.call_args_list,
+            [mock.call(task_id), mock.call(task_id)],
+        )
+        broker.execute.assert_called_once_with("read_inventory", allow_mutating=False)
+
+    def test_sensitive_cli_requires_isolated_flags_before_shadowable_imports(self) -> None:
+        repo = self.root / "isolated-cli"
+        scripts = repo / "scripts"
+        scripts.mkdir(parents=True)
+        shutil.copy2(PROJECT_ROOT / "scripts/harness.py", scripts / "harness.py")
+        shutil.copy2(
+            PROJECT_ROOT / "scripts/harness_remote.py",
+            scripts / "harness_remote.py",
+        )
+        harness_dir = repo / ".harness"
+        harness_dir.mkdir()
+        shutil.copy2(
+            PROJECT_ROOT / ".harness/harness.json",
+            harness_dir / "harness.json",
+        )
+        for rel in (
+            "tasks",
+            "runs",
+            "reports",
+            "state",
+            "templates",
+            "schemas",
+            "baselines",
+        ):
+            (harness_dir / rel).mkdir()
+        marker = repo / "json-shadow-executed.txt"
+        (scripts / "json.py").write_text(
+            f"open({str(marker)!r}, 'w', encoding='utf-8').write('executed')\n"
+            "raise SystemExit(91)\n",
+            encoding="utf-8",
+        )
+
+        def launch(*flags: str) -> subprocess.CompletedProcess[str]:
+            return subprocess.run(
+                [
+                    sys.executable,
+                    *flags,
+                    os.fspath(scripts / "harness.py"),
+                    "remote-actions",
+                    "NUR-OPS-999",
+                    "--json",
+                ],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+
+        for flags in ((), ("-I", "-S"), ("-I", "-B"), ("-S", "-B")):
+            marker.unlink(missing_ok=True)
+            rejected = launch(*flags)
+            self.assertEqual(rejected.returncode, 2, (flags, rejected.stderr))
+            self.assertIn("-I -S -B", rejected.stderr)
+            self.assertFalse(marker.exists(), flags)
+
+        isolated = launch("-I", "-S", "-B")
+        self.assertEqual(isolated.returncode, 1, isolated.stderr)
+        self.assertIn('"name": "remote-actions"', isolated.stdout)
+        self.assertIn("task.json", isolated.stdout)
+        self.assertFalse(marker.exists())
 
     def test_required_source_and_project_files_reject_link_like_paths(self) -> None:
         (self.root / "composer.json").write_text("{}\n", encoding="utf-8")
@@ -970,6 +1267,92 @@ class HarnessCoreTests(unittest.TestCase):
             self.assertTrue(harness_module.is_dependency_manifest_path(path), path)
         self.assertFalse(harness_module.is_dependency_manifest_path("docs/package-notes.md"))
 
+    def test_workspace_fingerprint_is_stable_for_control_only_git_commit(self) -> None:
+        repo = self.root / "fingerprint-git"
+        task_id = "NUR-FEAT-965"
+        task_dir = repo / ".harness/tasks" / task_id
+        task_dir.mkdir(parents=True)
+        shutil.copy2(
+            PROJECT_ROOT / ".harness/harness.json",
+            repo / ".harness/harness.json",
+        )
+        sandbox = repo / "sandbox"
+        sandbox.mkdir()
+        (task_dir / "task.json").write_text(
+            json_text({"status": "draft"}), encoding="utf-8"
+        )
+        (sandbox / "tracked.txt").write_text("baseline\n", encoding="utf-8")
+
+        def git(*args: str) -> str:
+            completed = subprocess.run(
+                ["git", *args],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+            self.assertEqual(
+                completed.returncode,
+                0,
+                f"git {' '.join(args)} failed: {completed.stderr}",
+            )
+            return completed.stdout.strip()
+
+        git("init", "--quiet")
+        git("config", "user.name", "Harness Selftest")
+        git("config", "user.email", "harness-selftest@example.invalid")
+        git("add", ".harness/harness.json", f".harness/tasks/{task_id}/task.json", "sandbox/tracked.txt")
+        git("commit", "--quiet", "-m", "baseline")
+        base = git("rev-parse", "HEAD")
+        harness = harness_module.Harness(repo)
+
+        (task_dir / "task.json").write_text(
+            json_text({"status": "awaiting_review"}), encoding="utf-8"
+        )
+        (task_dir / "workflow-history.json").write_text(
+            json_text({"schema_version": 1, "task_id": task_id, "events": []}),
+            encoding="utf-8",
+        )
+        (task_dir / "approval-merge.json").write_text(
+            json_text({"result_marker": "APPROVED"}), encoding="utf-8"
+        )
+        business = sandbox / "new-business.txt"
+        business.write_text("verified business content\n", encoding="utf-8")
+
+        verified_fingerprint = harness.workspace_fingerprint(task_id, base)
+        self.assertEqual(
+            verified_fingerprint,
+            harness.approval_workspace_fingerprint(task_id, base),
+        )
+        git(
+            "add",
+            f".harness/tasks/{task_id}/task.json",
+            f".harness/tasks/{task_id}/workflow-history.json",
+            f".harness/tasks/{task_id}/approval-merge.json",
+        )
+        git("commit", "--quiet", "-m", "record approval controls")
+        after_control_commit = harness.workspace_fingerprint(task_id, base)
+        self.assertEqual(verified_fingerprint, after_control_commit)
+
+        git("add", "sandbox/new-business.txt")
+        git("commit", "--quiet", "-m", "commit reviewed business file")
+        after_business_commit = harness.workspace_fingerprint(task_id, base)
+        self.assertNotEqual(after_control_commit, after_business_commit)
+
+        business.write_text("modified business content\n", encoding="utf-8")
+        after_business_edit = harness.workspace_fingerprint(task_id, base)
+        self.assertNotEqual(after_business_commit, after_business_edit)
+
+        git("mv", "sandbox/tracked.txt", "sandbox/renamed.txt")
+        after_rename = harness.workspace_fingerprint(task_id, base)
+        self.assertNotEqual(after_business_edit, after_rename)
+
+        (sandbox / "renamed.txt").unlink()
+        after_delete = harness.workspace_fingerprint(task_id, base)
+        self.assertNotEqual(after_rename, after_delete)
+
     def test_symlinks_never_redirect_harness_reads_or_run_writes(self) -> None:
         with tempfile.TemporaryDirectory(prefix="nursery-harness-external-") as external_value:
             external = Path(external_value)
@@ -1044,6 +1427,7 @@ class HarnessCoreTests(unittest.TestCase):
     def test_plan_approval_hash_invalidates_after_document_change(self) -> None:
         task_id = "NUR-FEAT-985"
         task = self.task_value(task_id, status="awaiting_plan_approval")
+        self.enable_codex_bindings(task)
         self.write_task(task_id, task)
         self.write_valid_plan_artifacts(task_id)
         self.write_history(
@@ -1067,10 +1451,9 @@ class HarnessCoreTests(unittest.TestCase):
                 },
             ],
         )
-        approval = self.harness.task_approval(
+        approval = self.approve_bound_stage(
             task_id,
             stage="plan",
-            status="approved",
             actor="Reviewer",
             reason="",
         )
@@ -1094,6 +1477,378 @@ class HarnessCoreTests(unittest.TestCase):
         self.assertEqual(
             reopened_task["manual_approvals"]["plan"]["status"], "pending"
         )
+
+    def test_plan_approval_hash_invalidates_after_contract_change(self) -> None:
+        task_id = "NUR-OPS-972"
+        task = self.task_value(task_id, status="awaiting_plan_approval")
+        task["type"] = "operations"
+        self.enable_codex_bindings(task)
+        self.write_task(task_id, task)
+        self.write_valid_plan_artifacts(task_id)
+        self.write_history(
+            task_id,
+            [
+                {
+                    "type": "transition",
+                    "from": "draft",
+                    "to": "ready_for_analysis",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:00Z",
+                },
+                {
+                    "type": "transition",
+                    "from": "ready_for_analysis",
+                    "to": "awaiting_plan_approval",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:01Z",
+                },
+            ],
+        )
+        approved = self.approve_bound_stage(
+            task_id,
+            stage="plan",
+            actor="Reviewer",
+            reason="contract reviewed",
+        )
+        self.assertTrue(approved.ok, approved.errors)
+
+        changed = self.harness.load_task(task_id)
+        changed["allowed_paths"] = ["other/**"]
+        (self.root / ".harness/tasks" / task_id / "task.json").write_text(
+            json_text(changed), encoding="utf-8"
+        )
+        stale = self.harness.task_check(task_id)
+        self.assertFalse(stale.ok)
+        self.assertTrue(any("任务授权合同" in item for item in stale.errors))
+
+    def test_codex_approval_records_child_agent_and_thread_context(self) -> None:
+        task_id = "NUR-OPS-971"
+        task = self.task_value(task_id, status="awaiting_plan_approval")
+        task["type"] = "operations"
+        task["reviewer"] = "Automated Plan Reviewer"
+        self.enable_codex_bindings(task)
+        self.write_task(task_id, task)
+        self.write_valid_plan_artifacts(task_id)
+        self.write_history(
+            task_id,
+            [
+                {
+                    "type": "transition",
+                    "from": "draft",
+                    "to": "ready_for_analysis",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:00Z",
+                },
+                {
+                    "type": "transition",
+                    "from": "ready_for_analysis",
+                    "to": "awaiting_plan_approval",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:01Z",
+                },
+            ],
+        )
+        missing = self.harness.task_approval(
+            task_id,
+            stage="plan",
+            status="approved",
+            actor="Automated Plan Reviewer",
+            reason="independent plan review",
+        )
+        self.assertFalse(missing.ok)
+        self.assertTrue(any("--agent-task" in item for item in missing.errors))
+
+        thread_id = "019f566b-dffa-7913-a608-bc2dffbd2bea"
+        self.write_approval_artifact(
+            task_id,
+            task,
+            stage="plan",
+            status="approved",
+            actor="Automated Plan Reviewer",
+            agent_task="/root/plan_review",
+            thread_id=thread_id,
+        )
+        with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": thread_id}):
+            approved = self.harness.task_approval(
+                task_id,
+                stage="plan",
+                status="approved",
+                actor="Automated Plan Reviewer",
+                reason="independent plan review",
+                agent_task="/root/plan_review",
+            )
+        self.assertTrue(approved.ok, approved.errors)
+        history = self.harness.workflow_history_value(task_id)
+        event = history["events"][-1]
+        self.assertEqual(event["agent_task"], "/root/plan_review")
+        self.assertEqual(event["codex_thread_id"], thread_id)
+        self.assertEqual(event["expected_actor"], "Automated Plan Reviewer")
+        self.assertEqual(event["expected_agent_task"], "/root/plan_review")
+        self.assertEqual(event["observed_agent_task"], "/root/plan_review")
+        self.assertEqual(event["observed_codex_thread_id"], thread_id)
+        self.assertRegex(str(event["review_artifact_sha256"]), r"^[0-9a-f]{64}$")
+        self.assertRegex(str(event["approval_context_sha256"]), r"^[0-9a-f]{64}$")
+
+    def test_codex_role_bindings_enforce_stage_separation(self) -> None:
+        task_id = "NUR-OPS-970"
+        task = self.task_value(task_id)
+        task["type"] = "operations"
+        self.enable_codex_bindings(task)
+        bindings = task["codex_role_bindings"]
+        assert isinstance(bindings, dict)
+        bindings["plan"] = {"agent_task": "/root"}
+        bindings["release"] = {"agent_task": "/root/merge_review"}
+        self.write_task(task_id, task)
+        gate = self.harness.task_check(task_id)
+        self.assertFalse(gate.ok)
+        self.assertTrue(any("plan.agent_task 必须与 implementation" in item for item in gate.errors))
+        self.assertTrue(any("release.agent_task 必须与 merge" in item for item in gate.errors))
+
+    def test_new_task_approval_requires_stage_binding_not_actor_prefix(self) -> None:
+        task_id = "NUR-OPS-966"
+        task = self.task_value(task_id, status="awaiting_plan_approval")
+        task["type"] = "operations"
+        task["reviewer"] = "Codex-Review"
+        self.write_task(task_id, task)
+        self.write_valid_plan_artifacts(task_id)
+        self.write_history(
+            task_id,
+            [
+                {
+                    "type": "transition",
+                    "from": "draft",
+                    "to": "ready_for_analysis",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:00Z",
+                },
+                {
+                    "type": "transition",
+                    "from": "ready_for_analysis",
+                    "to": "awaiting_plan_approval",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:01Z",
+                },
+            ],
+        )
+        with mock.patch.dict(
+            os.environ,
+            {"CODEX_THREAD_ID": "66666666-6666-4666-8666-666666666666"},
+        ):
+            gate = self.harness.task_approval(
+                task_id,
+                stage="plan",
+                status="approved",
+                actor="Codex-Review",
+                reason="independent review",
+                agent_task="/root/plan_review",
+            )
+        self.assertFalse(gate.ok)
+        self.assertTrue(any("要求预先声明 codex_role_bindings.plan" in item for item in gate.errors))
+
+    def test_codex_approval_rejects_implementation_thread(self) -> None:
+        task_id = "NUR-OPS-969"
+        implementation_thread = "22222222-2222-4222-8222-222222222222"
+        task = self.task_value(task_id, status="awaiting_plan_approval")
+        task["type"] = "operations"
+        task["reviewer"] = "Automated Reviewer"
+        self.enable_codex_bindings(
+            task, implementation_thread=implementation_thread
+        )
+        self.write_task(task_id, task)
+        self.write_valid_plan_artifacts(task_id)
+        self.write_history(
+            task_id,
+            [
+                {
+                    "type": "transition",
+                    "from": "draft",
+                    "to": "ready_for_analysis",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:00Z",
+                },
+                {
+                    "type": "transition",
+                    "from": "ready_for_analysis",
+                    "to": "awaiting_plan_approval",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:01Z",
+                },
+            ],
+        )
+        self.write_approval_artifact(
+            task_id,
+            task,
+            stage="plan",
+            status="approved",
+            actor="Automated Reviewer",
+            agent_task="/root/plan_review",
+            thread_id=implementation_thread,
+        )
+        with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": implementation_thread}):
+            gate = self.harness.task_approval(
+                task_id,
+                stage="plan",
+                status="approved",
+                actor="Automated Reviewer",
+                reason="independent review",
+                agent_task="/root/plan_review",
+            )
+        self.assertFalse(gate.ok)
+        self.assertTrue(any("implementation thread" in item for item in gate.errors))
+
+    def test_codex_review_artifact_tampering_invalidates_history(self) -> None:
+        task_id = "NUR-OPS-968"
+        task = self.task_value(task_id, status="awaiting_plan_approval")
+        task["type"] = "operations"
+        task["reviewer"] = "Bound Reviewer"
+        self.enable_codex_bindings(task)
+        self.write_task(task_id, task)
+        self.write_valid_plan_artifacts(task_id)
+        self.write_history(
+            task_id,
+            [
+                {
+                    "type": "transition",
+                    "from": "draft",
+                    "to": "ready_for_analysis",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:00Z",
+                },
+                {
+                    "type": "transition",
+                    "from": "ready_for_analysis",
+                    "to": "awaiting_plan_approval",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:01Z",
+                },
+            ],
+        )
+        thread_id = "33333333-3333-4333-8333-333333333333"
+        artifact_path = self.write_approval_artifact(
+            task_id,
+            task,
+            stage="plan",
+            status="approved",
+            actor="Bound Reviewer",
+            agent_task="/root/plan_review",
+            thread_id=thread_id,
+        )
+        with mock.patch.dict(os.environ, {"CODEX_THREAD_ID": thread_id}):
+            approved = self.harness.task_approval(
+                task_id,
+                stage="plan",
+                status="approved",
+                actor="Bound Reviewer",
+                reason="independent review",
+                agent_task="/root/plan_review",
+            )
+        self.assertTrue(approved.ok, approved.errors)
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+        artifact["summary"] = "审查制品在审批事件后被修改，必须使历史门禁失效。"
+        artifact_path.write_text(json_text(artifact), encoding="utf-8")
+        gate = self.harness.task_check(task_id)
+        self.assertFalse(gate.ok)
+        self.assertTrue(
+            any("canonical SHA 已失效" in item for item in gate.errors),
+            gate.errors,
+        )
+
+    def test_merge_and_release_context_lock_review_evidence_and_readiness(self) -> None:
+        task_id = "NUR-OPS-967"
+        task = self.task_value(task_id, status="awaiting_review")
+        task["type"] = "operations"
+        approvals = task["manual_approvals"]
+        assert isinstance(approvals, dict)
+        merge = approvals["merge"]
+        assert isinstance(merge, dict)
+        merge.update(
+            {
+                "status": "approved",
+                "approved_by": "Reviewer",
+                "approved_at": "2026-07-12T00:00:03Z",
+            }
+        )
+        self.write_task(task_id, task)
+        self.write_valid_plan_artifacts(task_id)
+        task_dir = self.root / ".harness/tasks" / task_id
+        evidence_path = task_dir / "evidence.md"
+        evidence_path.write_text("# Evidence\n\nverified evidence payload\n", encoding="utf-8")
+        repeated = "已独立核验当前任务的合同、证据、范围、回滚和发布边界。" * 30
+        (task_dir / "review.md").write_text(
+            f"# Review\n\n## 审查范围\n\n{repeated}\n\n"
+            f"## 发现\n\n{repeated}\n\n## 审查结论\n\n"
+            "REVIEW_RESULT: APPROVED\nREVIEWER: Reviewer\n"
+            "REVIEWED_AT: 2026-07-12T00:00:03Z\n",
+            encoding="utf-8",
+        )
+        (task_dir / "release-note.md").write_text(
+            f"# Release\n\n## 变更摘要\n\n{repeated}\n\n"
+            f"## 发布前提\n\n{repeated}\n\n## 发布步骤\n\n{repeated}\n\n"
+            f"## 回滚触发与步骤\n\n{repeated}\n\n## 发布后验证\n\n{repeated}\n",
+            encoding="utf-8",
+        )
+        base = "a" * 40
+        self.harness.state_file.parent.mkdir(parents=True, exist_ok=True)
+        self.harness.state_file.write_text(
+            json_text(
+                {
+                    "schema_version": 1,
+                    "task_id": task_id,
+                    "scope_base_commit": base,
+                }
+            ),
+            encoding="utf-8",
+        )
+        pack_dir = self.root / ".harness/reports" / task_id / "20260712T000000000000Z-review-pack"
+        pack_dir.mkdir(parents=True)
+        pack = {
+            "schema_version": 1,
+            "task_id": task_id,
+            "ready_for_review": True,
+            "contract_sha256": harness_module.immutable_contract_hash(task),
+            "policy_sha256": harness_module.policy_contract_hash(task),
+            "scope_base_commit": base,
+        }
+        (pack_dir / "review-pack.json").write_text(
+            json_text(pack), encoding="utf-8"
+        )
+        with mock.patch.object(self.harness, "collect_changes", return_value=[]):
+            merge_context = self.harness.approval_context(task_id, task, "merge")
+            release_context = self.harness.approval_context(task_id, task, "release")
+            evidence_path.write_text(
+                "# Evidence\n\nchanged evidence payload\n", encoding="utf-8"
+            )
+            changed_merge_context = self.harness.approval_context(
+                task_id, task, "merge"
+            )
+        for field in (
+            "review_pack_sha256",
+            "workspace_sha256",
+            "evidence_sha256",
+            "verification_contract_sha256",
+        ):
+            self.assertRegex(str(merge_context[field]), r"^[0-9a-f]{64}$")
+        self.assertNotEqual(
+            merge_context["evidence_sha256"],
+            changed_merge_context["evidence_sha256"],
+        )
+        for field in (
+            "merge_approval",
+            "review_sha256",
+            "release_note_sha256",
+            "remote_execution_sha256",
+        ):
+            self.assertIn(field, release_context)
 
     def test_plan_hash_is_stable_across_lf_crlf_and_utf8_bom(self) -> None:
         task_id = "NUR-FEAT-974"
@@ -1133,6 +1888,7 @@ class HarnessCoreTests(unittest.TestCase):
         task_id = "NUR-FEAT-973"
         task = self.task_value(task_id, status="awaiting_plan_approval")
         task["decision_ids"] = [decision["id"]]
+        self.enable_codex_bindings(task)
         self.write_task(task_id, task)
         self.write_valid_plan_artifacts(task_id)
         self.write_history(
@@ -1156,10 +1912,9 @@ class HarnessCoreTests(unittest.TestCase):
                 },
             ],
         )
-        approved = self.harness.task_approval(
+        approved = self.approve_bound_stage(
             task_id,
             stage="plan",
-            status="approved",
             actor="Reviewer",
             reason="",
         )
@@ -1170,10 +1925,9 @@ class HarnessCoreTests(unittest.TestCase):
         stale = self.harness.task_check(task_id)
         self.assertFalse(stale.ok)
         self.assertTrue(any("关联需求决策" in item for item in stale.errors))
-        reapproved = self.harness.task_approval(
+        reapproved = self.approve_bound_stage(
             task_id,
             stage="plan",
-            status="approved",
             actor="Reviewer",
             reason="decision revised",
         )
@@ -1619,6 +2373,11 @@ class HarnessCoreTests(unittest.TestCase):
         hook = runpy.run_path(
             str(PROJECT_ROOT / ".codex/hooks/harness_guard.py")
         )
+        self.assertIn("codex_role_bindings", hook["immutable_contract"]({}))
+        self.assertEqual(
+            set(harness_module.HARNESS_POLICY_PATTERNS),
+            set(hook["BOOTSTRAP_PATTERNS"]),
+        )
         check_shell = hook["check_shell"]
         self.assertIsNotNone(
             check_shell({"command": "Set-Content app/unauthorized.php '<?php'"})
@@ -1674,6 +2433,43 @@ class HarnessCoreTests(unittest.TestCase):
         self.assertIsNotNone(reason)
         self.assertIn("NUR-HARNESS", reason)
 
+        business_id = "NUR-FEAT-978"
+        business_task = self.task_value(business_id, status="implementing")
+        business_task["allowed_paths"] = ["scripts/harness_remote.py"]
+        self.write_task(business_id, business_task)
+        self.write_valid_plan_artifacts(business_id)
+        business_state = {
+            "schema_version": 1,
+            "task_id": business_id,
+            "contract_sha256": hook["canonical_json_hash"](
+                hook["immutable_contract"](business_task)
+            ),
+            "policy_sha256": hook["canonical_json_hash"](
+                hook["policy_contract"](business_task)
+            ),
+            "plan_artifacts_sha256": hook_globals["plan_artifacts_sha256"](
+                business_id
+            ),
+            "decision_context_sha256": hook_globals["decision_context_sha256"](
+                business_task
+            ),
+        }
+        hook_globals["STATE_FILE"].write_text(
+            json_text(business_state), encoding="utf-8"
+        )
+        broker_reason = hook["check_apply_patch"](
+            "*** Begin Patch\n*** Update File: scripts/harness_remote.py\n*** End Patch"
+        )
+        self.assertIsNotNone(broker_reason)
+        self.assertIn("Harness 策略或执行面", broker_reason)
+        approval_reason = hook["check_apply_patch"](
+            "*** Begin Patch\n"
+            f"*** Add File: .harness/tasks/{business_id}/approval-merge.json\n"
+            "+{}\n"
+            "*** End Patch"
+        )
+        self.assertIsNone(approval_reason)
+
         original_link_check = hook_globals["path_is_link_like"]
         hook_globals["path_is_link_like"] = lambda path: path.name == "linked.php"
         try:
@@ -1684,6 +2480,291 @@ class HarnessCoreTests(unittest.TestCase):
             hook_globals["path_is_link_like"] = original_link_check
         self.assertIsNotNone(link_reason)
         self.assertIn("符号链接或目录联接", link_reason)
+
+    def test_hook_blocks_network_client_path_and_powershell_bypasses(self) -> None:
+        hook = runpy.run_path(
+            str(PROJECT_ROOT / ".codex/hooks/harness_guard.py")
+        )
+        check_shell = hook["check_shell"]
+        expected_clients = {
+            "ssh",
+            "scp",
+            "sftp",
+            "curl",
+            "wget",
+            "ftp",
+            "nc",
+            "ncat",
+            "telnet",
+            "plink",
+            "pscp",
+            "invoke-webrequest",
+            "invoke-restmethod",
+            "iwr",
+            "irm",
+            "start-bitstransfer",
+            "test-netconnection",
+            "resolve-dnsname",
+        }
+        self.assertEqual(
+            hook["SHELL_NETWORK_CLIENT_BASENAMES"], frozenset(expected_clients)
+        )
+        for client in sorted(expected_clients):
+            command = rf'C:\Tools\Network Clients\{client}.EXE --version'
+            self.assertIsNotNone(check_shell({"command": command}), command)
+
+        for command in (
+            "/usr/bin/curl https://example.test",
+            r"C:\Windows\System32\OpenSSH\ssh.exe root@example.test",
+            r'& "C:\Program Files\PuTTY\plink.cmd" root@example.test',
+            "Microsoft.PowerShell.Utility\\Invoke-WebRequest https://example.test",
+            "Microsoft.PowerShell.Utility\\Invoke-RestMethod https://example.test",
+            "iwr https://example.test",
+            "irm https://example.test",
+            "Start-BitsTransfer https://example.test target.bin",
+            "Test-NetConnection example.test -Port 443",
+            "Resolve-DnsName example.test",
+        ):
+            self.assertIsNotNone(check_shell({"command": command}), command)
+
+        exact_remote = (
+            "python -I -S -B scripts/harness.py remote-exec "
+            "NUR-OPS-003 curl --json"
+        )
+        self.assertIsNone(check_shell({"command": exact_remote}))
+        self.assertIsNone(
+            check_shell(
+                'await tools.shell_command({command:"'
+                + exact_remote
+                + '"});'
+            )
+        )
+        self.assertIsNotNone(
+            check_shell(
+                {
+                    "command": exact_remote
+                    + r"; C:\Windows\System32\OpenSSH\ssh.exe root@example.test"
+                }
+            )
+        )
+        for unsafe in (
+            "python scripts/harness.py remote-exec NUR-OPS-003 curl --json",
+            "python -I -S scripts/harness.py remote-actions NUR-OPS-003",
+            "python -I -B scripts/harness.py release-seal NUR-OPS-003",
+            "python -S -B scripts/harness.py release-check NUR-OPS-003",
+        ):
+            self.assertIsNotNone(check_shell({"command": unsafe}), unsafe)
+        self.assertIsNone(
+            check_shell(
+                {
+                    "command": "python -I -S -B scripts/harness.py "
+                    "release-check NUR-OPS-003"
+                }
+            )
+        )
+        self.assertIn(
+            "-I -S -B",
+            (PROJECT_ROOT / "scripts/harness.ps1").read_text(encoding="utf-8"),
+        )
+        self.assertIn(
+            "-I -S -B",
+            (PROJECT_ROOT / "scripts/harness.sh").read_text(encoding="utf-8"),
+        )
+        self.assertIsNone(
+            check_shell({"command": "Write-Output ssh-keygen curl-config"})
+        )
+
+    def test_hook_blocks_powershell_dotnet_and_dynamic_network_execution(self) -> None:
+        hook = runpy.run_path(
+            str(PROJECT_ROOT / ".codex/hooks/harness_guard.py")
+        )
+        check_shell = hook["check_shell"]
+        blocked_commands = (
+            "(New-Object System.Net.WebClient).DownloadString('https://example.test')",
+            "[System.Net.Http.HttpClient]::new().GetStringAsync('https://example.test')",
+            "[System.Net.WebRequest]::Create('https://example.test')",
+            "[System.Net.HttpWebRequest]::Create('https://example.test')",
+            "[System.Net.Sockets.TcpClient]::new('example.test', 443)",
+            "[System.Net.Sockets.UdpClient]::new(53)",
+            "[System.Net.Dns]::GetHostAddresses('example.test')",
+            "New-Object ([string]::Concat('System.Net.', 'WebClient'))",
+            "[type]::GetType('System.Net.' + 'Sockets.TcpClient')",
+            "& ('s'+'sh') root@example.test",
+            "& ([string]::Concat('cu','rl')) https://example.test",
+            "$client = 's' + 'sh'; & $client root@example.test",
+            "Invoke-Expression ('cu' + 'rl' + ' https://example.test')",
+            "iex $payload",
+            "powershell.exe -EncodedCommand YwB1AHIAbAA=",
+            "pwsh -enc YwB1AHIAbAA=",
+            "powershell -e YwB1AHIAbAA=",
+            "Start-Process $client -ArgumentList 'https://example.test'",
+            "Write-Output ('s' + 'sh')",
+            "[string]::Concat('cu', 'rl')",
+        )
+        for command in blocked_commands:
+            self.assertIsNotNone(check_shell({"command": command}), command)
+
+        for command in (
+            "Write-Output ('seed' + 'ling')",
+            "[string]::Concat('nur', 'sery')",
+            "Test-Path scripts/harness.py",
+            "python -I -S -B scripts/harness.py remote-exec NUR-OPS-003 ssh --json",
+            "python -I -S -B scripts/harness.py remote-exec NUR-OPS-003 iex --json",
+        ):
+            self.assertIsNone(check_shell({"command": command}), command)
+        self.assertIsNone(
+            check_shell(
+                'await tools.shell_command({command:"python -I -S -B scripts/harness.py '
+                'remote-exec NUR-OPS-003 iex --json"});'
+            )
+        )
+
+    def test_hook_blocks_git_write_plumbing_and_config_injection(self) -> None:
+        hook = runpy.run_path(
+            str(PROJECT_ROOT / ".codex/hooks/harness_guard.py")
+        )
+        check_shell = hook["check_shell"]
+        blocked_commands = (
+            "git hash-object -w --stdin",
+            "git hash-object --stdin-paths",
+            "git update-index --cacheinfo 100644 deadbeef .harness/tasks/NUR-OPS-003/workflow-history.json",
+            "git commit-tree deadbeef -m forged",
+            "git update-ref refs/heads/main deadbeef",
+            "git read-tree -u deadbeef",
+            "git checkout-index -a -f",
+            "git fast-import",
+            "git write-tree",
+            "git mktree",
+            "git replace deadbeef feedface",
+            "git notes add -m forged deadbeef",
+            "git notes remove deadbeef",
+            "git symbolic-ref HEAD refs/heads/forged",
+            "git symbolic-ref --delete refs/heads/forged",
+            "git worktree add ../second-checkout main",
+            "git config --local filter.x.clean powershell.exe",
+            "git config core.attributesFile .gitattributes.injected",
+            "git config alias.deploy !ssh",
+            "git config core.hooksPath .hooks",
+            "git -c core.attributesFile=.gitattributes.injected status",
+            "git --config-env=core.attributesFile=ATTR_FILE status",
+            "$env:GIT_CONFIG_COUNT=1; git status",
+            r'"C:\Program Files\Git\cmd\git.exe" update-ref refs/heads/main deadbeef',
+            'await tools.shell_command({command:"git update-ref refs/heads/main deadbeef"});',
+        )
+        for command in blocked_commands:
+            self.assertIsNotNone(check_shell({"command": command}), command)
+
+        read_only_commands = (
+            "git status --short",
+            "git log -1 --oneline",
+            "git diff --stat",
+            "git show --stat HEAD",
+            "git rev-parse HEAD",
+            "git ls-files",
+            "git cat-file -e HEAD^{commit}",
+            "git fast-export --all",
+            "git symbolic-ref HEAD",
+            "git notes list",
+            "git notes show deadbeef",
+            "git worktree list --porcelain",
+            "git config --get user.name",
+            "git config user.email",
+            "git config --get core.attributesFile",
+            "git check-attr -a app/common.php",
+            r'"C:\Program Files\Git\cmd\git.exe" status --short',
+            'await tools.shell_command({command:"git status --short"});',
+        )
+        for command in read_only_commands:
+            self.assertIsNone(check_shell({"command": command}), command)
+
+    def test_hook_locks_cli_owned_task_control_files(self) -> None:
+        hook = runpy.run_path(
+            str(PROJECT_ROOT / ".codex/hooks/harness_guard.py")
+        )
+        check_apply_patch = hook["check_apply_patch"]
+        hook_globals = check_apply_patch.__globals__
+        hook_globals["ROOT"] = self.root
+        hook_globals["TASKS_DIR"] = self.root / ".harness/tasks"
+        hook_globals["STATE_FILE"] = self.root / ".harness/state/active-task.json"
+        hook_globals["DECISIONS_FILE"] = (
+            self.root / ".harness/requirements-decisions.json"
+        )
+
+        history_reason = check_apply_patch(
+            "*** Begin Patch\n"
+            "*** Add File: .harness/tasks/NUR-FEAT-917/workflow-history.json\n"
+            "*** End Patch"
+        )
+        self.assertIsNotNone(history_reason)
+        self.assertIn("Harness CLI", history_reason)
+
+        for task_id, status in (
+            ("NUR-FEAT-918", "draft"),
+            ("NUR-FEAT-919", "ready_for_analysis"),
+        ):
+            self.write_task(task_id, self.task_value(task_id, status=status))
+            reason = check_apply_patch(
+                "*** Begin Patch\n"
+                f"*** Update File: .harness/tasks/{task_id}/task.json\n"
+                "*** End Patch"
+            )
+            self.assertIsNone(reason, f"{status}: {reason}")
+
+        locked_statuses = (
+            "awaiting_plan_approval",
+            "approved_for_implementation",
+            "implementing",
+            "verifying",
+            "awaiting_review",
+            "approved_for_merge",
+            "closed",
+            "blocked",
+            "cancelled",
+        )
+        self.assertEqual(
+            hook["TASK_CONTRACT_LOCKED_STATUSES"], frozenset(locked_statuses)
+        )
+        for index, status in enumerate(locked_statuses, start=920):
+            task_id = f"NUR-FEAT-{index:03d}"
+            self.write_task(task_id, self.task_value(task_id, status=status))
+            reason = check_apply_patch(
+                "*** Begin Patch\n"
+                f"*** Update File: .harness/tasks/{task_id}/task.json\n"
+                "*** End Patch"
+            )
+            self.assertIsNotNone(reason, status)
+            self.assertIn(status, reason)
+
+        active_id = "NUR-FEAT-929"
+        active_task = self.task_value(active_id, status="draft")
+        self.write_task(active_id, active_task)
+        self.write_valid_plan_artifacts(active_id)
+        active_state = {
+            "schema_version": 1,
+            "task_id": active_id,
+            "contract_sha256": hook["canonical_json_hash"](
+                hook["immutable_contract"](active_task)
+            ),
+            "policy_sha256": hook["canonical_json_hash"](
+                hook["policy_contract"](active_task)
+            ),
+            "plan_artifacts_sha256": hook_globals["plan_artifacts_sha256"](
+                active_id
+            ),
+            "decision_context_sha256": hook_globals["decision_context_sha256"](
+                active_task
+            ),
+        }
+        hook_globals["STATE_FILE"].write_text(
+            json_text(active_state), encoding="utf-8"
+        )
+        active_reason = check_apply_patch(
+            "*** Begin Patch\n"
+            f"*** Update File: .harness/tasks/{active_id}/task.json\n"
+            "*** End Patch"
+        )
+        self.assertIsNotNone(active_reason)
+        self.assertIn("preflight 后锁定", active_reason)
 
     def test_existing_active_state_prevents_preflight_rebase(self) -> None:
         task_id = "NUR-FEAT-982"
@@ -1792,6 +2873,7 @@ class HarnessCoreTests(unittest.TestCase):
 
         task = self.task_value(task_id)
         task["allowed_paths"] = ["sandbox/**"]
+        self.enable_codex_bindings(task)
         task["required_tests"] = [
             {
                 "id": "lifecycle_smoke",
@@ -1869,10 +2951,9 @@ class HarnessCoreTests(unittest.TestCase):
                 )
                 self.assertTrue(gate.ok, gate.errors)
 
-            plan_approval = self.harness.task_approval(
+            plan_approval = self.approve_bound_stage(
                 task_id,
                 stage="plan",
-                status="approved",
                 actor="Reviewer",
                 reason="",
             )
@@ -1975,18 +3056,16 @@ class HarnessCoreTests(unittest.TestCase):
             (task_dir / "release-note.md").write_text(
                 release_text, encoding="utf-8"
             )
-            merge = self.harness.task_approval(
+            merge = self.approve_bound_stage(
                 task_id,
                 stage="merge",
-                status="approved",
                 actor="Reviewer",
                 reason="",
             )
             self.assertTrue(merge.ok, merge.errors)
-            release = self.harness.task_approval(
+            release = self.approve_bound_stage(
                 task_id,
                 stage="release",
-                status="approved",
                 actor="Release Approver",
                 reason="",
             )
@@ -2009,6 +3088,8 @@ class HarnessCoreTests(unittest.TestCase):
                 reason="selftest merge complete",
             )
             self.assertTrue(closed.ok, closed.errors)
+            closed_gate = self.harness.task_check(task_id)
+            self.assertTrue(closed_gate.ok, closed_gate.errors)
 
         final_task = self.harness.load_task(task_id)
         self.assertEqual(final_task["status"], "closed")

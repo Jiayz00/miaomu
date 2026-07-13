@@ -8,6 +8,28 @@ never uses a shell.
 
 from __future__ import annotations
 
+import sys
+
+
+_ISOLATED_CLI_COMMANDS = frozenset(
+    {"remote-actions", "remote-exec", "release-seal", "release-check"}
+)
+_ISOLATED_CLI_REQUEST = (
+    __name__ == "__main__"
+    and len(sys.argv) > 1
+    and sys.argv[1] in _ISOLATED_CLI_COMMANDS
+)
+if _ISOLATED_CLI_REQUEST and not (
+    sys.flags.isolated
+    and sys.flags.no_site
+    and sys.flags.dont_write_bytecode
+):
+    sys.stderr.write(
+        "Sensitive Harness commands require isolated startup: "
+        "python -I -S -B scripts/harness.py <command> ...\n"
+    )
+    raise SystemExit(2)
+
 import argparse
 import contextlib
 import copy
@@ -15,6 +37,8 @@ import dataclasses
 import datetime as dt
 import errno
 import hashlib
+import importlib.util
+import ipaddress
 import json
 import os
 import platform
@@ -23,14 +47,56 @@ import signal
 import shutil
 import stat
 import subprocess
-import sys
 import tempfile
 import threading
 import time
 import tomllib
 import uuid
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Sequence
+
+if _ISOLATED_CLI_REQUEST:
+    _missing_verified_context = object()
+    _verified_remote_context = globals().pop(
+        "_HARNESS_VERIFIED_REMOTE_CONTEXT",
+        _missing_verified_context,
+    )
+    if _verified_remote_context is not _missing_verified_context:
+        if (
+            not isinstance(_verified_remote_context, tuple)
+            or len(_verified_remote_context) != 2
+        ):
+            raise ImportError("内部 verified broker 上下文格式无效")
+        _verified_token, _remote_module = _verified_remote_context
+        if (
+            sys.modules.get("harness_remote") is not _remote_module
+            or getattr(
+                _remote_module,
+                "_shopxo_verified_launcher_token",
+                None,
+            )
+            is not _verified_token
+        ):
+            raise ImportError("内部 verified broker 对象身份校验失败")
+    else:
+        _remote_path = Path(__file__).with_name("harness_remote.py")
+        _remote_spec = importlib.util.spec_from_file_location(
+            "_shopxo_nursery_harness_remote",
+            _remote_path,
+        )
+        if _remote_spec is None or _remote_spec.loader is None:
+            raise ImportError(f"无法创建远程 broker 模块规格：{_remote_path}")
+        _remote_module = importlib.util.module_from_spec(_remote_spec)
+        sys.modules[_remote_spec.name] = _remote_module
+        try:
+            _remote_spec.loader.exec_module(_remote_module)
+        except BaseException:
+            sys.modules.pop(_remote_spec.name, None)
+            raise
+    RemoteBrokerError = _remote_module.RemoteBrokerError
+    RemoteExecutionBroker = _remote_module.RemoteExecutionBroker
+else:
+    from harness_remote import RemoteBrokerError, RemoteExecutionBroker
 
 
 MIN_PYTHON = (3, 11)
@@ -53,6 +119,14 @@ TASK_ID_RE = re.compile(
 REQUIREMENT_ID_RE = re.compile(
     r"\b(?:BR|FR|NFR|DATA|METRIC|AC)(?:-[A-Z]+)*-\d{3}\b", re.I
 )
+CODEX_AGENT_TASK_RE = re.compile(r"^/root(?:/[a-z0-9_]+)*$")
+CODEX_THREAD_ID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+)
+APPROVAL_STAGES = ("plan", "merge", "release")
+APPROVAL_ARTIFACT_NAMES = {
+    stage: f"approval-{stage}.json" for stage in APPROVAL_STAGES
+}
 
 # Keep this tuple byte-for-byte compatible with the project hook.
 IMMUTABLE_CONTRACT_KEYS = (
@@ -75,17 +149,54 @@ IMMUTABLE_CONTRACT_KEYS = (
     "shopxo_core_change",
     "database_change",
     "required_tests",
+    "codex_role_bindings",
     "owner",
     "reviewer",
     "release_approver",
 )
 
-# These policy fields are not consumed by the current hook, so the CLI locks
-# them separately in active-task.json and revalidates them at every gate.
+# Keep this tuple byte-for-byte compatible with the project hook. These fields
+# are locked separately from lifecycle-managed approval results.
 POLICY_EXTENSION_KEYS = (
     "new_dependency_allowed",
     "network_access_required",
+    "remote_execution",
     "rollback",
+)
+
+REMOTE_FORBIDDEN_ACTIONS = frozenset(
+    {
+        "read_private_key",
+        "ssh_config_override",
+        "proxy_command",
+        "uncontracted_host",
+        "unmanaged_remote_path",
+        "arbitrary_shell_command",
+        "sensitive_cli_argument",
+        "destructive_system_action",
+    }
+)
+REMOTE_TRANSPORTS = frozenset({"ssh", "scp"})
+REMOTE_ACTION_MODES = frozenset({"read_only", "mutating"})
+PROTECTED_REMOTE_ROOTS = frozenset(
+    {
+        "/",
+        "/bin",
+        "/boot",
+        "/dev",
+        "/etc",
+        "/home",
+        "/opt",
+        "/proc",
+        "/root",
+        "/run",
+        "/sbin",
+        "/srv",
+        "/sys",
+        "/tmp",
+        "/usr",
+        "/var",
+    }
 )
 
 RISK_ORDER = {"L0": 0, "L1": 1, "L2": 2, "L3": 3, "L4": 4}
@@ -129,6 +240,8 @@ HARNESS_POLICY_PATTERNS = (
     "docs/product/REQUIREMENTS_TRACEABILITY.md",
     "docs/architecture/SHOPXO_BOUNDARY.md",
     "scripts/harness.py",
+    "scripts/harness_remote.py",
+    "scripts/harness_remote_selftest.py",
     "scripts/harness_selftest.py",
     "scripts/harness.ps1",
     "scripts/harness.sh",
@@ -152,6 +265,9 @@ TASK_RUNTIME_PATTERN_TEMPLATES = (
     ".harness/tasks/{task_id}/evidence.md",
     ".harness/tasks/{task_id}/review.md",
     ".harness/tasks/{task_id}/release-note.md",
+    ".harness/tasks/{task_id}/approval-plan.json",
+    ".harness/tasks/{task_id}/approval-merge.json",
+    ".harness/tasks/{task_id}/approval-release.json",
     ".harness/runs/{task_id}/**",
     ".harness/reports/{task_id}/**",
     ".harness/state/active-task.json",
@@ -613,6 +729,16 @@ def canonical_json_hash(value: Any) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def canonical_json_file_sha256(path: Path, *, label: str) -> tuple[Any, str]:
+    try:
+        value = read_json(path)
+    except HarnessError:
+        raise
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HarnessError(f"无法读取 {label}：{exc}") from exc
+    return value, canonical_json_hash(value)
+
+
 def canonical_utf8_text_bytes(payload: bytes, *, label: str) -> bytes:
     try:
         text = payload.decode("utf-8-sig")
@@ -675,6 +801,30 @@ def immutable_contract_hash(task: dict[str, Any]) -> str:
 
 def policy_contract_hash(task: dict[str, Any]) -> str:
     return canonical_json_hash(policy_contract(task))
+
+
+def plan_review_task(task: dict[str, Any]) -> dict[str, Any]:
+    """Remove lifecycle results while retaining which approvals are required."""
+
+    value = copy.deepcopy(task)
+    approvals = value.get("manual_approvals")
+    if isinstance(approvals, dict):
+        for stage in ("plan", "merge", "release"):
+            approval = approvals.get(stage)
+            approvals[stage] = (
+                {"required": approval.get("required")}
+                if isinstance(approval, dict)
+                else approval
+            )
+    return value
+
+
+def plan_review_contract_hash(task: dict[str, Any]) -> str:
+    return immutable_contract_hash(plan_review_task(task))
+
+
+def plan_review_policy_hash(task: dict[str, Any]) -> str:
+    return policy_contract_hash(plan_review_task(task))
 
 
 def normalize_repo_path(value: str, *, allow_glob: bool = True) -> str:
@@ -2166,6 +2316,83 @@ class Harness:
         return str(task.get("reviewer") or "").strip()
 
     @staticmethod
+    def codex_role_binding(
+        task: dict[str, Any], stage: str
+    ) -> dict[str, Any] | None:
+        bindings = task.get("codex_role_bindings")
+        if not isinstance(bindings, dict):
+            return None
+        value = bindings.get(stage)
+        return value if isinstance(value, dict) else None
+
+    def check_codex_role_bindings(
+        self,
+        task: dict[str, Any],
+        approvals: Any,
+        result: GateResult,
+    ) -> None:
+        bindings = task.get("codex_role_bindings")
+        if not isinstance(bindings, dict):
+            return
+        implementation = bindings.get("implementation")
+        stage_values = {stage: bindings.get(stage) for stage in APPROVAL_STAGES}
+        if implementation is None:
+            populated = [stage for stage, value in stage_values.items() if value is not None]
+            if populated:
+                result.errors.append(
+                    "codex_role_bindings.implementation 为 null 时 plan/merge/release 也必须为 null"
+                )
+            return
+        if not isinstance(implementation, dict):
+            return
+
+        implementation_task = str(implementation.get("agent_task", "")).strip()
+        implementation_thread = str(implementation.get("thread_id", "")).strip()
+        if not CODEX_AGENT_TASK_RE.fullmatch(implementation_task):
+            result.errors.append(
+                "codex_role_bindings.implementation.agent_task 必须是 canonical /root task"
+            )
+        if not CODEX_THREAD_ID_RE.fullmatch(implementation_thread):
+            result.errors.append(
+                "codex_role_bindings.implementation.thread_id 必须是 Codex task UUID"
+            )
+
+        approval_values = approvals if isinstance(approvals, dict) else {}
+        for stage in APPROVAL_STAGES:
+            approval = approval_values.get(stage)
+            required = isinstance(approval, dict) and approval.get("required") is True
+            binding = stage_values[stage]
+            if required and not isinstance(binding, dict):
+                result.errors.append(
+                    f"自动审批任务的 required {stage} 必须声明 codex_role_bindings.{stage}"
+                )
+            if not isinstance(binding, dict):
+                continue
+            agent_task = str(binding.get("agent_task", "")).strip()
+            if not CODEX_AGENT_TASK_RE.fullmatch(agent_task):
+                result.errors.append(
+                    f"codex_role_bindings.{stage}.agent_task 必须是 canonical /root task"
+                )
+            if agent_task and agent_task == implementation_task:
+                result.errors.append(
+                    f"codex_role_bindings.{stage}.agent_task 必须与 implementation 不同"
+                )
+
+        release = stage_values.get("release")
+        if isinstance(release, dict):
+            release_task = str(release.get("agent_task", "")).strip()
+            for stage in ("plan", "merge"):
+                binding = stage_values.get(stage)
+                if (
+                    isinstance(binding, dict)
+                    and release_task
+                    and release_task == str(binding.get("agent_task", "")).strip()
+                ):
+                    result.errors.append(
+                        f"codex_role_bindings.release.agent_task 必须与 {stage} 不同"
+                    )
+
+    @staticmethod
     def approval_resets_for_transition(target_status: str) -> tuple[str, ...]:
         if target_status in {"ready_for_analysis", "awaiting_plan_approval"}:
             return ("plan", "merge", "release")
@@ -2190,6 +2417,457 @@ class Harness:
             approval["status"] = "pending" if approval.get("required") is True else "not_required"
             approval["approved_by"] = None
             approval["approved_at"] = None
+
+    def approval_artifact_path(self, task_id: str, stage: str) -> Path:
+        normalized = self.validate_task_id(task_id)
+        if stage not in APPROVAL_ARTIFACT_NAMES:
+            raise HarnessError(f"不支持的审批阶段：{stage}")
+        path = self.task_dir(normalized) / APPROVAL_ARTIFACT_NAMES[stage]
+        ensure_repo_path_safe(self.root, path, label=f"{stage} 审查制品")
+        return path
+
+    def approval_workspace_fingerprint(self, task_id: str, base: str) -> str:
+        """Use the same stable business-diff fingerprint as verify/review gates."""
+
+        return self.workspace_fingerprint(task_id, base)
+
+    def review_stage_context_sources(
+        self, task_id: str, task: dict[str, Any]
+    ) -> dict[str, Any]:
+        normalized = self.validate_task_id(task_id)
+        pack_path = self.latest_review_pack(normalized)
+        if pack_path is None:
+            raise HarnessError("merge/release 审批缺少 review-pack.json")
+        ensure_repo_path_safe(self.root, pack_path, label="review-pack.json")
+        if path_is_link_like(pack_path) or not pack_path.is_file():
+            raise HarnessError("review-pack.json 必须是仓库内普通文件")
+        pack, pack_hash = canonical_json_file_sha256(
+            pack_path, label="review-pack.json"
+        )
+        if not isinstance(pack, dict):
+            raise HarnessError("review-pack.json 顶层必须是 object")
+        if pack.get("task_id") != normalized or pack.get("ready_for_review") is not True:
+            raise HarnessError("review-pack.json 不属于当前任务或未通过自动门禁")
+        if pack.get("contract_sha256") != immutable_contract_hash(task):
+            raise HarnessError("review-pack.json 属于旧任务合同")
+        if pack.get("policy_sha256") != policy_contract_hash(task):
+            raise HarnessError("review-pack.json 属于旧执行策略")
+        base = str(pack.get("scope_base_commit", ""))
+        if not re.fullmatch(r"[0-9a-fA-F]{40,64}", base):
+            raise HarnessError("review-pack.json 缺少有效 scope_base_commit")
+        state = self.read_active_state()
+        if isinstance(state, dict):
+            if state.get("task_id") != normalized:
+                raise HarnessError("active state 属于其他任务")
+            if state.get("scope_base_commit") != base:
+                raise HarnessError("review-pack.json 与 active state 的范围基准不一致")
+        elif task.get("status") not in {"approved_for_merge", "closed"}:
+            raise HarnessError("merge/release 审批缺少当前任务的 active state")
+
+        evidence_path = self.task_dir(normalized) / "evidence.md"
+        ensure_repo_path_safe(self.root, evidence_path, label="evidence.md")
+        if path_is_link_like(evidence_path) or not evidence_path.is_file():
+            raise HarnessError("merge/release 审批缺少普通文件 evidence.md")
+        return {
+            "contract_sha256": immutable_contract_hash(task),
+            "policy_sha256": policy_contract_hash(task),
+            "review_pack_path": display_path(pack_path),
+            "review_pack_sha256": pack_hash,
+            "workspace_sha256": self.approval_workspace_fingerprint(normalized, base),
+            "evidence_sha256": canonical_text_file_sha256(
+                evidence_path, label="evidence.md"
+            ),
+            "verification_contract_sha256": self.verification_contract_sha256(
+                normalized, task
+            ),
+        }
+
+    def approval_context(self, task_id: str, task: dict[str, Any], stage: str) -> dict[str, Any]:
+        normalized = self.validate_task_id(task_id)
+        if stage == "plan":
+            return {
+                "schema_version": 1,
+                "task_id": normalized,
+                "stage": stage,
+                "contract_sha256": plan_review_contract_hash(task),
+                "policy_sha256": plan_review_policy_hash(task),
+                "plan_artifacts_sha256": self.plan_artifacts_sha256(normalized),
+                "decision_context_sha256": self.decision_context_sha256(task),
+            }
+        if stage not in {"merge", "release"}:
+            raise HarnessError(f"不支持的审批阶段：{stage}")
+        sources = self.review_stage_context_sources(normalized, task)
+        context: dict[str, Any] = {
+            "schema_version": 1,
+            "task_id": normalized,
+            "stage": stage,
+            **sources,
+        }
+        if stage == "release":
+            approvals = task.get("manual_approvals")
+            merge = approvals.get("merge") if isinstance(approvals, dict) else None
+            reviewer = self.expected_approval_actor(task, "merge")
+            if not self.approval_is_valid(merge, reviewer):
+                raise HarnessError("release 审批前必须已有有效 merge 审批")
+            review_path = self.task_dir(normalized) / "review.md"
+            release_note_path = self.task_dir(normalized) / "release-note.md"
+            for path, label in (
+                (review_path, "review.md"),
+                (release_note_path, "release-note.md"),
+            ):
+                ensure_repo_path_safe(self.root, path, label=label)
+                if path_is_link_like(path) or not path.is_file():
+                    raise HarnessError(f"release 审批缺少普通文件 {label}")
+            readiness_errors = self.markdown_check(
+                review_path,
+                required_headings=("## 审查范围", "## 发现", "## 审查结论"),
+                minimum_chars=300,
+            )
+            readiness_errors.extend(
+                self.markdown_check(
+                    release_note_path,
+                    required_headings=(
+                        "## 变更摘要",
+                        "## 发布前提",
+                        "## 发布步骤",
+                        "## 回滚触发与步骤",
+                        "## 发布后验证",
+                    ),
+                    minimum_chars=450,
+                )
+            )
+            if readiness_errors:
+                raise HarnessError("release readiness 未通过：" + "; ".join(readiness_errors))
+            review_text = review_path.read_text(encoding="utf-8")
+            if not re.search(r"(?m)^\s*REVIEW_RESULT:\s*APPROVED\s*$", review_text):
+                raise HarnessError("release 审批要求 review.md 标记 REVIEW_RESULT: APPROVED")
+            if reviewer and not re.search(
+                rf"(?im)^\s*REVIEWER:\s*{re.escape(reviewer)}\s*$",
+                review_text,
+            ):
+                raise HarnessError("release 审批要求 review.md 匹配当前 reviewer")
+            if not re.search(r"(?im)^\s*REVIEWED_AT:\s*\S.+$", review_text):
+                raise HarnessError("release 审批要求 review.md 记录 REVIEWED_AT")
+            context.update(
+                {
+                    "merge_approval": {
+                        "approved_by": merge.get("approved_by"),
+                        "approved_at": merge.get("approved_at"),
+                    },
+                    "review_sha256": canonical_text_file_sha256(
+                        review_path, label="review.md"
+                    ),
+                    "release_note_sha256": canonical_text_file_sha256(
+                        release_note_path, label="release-note.md"
+                    ),
+                    "remote_execution_sha256": canonical_json_hash(
+                        task.get("remote_execution")
+                    ),
+                }
+            )
+        return context
+
+    def validate_approval_artifact(
+        self,
+        task_id: str,
+        task: dict[str, Any],
+        *,
+        stage: str,
+        status: str,
+        actor: str,
+        agent_task: str,
+        codex_thread_id: str,
+    ) -> tuple[dict[str, Any], Path, str, str]:
+        context_hash = canonical_json_hash(self.approval_context(task_id, task, stage))
+        path = self.approval_artifact_path(task_id, stage)
+        if path_is_link_like(path) or not path.is_file():
+            raise HarnessError(
+                f"自动审批必须提供普通 JSON 审查制品 {display_path(path)}；"
+                f"approval_context_sha256={context_hash}"
+            )
+        artifact, artifact_hash = canonical_json_file_sha256(
+            path, label=f"{stage} 审查制品"
+        )
+        if not isinstance(artifact, dict):
+            raise HarnessError(f"{display_path(path)} 顶层必须是 object")
+        expected_keys = {
+            "schema_version",
+            "task_id",
+            "stage",
+            "decision",
+            "actor",
+            "agent_task",
+            "codex_thread_id",
+            "result_marker",
+            "approval_context_sha256",
+            "reviewed_at",
+            "findings",
+            "summary",
+        }
+        if set(artifact) != expected_keys:
+            missing = sorted(expected_keys - set(artifact))
+            extra = sorted(set(artifact) - expected_keys)
+            raise HarnessError(
+                f"{display_path(path)} 字段不符合最小 schema；missing={missing} extra={extra}"
+            )
+        expected_marker = "APPROVED" if status == "approved" else "REJECTED"
+        exact_values = {
+            "schema_version": 1,
+            "task_id": task_id,
+            "stage": stage,
+            "decision": status,
+            "actor": actor,
+            "agent_task": agent_task,
+            "codex_thread_id": codex_thread_id,
+            "result_marker": expected_marker,
+            "approval_context_sha256": context_hash,
+        }
+        for field, expected in exact_values.items():
+            if artifact.get(field) != expected:
+                raise HarnessError(
+                    f"{display_path(path)}.{field} 必须等于 {expected!r}"
+                )
+        reviewed_at = str(artifact.get("reviewed_at", "")).strip()
+        parsed_at = parse_rfc3339(reviewed_at)
+        if parsed_at is None:
+            raise HarnessError(f"{display_path(path)}.reviewed_at 必须是 RFC3339 时间")
+        findings = artifact.get("findings")
+        if (
+            not isinstance(findings, list)
+            or len(findings) > 100
+            or any(
+                not isinstance(item, str) or not item.strip() or len(item) > 2000
+                for item in findings
+            )
+        ):
+            raise HarnessError(
+                f"{display_path(path)}.findings 必须是最多 100 项的非空字符串数组"
+            )
+        if status == "rejected" and not findings:
+            raise HarnessError(f"{display_path(path)} rejected 必须至少记录一项 finding")
+        summary = artifact.get("summary")
+        if not isinstance(summary, str) or not 10 <= len(summary.strip()) <= 4000:
+            raise HarnessError(
+                f"{display_path(path)}.summary 必须是 10..4000 字符的具体结论"
+            )
+        return artifact, path, artifact_hash, context_hash
+
+    def remote_execution_contract_errors(self, task: dict[str, Any]) -> list[str]:
+        network_required = task.get("network_access_required") is True
+        remote = task.get("remote_execution")
+        if not network_required:
+            if remote is not None:
+                return ["network_access_required=false 时不得声明 remote_execution"]
+            return []
+
+        errors: list[str] = []
+        if task.get("type") != "operations" or task.get("risk_level") != "L4":
+            errors.append("远程执行只允许 type=operations 且 risk_level=L4 的任务")
+        if not isinstance(remote, dict):
+            return errors + ["网络任务必须声明 remote_execution 合同"]
+
+        authorization = remote.get("authorization")
+        if not isinstance(authorization, dict):
+            errors.append("remote_execution.authorization 必须记录用户授权上下文")
+        else:
+            if authorization.get("mode") != "user_explicit":
+                errors.append("remote_execution.authorization.mode 必须为 user_explicit")
+            thread_id = str(authorization.get("thread_id", ""))
+            if not re.fullmatch(
+                r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+                thread_id,
+            ):
+                errors.append("remote_execution.authorization.thread_id 必须是 Codex task UUID")
+            if parse_rfc3339(str(authorization.get("authorized_at", ""))) is None:
+                errors.append("remote_execution.authorization.authorized_at 必须是 RFC3339 时间")
+            scope = str(authorization.get("scope", "")).strip()
+            if len(scope) < 20 or len(scope) > 500:
+                errors.append("remote_execution.authorization.scope 必须具体记录用户授权范围")
+        if remote.get("environment") != "authorized_personal_site":
+            errors.append("remote_execution.environment 必须为 authorized_personal_site")
+
+        host = str(remote.get("host", "")).strip()
+        if not re.fullmatch(
+            r"(?:[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?|(?:[0-9]{1,3}\.){3}[0-9]{1,3})",
+            host,
+        ):
+            errors.append("remote_execution.host 必须是单一主机名或 IPv4 地址")
+        elif re.fullmatch(r"(?:[0-9]{1,3}\.){3}[0-9]{1,3}", host):
+            try:
+                ipaddress.ip_address(host)
+            except ValueError:
+                errors.append("remote_execution.host IPv4 地址无效")
+        port = remote.get("port")
+        if not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535:
+            errors.append("remote_execution.port 必须在 1..65535")
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]{0,31}", str(remote.get("user", ""))):
+            errors.append("remote_execution.user 格式无效")
+
+        fingerprint = str(remote.get("host_key_fingerprint", ""))
+        if not re.fullmatch(r"SHA256:[A-Za-z0-9+/]{43}", fingerprint):
+            errors.append("remote_execution.host_key_fingerprint 必须固定 SHA256 主机指纹")
+        credential_pattern = r"user-ssh-file:[A-Za-z0-9][A-Za-z0-9_.-]{0,127}"
+        identity_reference = str(remote.get("identity_reference", ""))
+        known_hosts_reference = str(remote.get("known_hosts_reference", ""))
+        for field, value in (
+            ("identity_reference", identity_reference),
+            ("known_hosts_reference", known_hosts_reference),
+        ):
+            if not re.fullmatch(credential_pattern, value):
+                errors.append(
+                    f"remote_execution.{field} 只能按文件名引用用户 .ssh 中的仓库外普通文件"
+                )
+        if identity_reference and identity_reference == known_hosts_reference:
+            errors.append("SSH identity 与 known_hosts 必须使用不同外部文件")
+
+        def normalized_remote_path(value: Any, field: str) -> PurePosixPath | None:
+            raw = str(value)
+            candidate = PurePosixPath(raw)
+            if (
+                not raw.startswith("/")
+                or raw == "/"
+                or candidate.as_posix() != raw
+                or ".." in candidate.parts
+                or any(character in raw for character in ("\r", "\n", "\x00"))
+            ):
+                errors.append(f"remote_execution.{field} 必须是规范、非根目录的绝对路径")
+                return None
+            if candidate.as_posix() in PROTECTED_REMOTE_ROOTS:
+                errors.append(f"remote_execution.{field} 范围过宽，不能是系统顶级目录")
+                return None
+            return candidate
+
+        deployment_root = str(remote.get("deployment_root", ""))
+        deployment_path = normalized_remote_path(deployment_root, "deployment_root")
+        managed_values = remote.get("managed_roots")
+        managed_paths: list[PurePosixPath] = []
+        if not isinstance(managed_values, list) or not managed_values:
+            errors.append("remote_execution.managed_roots 必须声明至少一个受管根")
+        else:
+            for index, value in enumerate(managed_values):
+                path = normalized_remote_path(value, f"managed_roots[{index}]")
+                if path is not None:
+                    managed_paths.append(path)
+            if len(set(managed_paths)) != len(managed_paths):
+                errors.append("remote_execution.managed_roots 不得重复")
+            for index, root in enumerate(managed_paths):
+                for other in managed_paths[index + 1 :]:
+                    if root in other.parents or other in root.parents:
+                        errors.append("remote_execution.managed_roots 不得互相包含以隐式扩大范围")
+                        break
+        if deployment_path is not None and deployment_path not in managed_paths:
+            errors.append("remote_execution.deployment_root 必须精确列入 managed_roots")
+
+        def path_is_managed(value: Any, field: str) -> bool:
+            candidate = normalized_remote_path(value, field)
+            if candidate is None:
+                return False
+            return any(candidate == root or root in candidate.parents for root in managed_paths)
+
+        actions = remote.get("allowed_actions")
+        action_ids: set[str] = set()
+        if not isinstance(actions, list) or not actions:
+            errors.append("remote_execution.allowed_actions 必须声明结构化动作")
+        else:
+            for index, action in enumerate(actions):
+                label = f"allowed_actions[{index}]"
+                if not isinstance(action, dict):
+                    errors.append(f"remote_execution.{label} 必须是 object")
+                    continue
+                action_id = str(action.get("id", ""))
+                if not re.fullmatch(r"[a-z][a-z0-9_-]{2,63}", action_id):
+                    errors.append(f"remote_execution.{label}.id 格式无效")
+                elif action_id in action_ids:
+                    errors.append(f"remote_execution.allowed_actions id 重复：{action_id}")
+                action_ids.add(action_id)
+                transport = action.get("transport")
+                mode = action.get("mode")
+                timeout = action.get("timeout_seconds")
+                if transport not in REMOTE_TRANSPORTS:
+                    errors.append(f"remote_execution.{label}.transport 无效")
+                if mode not in REMOTE_ACTION_MODES:
+                    errors.append(f"remote_execution.{label}.mode 无效")
+                if (
+                    not isinstance(timeout, int)
+                    or isinstance(timeout, bool)
+                    or not 1 <= timeout <= 1800
+                ):
+                    errors.append(f"remote_execution.{label}.timeout_seconds 必须在 1..1800")
+                if transport == "ssh":
+                    if not path_is_managed(action.get("cwd"), f"{label}.cwd"):
+                        errors.append(f"remote_execution.{label}.cwd 不在 managed_roots")
+                    argv = action.get("argv")
+                    if not isinstance(argv, list) or not argv:
+                        errors.append(f"remote_execution.{label}.argv 必须是非空数组")
+                    elif any(
+                        not isinstance(item, str)
+                        or not item
+                        or any(character in item for character in ("\r", "\n", "\x00"))
+                        for item in argv
+                    ):
+                        errors.append(f"remote_execution.{label}.argv 含空值、换行或 NUL")
+                    if any(key in action for key in ("direction", "source", "destination")):
+                        errors.append(f"remote_execution.{label} ssh 动作不得声明 scp 字段")
+                elif transport == "scp":
+                    if any(key in action for key in ("cwd", "argv")):
+                        errors.append(f"remote_execution.{label} scp 动作不得声明 ssh 字段")
+                    direction = action.get("direction")
+                    source = action.get("source")
+                    destination = action.get("destination")
+                    if direction not in {"upload", "download"}:
+                        errors.append(f"remote_execution.{label}.direction 无效")
+                    elif direction == "upload":
+                        if not isinstance(source, str) or not source:
+                            errors.append(f"remote_execution.{label}.source 必须是仓库内相对路径")
+                        else:
+                            try:
+                                source_path = normalize_repo_path(source, allow_glob=False)
+                            except ValueError:
+                                errors.append(
+                                    f"remote_execution.{label}.source 必须是仓库内相对路径"
+                                )
+                            else:
+                                if not source_path.startswith(
+                                    f".harness/runs/{task.get('id')}/"
+                                ):
+                                    errors.append(
+                                        f"remote_execution.{label}.source 只能读取当前任务 .harness/runs/**"
+                                    )
+                        if not path_is_managed(destination, f"{label}.destination"):
+                            errors.append(f"remote_execution.{label}.destination 不在 managed_roots")
+                    else:
+                        if not path_is_managed(source, f"{label}.source"):
+                            errors.append(f"remote_execution.{label}.source 不在 managed_roots")
+                        if not isinstance(destination, str) or not destination:
+                            errors.append(f"remote_execution.{label}.destination 必须是仓库内相对路径")
+                        else:
+                            try:
+                                destination_path = normalize_repo_path(
+                                    destination, allow_glob=False
+                                )
+                            except ValueError:
+                                errors.append(
+                                    f"remote_execution.{label}.destination 必须是仓库内相对路径"
+                                )
+                                destination_path = ""
+                            if destination_path and not destination_path.startswith(
+                                f".harness/runs/{task.get('id')}/"
+                            ):
+                                errors.append(
+                                    f"remote_execution.{label}.destination 只能写入当前任务 .harness/runs/**"
+                                )
+
+        forbidden = remote.get("forbidden_actions")
+        if not isinstance(forbidden, list) or set(forbidden) != REMOTE_FORBIDDEN_ACTIONS:
+            errors.append("remote_execution.forbidden_actions 必须完整声明固定拒绝能力")
+        approvals = task.get("manual_approvals")
+        release = approvals.get("release") if isinstance(approvals, dict) else None
+        if not isinstance(release, dict) or release.get("required") is not True:
+            errors.append("远程执行任务必须启用 release approval")
+        rollback = task.get("rollback")
+        if not isinstance(rollback, dict) or rollback.get("required") is not True:
+            errors.append("远程执行任务必须声明必需回滚")
+        return errors
 
     def task_check(
         self,
@@ -2408,18 +3086,19 @@ class Harness:
                 self.check_approval_object(name, approvals.get(name), result)
             if not isinstance(approvals.get("merge"), dict) or approvals["merge"].get("required") is not True:
                 result.errors.append("所有任务都必须声明 manual_approvals.merge.required=true")
+        self.check_codex_role_bindings(task, approvals, result)
         independent_risks = {
             str(item)
             for item in self.config.get("workflow", {}).get("independent_review_risks", [])
         }
         if risk in independent_risks:
             if not isinstance(approvals, dict) or approvals.get("plan", {}).get("required") is not True:
-                result.errors.append(f"{risk} 必须声明人工计划审批")
+                result.errors.append(f"{risk} 必须声明独立计划审批")
             if not isinstance(approvals, dict) or approvals.get("merge", {}).get("required") is not True:
                 result.errors.append(f"{risk} 必须声明独立合并审批")
         if risk == "L4":
             if not isinstance(approvals, dict) or approvals.get("release", {}).get("required") is not True:
-                result.errors.append("L4 必须声明人工发布审批")
+                result.errors.append("L4 必须声明独立发布审批")
 
         high_risk_requirement = any(
             requirement.startswith(("NFR-SEC-", "FR-DASH-", "METRIC-", "DATA-"))
@@ -2527,8 +3206,7 @@ class Harness:
             ):
                 result.errors.append("必需回滚任务缺少 rollback.verification")
 
-        if task.get("network_access_required") is True:
-            result.errors.append("当前 Harness 不授权 required_tests 或业务任务访问网络")
+        result.errors.extend(self.remote_execution_contract_errors(task))
 
         owner = str(task.get("owner", "")).strip()
         reviewer = str(task.get("reviewer", "")).strip()
@@ -2542,7 +3220,7 @@ class Harness:
             isinstance(db_change, dict) and db_change.get("required")
         ) or (isinstance(core_change, dict) and core_change.get("required")):
             if not reviewer:
-                result.errors.append("需人工合并审批的任务必须指定独立 reviewer")
+                result.errors.append("需独立合并审批的任务必须指定 reviewer 角色")
             elif owner.casefold() == reviewer.casefold():
                 result.errors.append("任务 owner 与独立 reviewer 必须不同")
 
@@ -2553,7 +3231,7 @@ class Harness:
         )
         if release_required:
             if not release_approver:
-                result.errors.append("需人工发布审批的任务必须指定 release_approver")
+                result.errors.append("需独立发布审批的任务必须指定 release_approver 角色")
             elif release_approver.casefold() in {owner.casefold(), reviewer.casefold()}:
                 result.errors.append("release_approver 必须与 owner、reviewer 均不同")
         elif release_approver:
@@ -2918,10 +3596,10 @@ class Harness:
                     result.errors.append(
                         f"workflow-history events[{index}] 为未声明 required 的 {stage} 记录审批"
                     )
-                expected_actor = self.expected_approval_actor(task, stage)
-                if not expected_actor or actor.casefold() != expected_actor.casefold():
+                recorded_expected_actor = str(event.get("expected_actor", "")).strip()
+                if recorded_expected_actor and actor.casefold() != recorded_expected_actor.casefold():
                     result.errors.append(
-                        f"workflow-history events[{index}] {stage} 审批人不符合任务合同"
+                        f"workflow-history events[{index}] {stage} 审批人不符合事件锁定角色"
                     )
                 latest_approvals[stage] = event
             else:
@@ -2970,6 +3648,25 @@ class Harness:
                 else:
                     if recorded_decision_hash != current_decision_hash:
                         plan_context_problem("关联需求决策在 plan 批准后发生变化，旧审批已失效")
+            for field, current_hash, description in (
+                (
+                    "contract_sha256",
+                    plan_review_contract_hash(task),
+                    "任务授权合同",
+                ),
+                (
+                    "policy_sha256",
+                    plan_review_policy_hash(task),
+                    "任务执行策略",
+                ),
+            ):
+                recorded_hash = latest_plan_event.get(field)
+                if not isinstance(recorded_hash, str) or not re.fullmatch(
+                    r"[0-9a-f]{64}", recorded_hash
+                ):
+                    plan_context_problem(f"最新 plan 批准事件缺少有效 {field}")
+                elif recorded_hash != current_hash:
+                    plan_context_problem(f"{description}在 plan 批准后发生变化，旧审批已失效")
         for stage in ("plan", "merge", "release"):
             approval = approval_values.get(stage)
             if not isinstance(approval, dict):
@@ -2980,6 +3677,89 @@ class Harness:
                 if current_status in {"approved", "rejected"}:
                     result.errors.append(f"manual_approvals.{stage} 缺少对应历史事件")
                 continue
+            expected_actor = self.expected_approval_actor(task, stage)
+            latest_actor = str(latest.get("by", "")).strip()
+            if not expected_actor or latest_actor.casefold() != expected_actor.casefold():
+                result.errors.append(
+                    f"manual_approvals.{stage} 最新审批人不符合当前任务合同"
+                )
+            binding = self.codex_role_binding(task, stage)
+            if isinstance(binding, dict):
+                def approval_binding_problem(message: str) -> None:
+                    if stage == "plan" and allow_stale_plan_context:
+                        result.warnings.append(
+                            message + "；当前仅允许重新记录 plan 审批"
+                        )
+                    else:
+                        result.errors.append(message)
+
+                expected_agent_task = str(binding.get("agent_task", "")).strip()
+                observed_agent_task = str(
+                    latest.get("observed_agent_task", "")
+                ).strip()
+                observed_thread = str(
+                    latest.get("observed_codex_thread_id", "")
+                ).strip()
+                implementation = self.codex_role_binding(task, "implementation")
+                implementation_thread = (
+                    str(implementation.get("thread_id", "")).strip()
+                    if isinstance(implementation, dict)
+                    else ""
+                )
+                if latest.get("expected_agent_task") != expected_agent_task:
+                    approval_binding_problem(
+                        f"workflow-history 最新 {stage} 事件 expected_agent_task 与绑定不一致"
+                    )
+                if observed_agent_task != expected_agent_task:
+                    approval_binding_problem(
+                        f"workflow-history 最新 {stage} 事件 observed_agent_task 与绑定不一致"
+                    )
+                if not CODEX_THREAD_ID_RE.fullmatch(observed_thread):
+                    approval_binding_problem(
+                        f"workflow-history 最新 {stage} 事件缺少有效 observed_codex_thread_id"
+                    )
+                elif observed_thread == implementation_thread:
+                    approval_binding_problem(
+                        f"workflow-history 最新 {stage} 审批 thread 与 implementation 相同"
+                    )
+                expected_path = display_path(self.approval_artifact_path(task_id, stage))
+                if latest.get("review_artifact_path") != expected_path:
+                    approval_binding_problem(
+                        f"workflow-history 最新 {stage} 事件 review_artifact_path 无效"
+                    )
+                try:
+                    artifact, artifact_path, artifact_hash, context_hash = (
+                        self.validate_approval_artifact(
+                            task_id,
+                            task,
+                            stage=stage,
+                            status=str(latest.get("status", "")),
+                            actor=latest_actor,
+                            agent_task=observed_agent_task,
+                            codex_thread_id=observed_thread,
+                        )
+                    )
+                except (HarnessError, OSError, UnicodeError) as exc:
+                    approval_binding_problem(
+                        f"workflow-history 最新 {stage} 审查制品失效：{exc}"
+                    )
+                else:
+                    if latest.get("review_artifact_path") != display_path(artifact_path):
+                        approval_binding_problem(
+                            f"workflow-history 最新 {stage} 事件制品路径与实际路径不一致"
+                        )
+                    if latest.get("review_artifact_sha256") != artifact_hash:
+                        approval_binding_problem(
+                            f"workflow-history 最新 {stage} 事件制品 canonical SHA 已失效"
+                        )
+                    if latest.get("approval_context_sha256") != context_hash:
+                        approval_binding_problem(
+                            f"workflow-history 最新 {stage} 事件 approval context 已失效"
+                        )
+                    if latest.get("reviewed_at") != artifact.get("reviewed_at"):
+                        approval_binding_problem(
+                            f"workflow-history 最新 {stage} 事件 reviewed_at 与制品不一致"
+                        )
             if current_status != latest.get("status"):
                 result.errors.append(f"manual_approvals.{stage} 与最新历史事件状态不一致")
             if current_status == "approved":
@@ -3068,6 +3848,7 @@ class Harness:
         status: str,
         actor: str,
         reason: str,
+        agent_task: str = "",
     ) -> GateResult:
         normalized = self.validate_task_id(task_id)
         try:
@@ -3079,6 +3860,7 @@ class Harness:
                         status=status,
                         actor=actor,
                         reason=reason,
+                        agent_task=agent_task,
                     )
         except WorkflowLockError as exc:
             result = GateResult("task-approval")
@@ -3093,6 +3875,7 @@ class Harness:
         status: str,
         actor: str,
         reason: str,
+        agent_task: str,
     ) -> GateResult:
         normalized = self.validate_task_id(task_id)
         result = GateResult("task-approval")
@@ -3104,6 +3887,8 @@ class Harness:
         if status == "rejected" and not reason:
             result.errors.append("拒绝审批必须提供 --reason")
             return result
+        agent_task = agent_task.strip()
+        codex_thread_id = str(os.environ.get("CODEX_THREAD_ID", "")).strip()
         allow_stale = stage == "plan"
         contract = self.task_check(
             normalized,
@@ -3145,8 +3930,40 @@ class Harness:
             result.errors.append(f"manual_approvals.{stage}.required 未声明为 true")
             return result
 
+        binding = self.codex_role_binding(task, stage)
+        implementation_binding = self.codex_role_binding(task, "implementation")
+        automated_approval = isinstance(binding, dict)
+        if not automated_approval:
+            result.errors.append(
+                f"task-approval 要求预先声明 codex_role_bindings.{stage}；"
+                "legacy/null binding 只能回放旧历史，不能记录新审批"
+            )
+            return result
+        expected_agent_task = str(binding.get("agent_task", "")).strip()
+        implementation_thread = (
+            str(implementation_binding.get("thread_id", "")).strip()
+            if isinstance(implementation_binding, dict)
+            else ""
+        )
+        if agent_task != expected_agent_task:
+            result.errors.append(
+                f"--agent-task 必须精确匹配 codex_role_bindings.{stage}.agent_task"
+            )
+        if not CODEX_THREAD_ID_RE.fullmatch(codex_thread_id):
+            result.errors.append("自动审批缺少有效 CODEX_THREAD_ID UUID")
+        elif codex_thread_id == implementation_thread:
+            result.errors.append("审批 CODEX_THREAD_ID 必须与 implementation thread 不同")
+        if result.errors:
+            return result
+
         plan_artifacts_hash: str | None = None
         decision_context_hash: str | None = None
+        reviewed_contract_hash: str | None = None
+        reviewed_policy_hash: str | None = None
+        review_artifact: dict[str, Any] | None = None
+        review_artifact_path: Path | None = None
+        review_artifact_hash: str | None = None
+        approval_context_hash: str | None = None
         if stage == "plan" and status == "approved":
             plan_gate = self.plan_check(
                 normalized,
@@ -3159,7 +3976,29 @@ class Harness:
             try:
                 plan_artifacts_hash = self.plan_artifacts_sha256(normalized)
                 decision_context_hash = self.decision_context_sha256(task)
+                reviewed_contract_hash = plan_review_contract_hash(task)
+                reviewed_policy_hash = plan_review_policy_hash(task)
             except HarnessError as exc:
+                result.errors.append(str(exc))
+                return result
+
+        if automated_approval:
+            try:
+                (
+                    review_artifact,
+                    review_artifact_path,
+                    review_artifact_hash,
+                    approval_context_hash,
+                ) = self.validate_approval_artifact(
+                    normalized,
+                    task,
+                    stage=stage,
+                    status=status,
+                    actor=actor,
+                    agent_task=agent_task,
+                    codex_thread_id=codex_thread_id,
+                )
+            except (HarnessError, OSError, UnicodeError) as exc:
                 result.errors.append(str(exc))
                 return result
 
@@ -3174,13 +4013,32 @@ class Harness:
                 "stage": stage,
                 "status": status,
                 "by": actor,
+                "expected_actor": expected_actor,
+                "agent_task": agent_task or None,
+                "codex_thread_id": codex_thread_id or None,
+                "expected_agent_task": expected_agent_task or None,
+                "observed_agent_task": agent_task or None,
+                "observed_codex_thread_id": codex_thread_id or None,
                 "reason": reason,
                 "at": changed_at,
             }
+            if review_artifact is not None and review_artifact_path is not None:
+                approval_event.update(
+                    {
+                        "review_artifact_path": display_path(review_artifact_path),
+                        "review_artifact_sha256": review_artifact_hash,
+                        "approval_context_sha256": approval_context_hash,
+                        "reviewed_at": review_artifact.get("reviewed_at"),
+                    }
+                )
             if plan_artifacts_hash is not None:
                 approval_event["plan_artifacts_sha256"] = plan_artifacts_hash
             if decision_context_hash is not None:
                 approval_event["decision_context_sha256"] = decision_context_hash
+            if reviewed_contract_hash is not None:
+                approval_event["contract_sha256"] = reviewed_contract_hash
+            if reviewed_policy_hash is not None:
+                approval_event["policy_sha256"] = reviewed_policy_hash
             transaction_warning = self.write_task_workflow_update(
                 normalized,
                 task,
@@ -3196,7 +4054,7 @@ class Harness:
                 "task_id": normalized,
                 "stage": stage,
                 "status": status,
-                "summary": "审批记录已写入；任务字段不能替代 Git 平台上的真实人工身份验证。",
+                "summary": "审批记录及 Codex 审计上下文已写入；字段本身不构成密码学身份。",
             }
         )
         return result
@@ -3414,17 +4272,33 @@ class Harness:
         elif toml_path.is_file():
             try:
                 with toml_path.open("rb") as handle:
-                    tomllib.load(handle)
+                    codex_config = tomllib.load(handle)
             except (OSError, tomllib.TOMLDecodeError) as exc:
                 result.errors.append(f".codex/config.toml 无法解析：{exc}")
+            else:
+                if codex_config.get("sandbox_mode") != "workspace-write":
+                    result.errors.append(".codex/config.toml sandbox_mode 必须为 workspace-write")
+                sandbox = codex_config.get("sandbox_workspace_write")
+                if not isinstance(sandbox, dict) or sandbox.get("network_access") is not False:
+                    result.errors.append(
+                        ".codex/config.toml 必须保持 network_access=false；远程权限由外层会话显式授予"
+                    )
+                features = codex_config.get("features")
+                if not isinstance(features, dict) or features.get("hooks") is not True:
+                    result.errors.append(".codex/config.toml 必须启用项目 Hook")
 
         execution = self.config.get("execution", {})
         if not isinstance(execution, dict):
             result.errors.append("harness.json execution 必须是 object")
         else:
-            for key in ("production_access", "secret_access"):
-                if execution.get(key) != "deny":
-                    result.errors.append(f"execution.{key} 必须固定为 deny")
+            expected_execution = {
+                "production_access": "task_scoped_explicit",
+                "secret_access": "external_reference_only",
+                "network_access": "task_scoped_explicit",
+            }
+            for key, expected in expected_execution.items():
+                if execution.get(key) != expected:
+                    result.errors.append(f"execution.{key} 必须固定为 {expected}")
             if execution.get("max_test_timeout_seconds") != HARD_MAX_TEST_TIMEOUT_SECONDS:
                 result.errors.append(
                     f"execution.max_test_timeout_seconds 必须固定为 {HARD_MAX_TEST_TIMEOUT_SECONDS}"
@@ -4569,12 +5443,17 @@ class Harness:
         if production_hits:
             result.errors.append(f"生产环境标记存在，Harness 拒绝执行：{', '.join(production_hits)}")
         execution_policy = self.config.get("execution", {})
-        if not isinstance(execution_policy, dict) or execution_policy.get("production_access") != "deny":
-            result.errors.append("Harness execution.production_access 未固定为 deny")
-        if not isinstance(execution_policy, dict) or execution_policy.get("secret_access") != "deny":
-            result.errors.append("Harness execution.secret_access 未固定为 deny")
-        if task.get("network_access_required"):
-            result.errors.append("第一版 Harness 不授权业务任务在 preflight 后访问网络")
+        expected_execution = {
+            "production_access": "task_scoped_explicit",
+            "secret_access": "external_reference_only",
+            "network_access": "task_scoped_explicit",
+        }
+        if not isinstance(execution_policy, dict):
+            result.errors.append("Harness execution 策略无效")
+        else:
+            for key, expected in expected_execution.items():
+                if execution_policy.get(key) != expected:
+                    result.errors.append(f"Harness execution.{key} 未固定为 {expected}")
 
         risk = str(task.get("risk_level", ""))
         db_change = task.get("database_change", {})
@@ -4750,22 +5629,39 @@ class Harness:
         normalized = self.validate_task_id(task_id)
         if changes is None:
             changes = self.collect_changes(base)
-        mutable = {
+        mutable_patterns = (
             f".harness/tasks/{normalized}/task.json",
             f".harness/tasks/{normalized}/workflow-history.json",
             f".harness/tasks/{normalized}/evidence.md",
             f".harness/tasks/{normalized}/review.md",
             f".harness/tasks/{normalized}/release-note.md",
-        }
+            *(
+                f".harness/tasks/{normalized}/{name}"
+                for name in APPROVAL_ARTIFACT_NAMES.values()
+            ),
+            f".harness/runs/{normalized}/**",
+            f".harness/reports/{normalized}/**",
+            ".harness/state/active-task.json",
+        )
+        records = sorted(
+            {
+                (
+                    str(change.status),
+                    tuple(
+                        path
+                        for path in change.paths
+                        if not path_matches(path, mutable_patterns)
+                    ),
+                )
+                for change in changes
+            }
+        )
         digest = hashlib.sha256()
         digest.update(f"base:{base}\n".encode())
-        head = self.head() or "unknown"
-        digest.update(f"head:{head}\n".encode())
-        for change in changes:
-            relevant = [path for path in change.paths if path not in mutable]
+        for status, relevant in records:
             if not relevant:
                 continue
-            digest.update(f"status:{change.status}\n".encode())
+            digest.update(f"status:{status}\n".encode("utf-8"))
             for rel in relevant:
                 digest.update(f"path:{rel}\n".encode("utf-8"))
                 path = self.root / Path(*rel.split("/"))
@@ -4784,7 +5680,12 @@ class Harness:
                                     break
                                 file_digest.update(chunk)
                     except OSError as exc:
-                        digest.update(f"read-error:{exc}\n".encode("utf-8", errors="replace"))
+                        digest.update(
+                            (
+                                "read-error:"
+                                f"{type(exc).__name__}:{getattr(exc, 'errno', None)}\n"
+                            ).encode("utf-8")
+                        )
                     else:
                         digest.update(f"sha256:{file_digest.hexdigest()}\n".encode())
                 else:
@@ -6075,12 +6976,12 @@ class Harness:
         approvals = task.get("manual_approvals", {})
         merge_approval = approvals.get("merge") if isinstance(approvals, dict) else None
         if not self.approval_is_valid(merge_approval, reviewer):
-            result.errors.append("缺少独立 reviewer 的人工合并审批")
+            result.errors.append("缺少独立 reviewer 的合并审批")
         release_approval = approvals.get("release") if isinstance(approvals, dict) else None
         if isinstance(release_approval, dict) and release_approval.get("required"):
             release_approver = self.expected_approval_actor(task, "release")
             if not self.approval_is_valid(release_approval, release_approver):
-                result.errors.append("L4/声明任务缺少独立 release_approver 的人工发布审批")
+                result.errors.append("L4/声明任务缺少独立 release_approver 的发布审批")
 
         review_path = self.task_dir(normalized) / "review.md"
         result.errors.extend(
@@ -6150,9 +7051,230 @@ class Harness:
             {
                 "task_id": normalized,
                 "review_pack": display_path(pack_path) if pack_path else None,
-                "summary": "release-check 只判断合并/人工发布准备度，不执行生产发布。",
+                "summary": "release-check 只判断合并/发布准备度；远程动作由 L4 合同测试或受控发布步骤执行。",
             }
         )
+        return result
+
+    # ---------- Contracted remote execution ----------
+
+    def release_seal(self, task_id: str) -> GateResult:
+        normalized = self.validate_task_id(task_id)
+        try:
+            with self.workflow_lock(normalized):
+                with self.active_state_lock():
+                    return self._release_seal_locked(normalized)
+        except WorkflowLockError as exc:
+            result = GateResult("release-seal")
+            result.errors.append(f"无法取得发布封印锁：{exc}")
+            return result
+
+    def _release_seal_locked(self, task_id: str) -> GateResult:
+        normalized = self.validate_task_id(task_id)
+        result = GateResult("release-seal")
+        release_gate = self.release_check(
+            normalized,
+            base_ref=None,
+            require_state=True,
+        )
+        if not release_gate.ok:
+            result.merge(release_gate)
+            return result
+        task = self.load_task(normalized)
+        if task.get("risk_level") != "L4" or task.get("network_access_required") is not True:
+            result.errors.append("release-seal 只允许已批准的 L4 网络 operations 任务")
+            return result
+        dirty = self.repository_dirty_paths()
+        if dirty:
+            result.errors.append(
+                "release-seal 要求审批与状态事件已提交且工作区干净；发现："
+                + ", ".join(dirty[:8])
+            )
+            return result
+        head = self.head()
+        if not head:
+            result.errors.append("无法读取 release Git commit")
+            return result
+        try:
+            state = self.read_active_state()
+            if not isinstance(state, dict):
+                raise HarnessError("缺少活动任务状态")
+            upload_artifacts = RemoteExecutionBroker.release_upload_artifact_facts(
+                normalized,
+            )
+            state["release_commit"] = head
+            state["release_contract_sha256"] = immutable_contract_hash(task)
+            state["release_policy_sha256"] = policy_contract_hash(task)
+            state["release_sealed_at"] = utc_now()
+            state["release_upload_artifacts"] = upload_artifacts
+            write_json(self.state_file, state)
+        except (HarnessError, OSError, RemoteBrokerError) as exc:
+            result.errors.append(f"无法写入 release seal：{exc}")
+            return result
+        result.data.update(
+            {
+                "task_id": normalized,
+                "release_commit": head,
+                "release_upload_artifacts": upload_artifacts,
+                "summary": (
+                    f"发布封印已锁定 Git commit {head[:12]} 及 "
+                    f"{len(upload_artifacts)} 个上传制品。"
+                ),
+            }
+        )
+        return result
+
+    def remote_actions(self, task_id: str) -> GateResult:
+        normalized = self.validate_task_id(task_id)
+        result = GateResult("remote-actions")
+        task_gate = self.task_check(normalized, block_open_decisions=True)
+        if not task_gate.ok:
+            result.merge(task_gate)
+            return result
+        task = self.load_task(normalized)
+        state_gate = self.validate_active_state(normalized, task, required=True)
+        if not state_gate.ok:
+            result.merge(state_gate)
+            return result
+        try:
+            broker = RemoteExecutionBroker.from_repository(
+                normalized,
+            )
+        except (HarnessError, RemoteBrokerError) as exc:
+            result.errors.append(f"远程 broker 拒绝合同：{exc}")
+            return result
+        result.data.update(
+            {
+                "task_id": normalized,
+                "read_only_actions": list(broker.action_ids(mode="read_only")),
+                "mutating_actions": list(broker.action_ids(mode="mutating")),
+                "summary": "只列出 active state 锁定动作，未建立网络连接。",
+            }
+        )
+        return result
+
+    def remote_execute(
+        self,
+        task_id: str,
+        *,
+        action_id: str,
+        allow_mutating: bool,
+    ) -> GateResult:
+        normalized = self.validate_task_id(task_id)
+        try:
+            with self.workflow_lock(normalized):
+                with self.active_state_lock():
+                    return self._remote_execute_locked(
+                        normalized,
+                        action_id=action_id,
+                        allow_mutating=allow_mutating,
+                    )
+        except WorkflowLockError as exc:
+            result = GateResult("remote-exec")
+            result.errors.append(f"无法取得远程执行锁：{exc}")
+            return result
+
+    def _remote_execute_locked(
+        self,
+        task_id: str,
+        *,
+        action_id: str,
+        allow_mutating: bool,
+    ) -> GateResult:
+        normalized = self.validate_task_id(task_id)
+        result = GateResult("remote-exec")
+        if not re.fullmatch(r"[a-z][a-z0-9_-]{2,63}", action_id):
+            result.errors.append("远程 action id 格式无效")
+            return result
+        task_gate = self.task_check(normalized, block_open_decisions=True)
+        if not task_gate.ok:
+            result.merge(task_gate)
+            return result
+        task = self.load_task(normalized)
+        state_gate = self.validate_active_state(normalized, task, required=True)
+        if not state_gate.ok:
+            result.merge(state_gate)
+            return result
+        if allow_mutating:
+            release_gate = self.release_check(
+                normalized,
+                base_ref=None,
+                require_state=True,
+            )
+            if not release_gate.ok:
+                result.merge(release_gate)
+            dirty = self.repository_dirty_paths()
+            if dirty:
+                result.errors.append(
+                    "远程变更要求审批后工作区完全干净；发现：" + ", ".join(dirty[:8])
+                )
+            try:
+                sealed_state = self.read_active_state()
+            except HarnessError as exc:
+                result.errors.append(str(exc))
+                sealed_state = None
+            head = self.head()
+            if (
+                not isinstance(sealed_state, dict)
+                or not head
+                or sealed_state.get("release_commit") != head
+                or sealed_state.get("release_contract_sha256")
+                != immutable_contract_hash(task)
+                or sealed_state.get("release_policy_sha256") != policy_contract_hash(task)
+            ):
+                result.errors.append(
+                    "远程变更缺少与当前干净 Git HEAD/合同一致的 release-seal"
+                )
+            if result.errors:
+                return result
+        try:
+            broker = RemoteExecutionBroker.from_repository(
+                normalized,
+            )
+            run_directory = self.create_run_directory(normalized, f"remote-{action_id}")
+            evidence = broker.execute(action_id, allow_mutating=allow_mutating)
+            evidence_path = run_directory / "remote-evidence.json"
+            manifest_path = run_directory / "manifest.json"
+            ensure_repo_path_safe(self.root, evidence_path, label="远程证据")
+            ensure_repo_path_safe(self.root, manifest_path, label="远程证据清单")
+            write_json(evidence_path, evidence)
+            manifest = {
+                "schema_version": 1,
+                "kind": "harness_remote_run",
+                "task_id": normalized,
+                "action_id": action_id,
+                "action_sha256": evidence.get("action_sha256"),
+                "contract_sha256": immutable_contract_hash(task),
+                "policy_sha256": policy_contract_hash(task),
+                "git_commit": self.head(),
+                "git_branch": self.branch(),
+                "success": evidence.get("success") is True,
+                "failure_kind": evidence.get("failure_kind"),
+                "evidence_file": "remote-evidence.json",
+                "recorded_at": utc_now(),
+            }
+            write_json(manifest_path, manifest)
+        except (HarnessError, OSError, RemoteBrokerError) as exc:
+            result.errors.append(f"远程 broker 拒绝或无法记录执行：{exc}")
+            return result
+
+        result.data.update(
+            {
+                "task_id": normalized,
+                "action_id": action_id,
+                "run_directory": display_path(run_directory),
+                "success": evidence.get("success") is True,
+                "failure_kind": evidence.get("failure_kind"),
+                "summary": (
+                    f"远程动作 {action_id} 已执行并写入脱敏证据；"
+                    f"exit_code={evidence.get('exit_code')}。"
+                ),
+            }
+        )
+        if evidence.get("success") is not True:
+            result.errors.append(
+                f"远程动作失败：{evidence.get('failure_kind') or 'unknown'}；已保留脱敏证据"
+            )
         return result
 
 
@@ -6230,7 +7352,7 @@ def build_parser() -> argparse.ArgumentParser:
     transition.add_argument("--reason", default="", help="状态变更原因；blocked/cancelled/closed 必填")
     add_json_flag(transition)
 
-    approval = subparsers.add_parser("task-approval", help="记录 plan/merge/release 人工审批结果")
+    approval = subparsers.add_parser("task-approval", help="记录 plan/merge/release 独立审批结果")
     approval.add_argument("task_id")
     approval.add_argument("stage", choices=("plan", "merge", "release"))
     approval.add_argument("--status", choices=("approved", "rejected"), required=True)
@@ -6239,12 +7361,44 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="plan/merge 必须匹配 reviewer；release 必须匹配 release_approver",
     )
+    approval.add_argument(
+        "--agent-task",
+        default="",
+        help="Codex 审批必填，记录独立子代理 canonical task，例如 /root/plan_review",
+    )
     approval.add_argument("--reason", default="", help="审批说明；rejected 必填")
     add_json_flag(approval)
 
     contract_hash = subparsers.add_parser("contract-hash", help="输出与项目 Hook 兼容的合同 SHA-256")
     contract_hash.add_argument("task_id")
     add_json_flag(contract_hash)
+
+    remote_actions = subparsers.add_parser(
+        "remote-actions",
+        help="列出 active L4 合同锁定的远程动作，不建立网络连接",
+    )
+    remote_actions.add_argument("task_id")
+    add_json_flag(remote_actions)
+
+    release_seal = subparsers.add_parser(
+        "release-seal",
+        help="在 L4 审批提交后锁定干净 Git HEAD，供 mutating 远程动作校验",
+    )
+    release_seal.add_argument("task_id")
+    add_json_flag(release_seal)
+
+    remote_exec = subparsers.add_parser(
+        "remote-exec",
+        help="通过项目 broker 执行一个 active L4 合同锁定动作",
+    )
+    remote_exec.add_argument("task_id")
+    remote_exec.add_argument("action_id")
+    remote_exec.add_argument(
+        "--allow-mutating",
+        action="store_true",
+        help="仅对已完成 release 审批且状态为 approved_for_merge 的 mutating 动作显式启用",
+    )
+    add_json_flag(remote_exec)
 
     for name, help_text in (
         ("task-check", "验证 JSON 合同、需求编号、决策、范围和审批声明"),
@@ -6265,7 +7419,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("verify", "只运行 task.required_tests 中的 command argv 数组"),
         ("evidence-check", "检查真实测试证据、退出码、合同与工作区指纹"),
         ("review-pack", "生成差异、测试、数据库、核心、安全、验收与回滚审查包"),
-        ("release-check", "检查人工合并/发布准备度；不执行生产发布"),
+        ("release-check", "检查独立合并/发布准备度；不直接执行远程动作"),
     ):
         command = subparsers.add_parser(name, help=help_text)
         command.add_argument("task_id")
@@ -6318,6 +7472,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 status=args.status,
                 actor=args.by,
                 reason=args.reason,
+                agent_task=args.agent_task,
             )
         elif args.command == "contract-hash":
             gate = harness.task_check(args.task_id)
@@ -6332,6 +7487,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             result = gate
             result.name = "contract-hash"
+        elif args.command == "remote-actions":
+            result = harness.remote_actions(args.task_id)
+        elif args.command == "release-seal":
+            result = harness.release_seal(args.task_id)
+        elif args.command == "remote-exec":
+            result = harness.remote_execute(
+                args.task_id,
+                action_id=args.action_id,
+                allow_mutating=args.allow_mutating,
+            )
         elif args.command == "task-check":
             result = harness.task_check(args.task_id)
         elif args.command == "plan-check":

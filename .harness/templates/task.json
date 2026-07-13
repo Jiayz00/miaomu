@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "NUR-FEAT-000",
   "title": "待填写任务标题",
   "type": "feature",
@@ -90,6 +90,12 @@
       "approved_by": null,
       "approved_at": null
     }
+  },
+  "codex_role_bindings": {
+    "implementation": null,
+    "plan": null,
+    "merge": null,
+    "release": null
   },
   "owner": "待填写",
   "reviewer": "",

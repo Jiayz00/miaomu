@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "NUR-OPS-001",
   "title": "单目录开发与服务器验证环境基线",
   "type": "operations",
@@ -189,9 +189,24 @@
       "approved_at": null
     }
   },
-  "owner": "Codex",
-  "reviewer": "Jiayz00",
-  "release_approver": null,
+  "codex_role_bindings": {
+    "implementation": {
+      "agent_task": "/root",
+      "thread_id": "019f566b-dffa-7913-a608-bc2dffbd2bea"
+    },
+    "plan": {
+      "agent_task": "/root/ops001_plan_review"
+    },
+    "merge": {
+      "agent_task": "/root/ops001_merge_review"
+    },
+    "release": {
+      "agent_task": "/root/ops001_release_review"
+    }
+  },
+  "owner": "Codex-Implementer",
+  "reviewer": "Codex-Review",
+  "release_approver": "Codex-Release",
   "created_at": "2026-07-13T02:39:55Z",
-  "updated_at": "2026-07-13T03:11:24Z"
+  "updated_at": "2026-07-13T08:26:05Z"
 }
