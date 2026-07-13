@@ -109,7 +109,7 @@ class Hook
         {
             return;
         }
-        if(RequestController() === 'user' && RequestAction() === 'index')
+        if(RequestController() === 'user' && RequestAction() === 'index' && ScopePolicy::IsUserCenterEntryView($params['view']))
         {
             $params['view'] = '../../../plugins/nursery/view/index/user/index';
             return;

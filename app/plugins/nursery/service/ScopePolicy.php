@@ -180,6 +180,11 @@ class ScopePolicy
         '../default/module/goods/slider/binding' => '../../../plugins/nursery/view/index/module/goods/slider/binding',
     ];
 
+    private const USER_CENTER_ENTRY_VIEWS = [
+        '',
+        '../default/user/index',
+    ];
+
     public static function IsRequestDenied($module, $controller, $plugins = '')
     {
         $module = self::Normalize($module);
@@ -365,6 +370,16 @@ class ScopePolicy
             return self::DEFAULT_THEME_VIEW_REPLACEMENTS[$normalized_view];
         }
         return $view;
+    }
+
+    public static function IsUserCenterEntryView($view)
+    {
+        if(!is_string($view))
+        {
+            return false;
+        }
+        $normalized_view = str_replace('\\', '/', $view);
+        return in_array($normalized_view, self::USER_CENTER_ENTRY_VIEWS, true);
     }
 
     public static function FilterShortcutMenu($data)

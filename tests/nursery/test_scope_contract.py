@@ -220,6 +220,11 @@ DEFAULT_FALLBACK_VIEW_REPLACEMENTS = {
     "../default/module/goods/slider/binding": "../../../plugins/nursery/view/index/module/goods/slider/binding",
 }
 
+USER_CENTER_ENTRY_VIEWS = (
+    "",
+    "../default/user/index",
+)
+
 EXPECTED_PLUGIN_FILES = {
     "config.json",
     "Event.php",
@@ -248,6 +253,15 @@ EXPECTED_USER_VIEW_HOOKS = (
     "plugins_view_user_various_inside_top",
     "plugins_view_user_various_inside_bottom",
     "plugins_view_user_various_bottom",
+)
+
+EXPECTED_USER_VIEW_INCLUDES = (
+    "public/header",
+    "public/nav",
+    "public/header_top_nav",
+    "public/header_nav_simple",
+    "public/user_menu",
+    "public/footer",
 )
 
 EXPECTED_GOODS_VIEW_HOOKS = (
@@ -511,6 +525,12 @@ def mutate_const_remove_item(source: str, const_name: str, value: str) -> str:
     return source[:start] + mutated + source[end:]
 
 
+def mutate_const_add_item(source: str, const_name: str, value: str) -> str:
+    start, _ = php_const_body_span(source, const_name)
+    insertion = f"\n        {value!r},"
+    return source[:start] + insertion + source[start:]
+
+
 def mutate_const_remove_map_entry(source: str, const_name: str, key: str) -> str:
     start, end = php_const_body_span(source, const_name)
     body = source[start:end]
@@ -527,6 +547,14 @@ def normalize_newlines(source: str) -> str:
     normalized = source.replace("\r\n", "\n").replace("\r", "\n")
     normalized = "\n".join(line.rstrip(" \t") for line in normalized.split("\n"))
     return normalized[:-1] if normalized.endswith("\n") else normalized
+
+
+def extract_module_include_paths(source: str) -> tuple[str, ...]:
+    pattern = re.compile(
+        r"\bModuleInclude\(\s*(?P<quote>['\"])(?P<path>[^'\"]+)(?P=quote)",
+        flags=re.IGNORECASE,
+    )
+    return tuple(match.group("path") for match in pattern.finditer(source))
 
 
 @contextmanager
@@ -641,6 +669,13 @@ def validate_policy_source(source: str) -> dict[str, tuple[str, ...]]:
     parsed["DEFAULT_THEME_VIEW_REPLACEMENTS"] = tuple(direct_view_replacements)
     parsed["DEFAULT_FALLBACK_VIEW_REPLACEMENTS"] = tuple(fallback_view_replacements)
 
+    user_center_entry_views = extract_php_const_list(source, "USER_CENTER_ENTRY_VIEWS")
+    require(
+        user_center_entry_views == USER_CENTER_ENTRY_VIEWS,
+        "USER_CENTER_ENTRY_VIEWS must contain only the empty outer view and explicit default fallback",
+    )
+    parsed["USER_CENTER_ENTRY_VIEWS"] = user_center_entry_views
+
     replacement_method_source = extract_php_method(source, "ReplacementView")
     replacement_method = compact_code(replacement_method_source)
     require(
@@ -669,9 +704,8 @@ def validate_policy_source(source: str) -> dict[str, tuple[str, ...]]:
         "explicit default fallbacks must be resolved before the direct-theme condition",
     )
     require(
-        replacement_method_source.lower().count("str_replace(") == 1
-        and source.lower().count("str_replace(") == 1,
-        "backslash normalization must be the policy's only str_replace call",
+        replacement_method_source.lower().count("str_replace(") == 1,
+        "ReplacementView must normalize backslashes exactly once",
     )
     for forbidden_fragment in (
         "strpos(",
@@ -694,6 +728,51 @@ def validate_policy_source(source: str) -> dict[str, tuple[str, ...]]:
         require(
             forbidden_fragment not in replacement_method,
             f"view replacement must stay exact and request-independent: {forbidden_fragment}",
+        )
+
+    user_entry_method_source = extract_php_method(source, "IsUserCenterEntryView")
+    user_entry_method = compact_code(user_entry_method_source)
+    require(
+        re.search(
+            r"\bpublic\s+static\s+function\s+IsUserCenterEntryView\s*\(\s*\$view\s*\)",
+            source,
+            flags=re.IGNORECASE,
+        )
+        is not None,
+        "IsUserCenterEntryView must remain a public static one-argument boundary",
+    )
+    for fragment in (
+        "if(!is_string($view)){returnfalse;}",
+        r"$normalized_view=str_replace('\\','/',$view);",
+        "returnin_array($normalized_view,self::user_center_entry_views,true);",
+    ):
+        require(fragment in user_entry_method, f"user-center entry boundary missing: {fragment}")
+    require(
+        user_entry_method_source.lower().count("str_replace(") == 1
+        and source.lower().count("str_replace(") == 2,
+        "the two exact view boundaries must each normalize backslashes exactly once",
+    )
+    for forbidden_fragment in (
+        "strpos(",
+        "stripos(",
+        "str_contains(",
+        "preg_match(",
+        "preg_match_all(",
+        "preg_replace(",
+        "fnmatch(",
+        "strtolower(",
+        "trim(",
+        "requestparams(",
+        "requestparam(",
+        "request::",
+        "input(",
+        "$_get",
+        "$_post",
+        "$_request",
+    ):
+        require(
+            forbidden_fragment not in user_entry_method,
+            f"user-center entry matching must stay exact and request-independent: {forbidden_fragment}",
         )
 
     request_method = compact_code(extract_php_method(source, "IsRequestDenied"))
@@ -975,7 +1054,7 @@ def validate_hook_source(source: str) -> None:
     view_method = compact_code(view_method_source)
     for token in (
         "if(requestmodule()!=='index'||!array_key_exists('view',$params)){return;}",
-        "if(requestcontroller()==='user'&&requestaction()==='index')",
+        "if(requestcontroller()==='user'&&requestaction()==='index'&&scopepolicy::isusercenterentryview($params['view']))",
         "array_key_exists('view',$params)",
         "$params['view']='../../../plugins/nursery/view/index/user/index';",
         "$params['view']=scopepolicy::replacementview($params['view'],defaulttheme());",
@@ -983,6 +1062,13 @@ def validate_hook_source(source: str) -> None:
         require(token in view_method, f"restricted view replacement missing: {token}")
     user_view_assignment = "$params['view']='../../../plugins/nursery/view/index/user/index';"
     policy_view_assignment = "$params['view']=scopepolicy::replacementview($params['view'],defaulttheme());"
+    user_branch = (
+        "if(requestcontroller()==='user'&&requestaction()==='index'"
+        "&&scopepolicy::isusercenterentryview($params['view'])){"
+        + user_view_assignment
+        + "return;}"
+    )
+    require(user_branch in view_method, "user-center outer view guard and immediate return changed")
     user_return = view_method.find("return;", view_method.index(user_view_assignment))
     require(
         view_method.index(user_view_assignment) < user_return < view_method.index(policy_view_assignment),
@@ -991,6 +1077,10 @@ def validate_hook_source(source: str) -> None:
     require(
         len(re.findall(r"\bDefaultTheme\s*\(\s*\)", view_method_source, flags=re.IGNORECASE)) == 1,
         "goods-view mapping must consult DefaultTheme exactly once",
+    )
+    require(
+        view_method.count("scopepolicy::isusercenterentryview($params['view'])") == 1,
+        "user-center entry guard must be called exactly once",
     )
 
     lowered = source.lower()
@@ -1015,14 +1105,12 @@ def validate_event_source(source: str) -> None:
 
 def validate_view_source(source: str) -> None:
     lowered = source.lower()
-    for include in (
-        "public/header",
-        "public/nav",
-        "public/header_top_nav",
-        "public/header_nav_simple",
-        "public/user_menu",
-        "public/footer",
-    ):
+    include_paths = extract_module_include_paths(source)
+    require(
+        include_paths == EXPECTED_USER_VIEW_INCLUDES,
+        "user center ModuleInclude paths changed or gained an unreviewed nested view",
+    )
+    for include in EXPECTED_USER_VIEW_INCLUDES:
         require(
             re.search(rf"moduleinclude\(\s*['\"]{re.escape(include)}['\"]", source, flags=re.IGNORECASE)
             is not None,
@@ -1146,6 +1234,13 @@ def model_replacement_view(view: Any, theme: Any) -> Any:
     if theme == "default" and normalized_view in DEFAULT_THEME_VIEW_REPLACEMENTS:
         return DEFAULT_THEME_VIEW_REPLACEMENTS[normalized_view]
     return view
+
+
+def model_is_user_center_entry_view(view: Any) -> bool:
+    if not isinstance(view, str):
+        return False
+    normalized_view = view.replace("\\", "/")
+    return normalized_view in USER_CENTER_ENTRY_VIEWS
 
 
 def model_is_request_denied(module: Any, controller: Any, plugins: Any = "", action: Any = "index") -> bool:
@@ -1311,6 +1406,7 @@ class ScopePolicyContractTests(unittest.TestCase):
         self.assertEqual(len(parsed["HIDDEN_PLUGIN_ENTRIES"]), 8)
         self.assertEqual(len(parsed["DEFAULT_THEME_VIEW_REPLACEMENTS"]), 2)
         self.assertEqual(len(parsed["DEFAULT_FALLBACK_VIEW_REPLACEMENTS"]), 2)
+        self.assertEqual(parsed["USER_CENTER_ENTRY_VIEWS"], USER_CENTER_ENTRY_VIEWS)
 
     def test_exact_goods_view_mappings_and_theme_model(self) -> None:
         validate_policy_file(POLICY_FILE)
@@ -1353,6 +1449,29 @@ class ScopePolicyContractTests(unittest.TestCase):
             with self.subTest(mapping="non-string", view=opaque_view):
                 self.assertIs(model_replacement_view(opaque_view, "default"), opaque_view)
 
+        for view in ("", "../default/user/index", "..\\default\\user\\index"):
+            with self.subTest(user_center_entry="allowed", view=view):
+                self.assertTrue(model_is_user_center_entry_view(view))
+        user_center_nested_or_similar = EXPECTED_USER_VIEW_INCLUDES + (
+            "module/goods/list/base",
+            "module/user/index",
+            "../../../plugins/nursery/view/index/user/index",
+            "user/index",
+            "../default/user/index.html",
+            "../default/user/index/",
+            "../default/user/index-extra",
+            "../default/user/index/public/header",
+            "../DEFAULT/user/index",
+            " ../default/user/index",
+            "/../default/user/index",
+        )
+        for view in user_center_nested_or_similar:
+            with self.subTest(user_center_entry="nested-or-similar", view=view):
+                self.assertFalse(model_is_user_center_entry_view(view))
+        for opaque_view in (None, 7, False, ("../default/user/index",)):
+            with self.subTest(user_center_entry="non-string", view=opaque_view):
+                self.assertFalse(model_is_user_center_entry_view(opaque_view))
+
     def test_goods_view_mapping_mutations_fail_on_temporary_copy(self) -> None:
         source = read_utf8(POLICY_FILE)
         mutations: list[tuple[str, str]] = []
@@ -1367,6 +1486,13 @@ class ScopePolicyContractTests(unittest.TestCase):
                         mutate_const_remove_map_entry(source, const_name, view),
                     )
                 )
+        for view in USER_CENTER_ENTRY_VIEWS:
+            mutations.append(
+                (
+                    f"remove USER_CENTER_ENTRY_VIEWS {view!r}",
+                    mutate_const_remove_item(source, "USER_CENTER_ENTRY_VIEWS", view),
+                )
+            )
 
         mutations.extend(
             (
@@ -1429,6 +1555,50 @@ class ScopePolicyContractTests(unittest.TestCase):
                         "$normalized_view = str_replace('\\\\', '/', $_GET['view']);",
                         "request-independent view input",
                     ),
+                ),
+                (
+                    "user-center entry downgraded to substring",
+                    mutate_method_once(
+                        source,
+                        "IsUserCenterEntryView",
+                        "return in_array($normalized_view, self::USER_CENTER_ENTRY_VIEWS, true);",
+                        "return strpos($normalized_view, 'user/index') !== false;",
+                        "user-center exact entry list",
+                    ),
+                ),
+                (
+                    "user-center entry downgraded to regex",
+                    mutate_method_once(
+                        source,
+                        "IsUserCenterEntryView",
+                        "return in_array($normalized_view, self::USER_CENTER_ENTRY_VIEWS, true);",
+                        "return preg_match('#user/index#', $normalized_view) === 1;",
+                        "user-center exact entry regex",
+                    ),
+                ),
+                (
+                    "user-center entry made case-insensitive",
+                    mutate_method_once(
+                        source,
+                        "IsUserCenterEntryView",
+                        "$normalized_view = str_replace('\\\\', '/', $view);",
+                        "$normalized_view = strtolower(str_replace('\\\\', '/', $view));",
+                        "user-center case boundary",
+                    ),
+                ),
+                (
+                    "user-center entry trims similar paths",
+                    mutate_method_once(
+                        source,
+                        "IsUserCenterEntryView",
+                        "$normalized_view = str_replace('\\\\', '/', $view);",
+                        "$normalized_view = trim(str_replace('\\\\', '/', $view));",
+                        "user-center whitespace boundary",
+                    ),
+                ),
+                (
+                    "nested public view added to entry allowlist",
+                    mutate_const_add_item(source, "USER_CENTER_ENTRY_VIEWS", "public/header"),
                 ),
             )
         )
@@ -1975,6 +2145,27 @@ class HookContractTests(unittest.TestCase):
                 "'default'",
                 "custom theme forced through direct default mapping",
             ),
+            mutate_method_once(
+                source,
+                "ReplaceRestrictedView",
+                " && ScopePolicy::IsUserCenterEntryView($params['view'])",
+                "",
+                "user-center view guard removed",
+            ),
+            mutate_method_once(
+                source,
+                "ReplaceRestrictedView",
+                "ScopePolicy::IsUserCenterEntryView($params['view'])",
+                "true",
+                "route-only unconditional user-center replacement",
+            ),
+            mutate_method_once(
+                source,
+                "ReplaceRestrictedView",
+                "ScopePolicy::IsUserCenterEntryView($params['view'])",
+                "(ScopePolicy::IsUserCenterEntryView($params['view']) || $params['view'] === 'public/header')",
+                "nested public view replacement",
+            ),
         ]
         for key in ADMIN_PAYLOAD_KEYS:
             mutations.append(
@@ -1995,7 +2186,13 @@ class HookContractTests(unittest.TestCase):
 
 class UserViewContractTests(unittest.TestCase):
     def test_user_center_keeps_positive_features_without_px_routes(self) -> None:
-        validate_view_file(USER_VIEW_FILE)
+        source = read_utf8(USER_VIEW_FILE)
+        validate_view_source(source)
+        include_paths = extract_module_include_paths(source)
+        self.assertEqual(include_paths, EXPECTED_USER_VIEW_INCLUDES)
+        for include_path in include_paths:
+            with self.subTest(nested_module_include=include_path):
+                self.assertFalse(model_is_user_center_entry_view(include_path))
 
     def test_forbidden_link_and_missing_positive_link_mutations_fail(self) -> None:
         source = read_utf8(USER_VIEW_FILE)

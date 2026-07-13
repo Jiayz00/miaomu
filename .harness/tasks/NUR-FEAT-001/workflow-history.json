@@ -363,6 +363,56 @@
       "by": "Codex-Implementer",
       "reason": "独立计划复审批准用户中心外层 view 白名单与递归负例",
       "at": "2026-07-13T16:42:24Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_implementation",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "开始实施获批的用户中心外层 view 精确白名单与递归防护",
+      "at": "2026-07-13T16:42:56Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "用户中心外层 view 白名单与递归负变异完成，23 项合同测试通过，独立预审无 P0-P2",
+      "at": "2026-07-13T16:52:14Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "最终递归防护验证、证据与审查包通过，重新提交独立合并审查",
+      "at": "2026-07-13T16:54:29Z"
+    },
+    {
+      "type": "approval",
+      "stage": "merge",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/feat001_merge_review",
+      "codex_thread_id": "019f5c21-4eeb-7be0-84c7-98ea33f4e3f4",
+      "expected_agent_task": "/root/feat001_merge_review",
+      "observed_agent_task": "/root/feat001_merge_review",
+      "observed_codex_thread_id": "019f5c21-4eeb-7be0-84c7-98ea33f4e3f4",
+      "reason": "",
+      "at": "2026-07-13T16:58:57Z",
+      "review_artifact_path": ".harness/tasks/NUR-FEAT-001/approval-merge.json",
+      "review_artifact_sha256": "19ef7d0a3478506b0a3a6876533b9bf2be839f6e1e5afaf6eaa3f1764e2e6929",
+      "approval_context_sha256": "d5d7380e6b018007031cd3c11db92047454800722b530d757e7c761c106831c3",
+      "reviewed_at": "2026-07-13T16:57:43Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "approved_for_merge",
+      "by": "Codex-Implementer",
+      "reason": "第三轮独立合并审查批准，list/slider 可见入口与用户中心递归缺陷均已关闭",
+      "at": "2026-07-13T17:00:14Z"
     }
   ]
 }
