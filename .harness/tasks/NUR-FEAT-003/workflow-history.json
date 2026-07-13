@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-FEAT-003",
+  "events": [
+    {
+      "type": "transition",
+      "from": "draft",
+      "to": "ready_for_analysis",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-13T21:59:38Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-13T21:59:44Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/fav003_plan_review",
+      "codex_thread_id": "019f5d80-ba0e-7fa3-a750-262351d75a5b",
+      "expected_agent_task": "/root/fav003_plan_review",
+      "observed_agent_task": "/root/fav003_plan_review",
+      "observed_codex_thread_id": "019f5d80-ba0e-7fa3-a750-262351d75a5b",
+      "reason": "Independent review confirms the favorite plan closes uniqueness, ownership, off-shelf retention, legacy write bypasses, migration fail-closed behavior, and truthful runtime test gates.",
+      "at": "2026-07-13T22:09:44Z",
+      "review_artifact_path": ".harness/tasks/NUR-FEAT-003/approval-plan.json",
+      "review_artifact_sha256": "a37fa39d53613a6162e90b2e71b6eca016adebfac36ec747d90537e8bdbcf307",
+      "approval_context_sha256": "5f76572ba6d0b91369c23a93b03d34f4a6fe2714568fa651cf5a9046343f74b7",
+      "reviewed_at": "2026-07-13T22:09:26Z",
+      "plan_artifacts_sha256": "995e179219873fe4651b76e8c6ed6544251825d5cc299e7962d282d6fc0205b8",
+      "decision_context_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "contract_sha256": "0cac0d544033943e2491e83bef1b30929c6adf1382fc0b28061ca2b8521c3f68",
+      "policy_sha256": "99da4b57e283623656a04eef9807e674c315446cf19c29e8b587d5977b7b94dc"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "approved_for_implementation",
+      "by": "Codex-Review",
+      "reason": "Independent plan approval completed by /root/fav003_plan_review; hand off to implementation.",
+      "at": "2026-07-13T22:09:58Z"
+    }
+  ]
+}

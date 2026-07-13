@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-FEAT-003",
+  "stage": "plan",
+  "decision": "approved",
+  "actor": "Codex-Review",
+  "agent_task": "/root/fav003_plan_review",
+  "codex_thread_id": "019f5d80-ba0e-7fa3-a750-262351d75a5b",
+  "result_marker": "APPROVED",
+  "approval_context_sha256": "5f76572ba6d0b91369c23a93b03d34f4a6fe2714568fa651cf5a9046343f74b7",
+  "reviewed_at": "2026-07-13T22:09:26Z",
+  "findings": [],
+  "summary": "Independent L3 plan review found no remaining P0-P2 defects. The plan binds all favorite reads and writes to the authenticated ShopXO user, replaces toggle behavior with explicit idempotent add and cancel operations, adds a versioned unique-index migration that fails closed on historical duplicates, preserves off-shelf, logically deleted, and missing-goods favorites through a left-join list, blocks legacy write and physical-delete routes, and keeps inquiry data independent. Runtime Add is also gated on both the migration ledger and the actual unique index, while PHP, MySQL, HTTP, browser, concurrency, and rollback checks remain explicit L4 release blockers rather than claimed local passes."
+}

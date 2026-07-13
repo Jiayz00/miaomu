@@ -1,0 +1,221 @@
+{
+  "schema_version": 2,
+  "id": "NUR-FEAT-003",
+  "title": "收藏唯一性、用户隔离与下架保留",
+  "type": "feature",
+  "priority": "P0",
+  "phase": 2,
+  "risk_level": "L3",
+  "status": "approved_for_implementation",
+  "requirement_ids": [
+    "FR-FAV-001",
+    "FR-FAV-002",
+    "BR-FAV-001",
+    "BR-FAV-002",
+    "BR-FAV-003",
+    "BR-FAV-004",
+    "BR-FAV-005",
+    "AC-002",
+    "NFR-SEC-001"
+  ],
+  "decision_ids": [],
+  "business_goal": "在 nursery 插件边界内把 ShopXO 收藏从并发不安全的 toggle 改造成显式、幂等的添加和取消能力；数据库保证同一用户同一商品唯一，所有用户读写强制绑定登录用户，下架或逻辑删除后收藏仍保留并显示不可用状态，收藏全过程不创建、修改或要求询价。",
+  "in_scope": [
+    "在 nursery 插件内提供 Web/API 共用的显式 add、cancel、status 和按登录用户分页 list 服务；user_id 只能来自 ShopXO 已认证上下文，不能接受请求参数覆盖。",
+    "提供不含询价占位入口的基础‘我的收藏’页面，展示已保存商品、当前公开参考价和可用/已下架/已删除状态，并提供查看商品和取消收藏；完整 FR-FAV-003 字段及直接询价留给 NUR-FEAT-004。",
+    "通过 nursery 拥有的视图替换和静态脚本，让商品列表与详情的收藏按钮调用显式 add/cancel；未登录点击继续使用 ShopXO 登录引导。",
+    "通过 plugins_service_system_begin 的 action 级策略拒绝旧 index/api goods/favor、usergoodsfavor cancel/delete 写旁路；保留安全的登录、商品展示和读取能力。",
+    "关闭 admin/goods/delete 物理删除路由及对应权限/入口，只允许商品下架；不在本任务实现新的逻辑删除写流程。",
+    "提供版本化 favorite schema v1 迁移和受控 CLI：写前检测历史重复并失败关闭，确认或创建 (user_id, goods_id) 唯一索引，记录非敏感迁移台账并支持幂等复核。",
+    "新增无第三方依赖的收藏合同测试，并回归目录、公开参考价、PX 路由和 Harness 门禁。"
+  ],
+  "out_of_scope": [
+    "FR-FAV-003 的完整收藏字段、主要规格精细展示和‘直接询价’入口；这些与真实询价表单、快照和后台闭环一起进入 NUR-FEAT-004，本任务禁止假链接或占位询价按钮。",
+    "FR-FAV-004、FR-FAV-005 的收藏时价格快照、涨跌状态和价格历史，以及任何 P1 通知能力。",
+    "询价表、询价状态、回复、防重复、运营事件、统计、看板、导出和视觉主题优化。",
+    "自动合并或删除历史重复收藏；发现重复时只输出脱敏冲突计数并阻止迁移，修复必须另立获批数据任务。",
+    "修改 config/shopxo.sql、ShopXO 核心服务/控制器/默认主题、物理删除商品，或重新启用购物车、订单、支付和售后能力。",
+    "安装或启用插件、访问远程数据库、连接服务器、修改 Caddy 或生产发布；真实迁移和 HTTP/browser 验收由后续 L4 任务执行。",
+    "供应商、多商户、分销、购物车、订单、支付与售后能力。"
+  ],
+  "business_invariants": [
+    "收藏只保存商品，不创建询价；询价不以收藏为前置，取消收藏也不得删除或改变任何询价。",
+    "同一 user_id 与 goods_id 最多一条收藏；add 和 cancel 都是幂等命令，不允许 query-then-toggle 或重试反转状态。",
+    "普通用户的列表、状态、添加和取消始终使用认证 user_id；不存在可选 user 过滤或通过请求体访问他人记录的模式。",
+    "商品下架、逻辑删除或缺失时收藏行不删除；列表显示不可用状态，用户仍可取消自己的收藏。",
+    "公开参考价继续由 NUR-FEAT-002 的规格真源派生，收藏不能覆盖、隐藏或改变公开价格。",
+    "商品物理删除入口保持关闭，PX 商城能力继续不可见且不可达。"
+  ],
+  "dependencies": [
+    "ShopXO 6.9.0 固定上游 d1825c5404054b535255d8fcad675a5dae0ab633 和当前源码基线已通过 source-check。",
+    "NUR-FEAT-001 已提供 plugins_service_system_begin、导航/权限过滤和插件视图替换边界；NUR-FEAT-002 已提供统一公开参考价模型。",
+    "sxo_goods_favor 当前只有主键，没有 (user_id, goods_id) 唯一约束；GoodsFavorService::GoodsFavorCancel() 先查后 toggle，并发和重试语义不满足 BR-FAV-003。",
+    "GoodsFavorService::UserGoodsFavorListWhere() 排除 g.is_delete_time != 0，GoodsFavorList/GoodsFavorTotal 使用内连接；nursery 列表需要独立左连接并保留不可用收藏。",
+    "GoodsService::GoodsDelete() 物理删除商品及关联数据，删除 Hook 在删除后触发；本任务必须在请求开始阶段拒绝 admin/goods/delete。",
+    "ShopXO 插件网关把登录 user 作为控制器上下文传入；nursery 控制器和服务必须忽略请求中的 user_id/user。",
+    "PluginsAdminService::PluginsInstall() 不执行 install.sql，只有上传包路径会执行；因此本任务迁移必须由显式受控 CLI 执行，不能只提供 install.sql。",
+    "本机可执行 Python 离线合同测试；PHP、MySQL、Docker、真实会话和浏览器行为必须在后续 L4 集成任务补测。"
+  ],
+  "allowed_paths": [
+    "app/plugins/nursery/**",
+    "public/static/plugins/nursery/**",
+    "scripts/nursery_favorite.php",
+    "tests/nursery/**"
+  ],
+  "forbidden_paths": [
+    ".env",
+    ".env.*",
+    "rsakeys/**",
+    "vendor/**",
+    "runtime/**"
+  ],
+  "shopxo_core_change": {
+    "required": false,
+    "paths": [],
+    "reason": "已确认 plugins_service_system_begin、插件控制器网关、插件视图 Hook 和 nursery 自有静态资源足以实现显式收藏、旧路由拒绝和页面接入，不修改 app/service、核心控制器或默认主题。",
+    "registration": ""
+  },
+  "database_change": {
+    "required": true,
+    "affected_tables": [
+      "sxo_goods_favor",
+      "sxo_config"
+    ],
+    "migration_paths": [
+      "app/plugins/nursery/favorite-schema-v1.json",
+      "app/plugins/nursery/service/FavoriteMigration.php",
+      "scripts/nursery_favorite.php"
+    ],
+    "fresh_install_baseline_exception": {
+      "requested": false,
+      "reason": "既有站点和 fresh 实例使用同一前向迁移；不修改 config/shopxo.sql，也不删除演示或用户数据。"
+    },
+    "rollback_plan": "唯一索引属于前向数据完整性约束，普通代码回滚不自动删除；代码可回退到任务前版本但保留索引和迁移台账。若索引创建后台账写入失败，重跑通过实际 schema 验证后完成台账前向修复。只有独立 L4 数据任务在备份、无并发写入和重复扫描通过后才可显式删除索引。",
+    "verification": "在隔离 MySQL 8 副本验证空表、已有合法收藏、历史重复、重复执行、同名冲突索引和并发 add；检查唯一索引列序、唯一性、台账版本及 sxo_goods_favor 行数，确认迁移不删除或合并记录。"
+  },
+  "new_dependency_allowed": false,
+  "network_access_required": false,
+  "acceptance_criteria": [
+    {
+      "id": "AC-TASK-001",
+      "requirement_ids": [
+        "FR-FAV-001",
+        "FR-FAV-002",
+        "BR-FAV-001",
+        "BR-FAV-002",
+        "AC-002"
+      ],
+      "description": "登录用户从苗木列表和详情使用显式 add 收藏、从基础收藏列表或按钮使用显式 cancel 取消；重复 add/cancel 均保持目标状态且成功响应，未登录触发登录引导。收藏和取消前后询价相关表行数不变，页面不出现假询价入口。"
+    },
+    {
+      "id": "AC-TASK-002",
+      "requirement_ids": [
+        "BR-FAV-003"
+      ],
+      "description": "favorite schema v1 在任何写入前扫描重复；存在重复时迁移非零失败且不删除、不合并、不建索引。无重复时幂等确认或创建 (user_id, goods_id) 唯一索引；两个并发 add 最终只有一行，重试不会反向取消。"
+    },
+    {
+      "id": "AC-TASK-003",
+      "requirement_ids": [
+        "BR-FAV-004",
+        "BR-FAV-005",
+        "NFR-SEC-001"
+      ],
+      "description": "用户只能按认证 user_id 查看、检查、添加和取消自己的收藏；篡改 user_id 或收藏/商品 ID 不能读取或修改其他用户数据且不泄露记录是否存在。商品下架、逻辑删除或缺失后收藏行仍存在，基础列表标记不可用并允许所属用户取消。"
+    },
+    {
+      "id": "AC-TASK-004",
+      "requirement_ids": [
+        "BR-FAV-002",
+        "BR-FAV-004",
+        "AC-002"
+      ],
+      "description": "Web/API 旧 goods/favor、usergoodsfavor cancel/delete 写入口和 admin/goods/delete 被 nursery 请求策略拒绝；商品物理删除权限/入口被过滤。实现及测试差异不包含 ShopXO 核心或 config/shopxo.sql，NUR-FEAT-001/002 回归继续通过。"
+    }
+  ],
+  "required_tests": [
+    {
+      "id": "nursery_favorite_contract",
+      "description": "离线验证显式 add/cancel/list、登录用户绑定、唯一迁移、下架保留、旧写旁路与物理删除拒绝、无询价副作用和无核心修改。",
+      "command": [
+        "python",
+        "tests/nursery/test_favorite_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "nursery_catalog_price_regression",
+      "description": "回归验证苗木目录和公开参考价合同不被收藏实现改变。",
+      "command": [
+        "python",
+        "tests/nursery/test_catalog_price_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "nursery_scope_regression",
+      "description": "回归验证 PX 路由、导航、用户中心、商品模板和核心边界保持收敛。",
+      "command": [
+        "python",
+        "tests/nursery/test_scope_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "harness_selftest",
+      "description": "确认收藏业务任务没有削弱 Harness 的范围、审批、证据和状态门禁。",
+      "command": [
+        "python",
+        "scripts/harness_selftest.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300
+    }
+  ],
+  "rollback": {
+    "required": true,
+    "plan": "未部署时只回退 app/plugins/nursery/**、public/static/plugins/nursery/**、scripts/nursery_favorite.php 和 tests/nursery/** 的本任务差异。已部署时先停止收藏写流量，回退代码但保留唯一索引和迁移台账；不得删除收藏行或自动恢复商品物理删除入口。发生 schema 问题时优先前向修复，删除索引只能进入独立 L4 数据任务。",
+    "verification": "运行 source-check、收藏合同、目录价格回归、PX 范围回归和 Harness 自检；在隔离数据库确认收藏总行数、每用户商品唯一性和询价表行数未因回滚变化，并证明商品物理删除仍不可达。"
+  },
+  "manual_approvals": {
+    "plan": {
+      "required": true,
+      "status": "approved",
+      "approved_by": "Codex-Review",
+      "approved_at": "2026-07-13T22:09:44Z"
+    },
+    "merge": {
+      "required": true,
+      "status": "pending",
+      "approved_by": null,
+      "approved_at": null
+    },
+    "release": {
+      "required": false,
+      "status": "not_required",
+      "approved_by": null,
+      "approved_at": null
+    }
+  },
+  "codex_role_bindings": {
+    "implementation": {
+      "agent_task": "/root",
+      "thread_id": "019f566b-dffa-7913-a608-bc2dffbd2bea"
+    },
+    "plan": {
+      "agent_task": "/root/fav003_plan_review"
+    },
+    "merge": {
+      "agent_task": "/root/fav003_merge_review"
+    },
+    "release": null
+  },
+  "owner": "Codex-Implementer",
+  "reviewer": "Codex-Review",
+  "release_approver": null,
+  "created_at": "2026-07-13T21:54:26Z",
+  "updated_at": "2026-07-13T22:09:58Z"
+}
