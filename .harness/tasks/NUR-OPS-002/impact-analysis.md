@@ -2,21 +2,21 @@
 
 ## 需求与当前事实
 
-任务关联 `NFR-PERF-005`。ShopXO 固定为 6.9.0、上游提交 `d1825c5404054b535255d8fcad675a5dae0ab633`，完整源码基线为 `846eb6a1cf7f94415ae9ae4c3eefb87d4fa9da3e`，`source-check` 已通过。服务器只读盘点确认 Ubuntu 22.04、Docker 29.4.2、Compose 5.1.3、8 vCPU、约 7.8 GiB 内存、35 GiB 可用空间；Caddy/Beszel 已占用 80/443/8090，88 空闲，目标目录尚不存在。
+任务关联 `NFR-PERF-005`。ShopXO 固定为 6.9.0、上游提交 `d1825c5404054b535255d8fcad675a5dae0ab633`，完整源码基线为 `846eb6a1cf7f94415ae9ae4c3eefb87d4fa9da3e`，`source-check` 已通过。`NUR-OPS-001` 合同已进入当前分支，但其证据仍未完成；服务器系统、Docker/Compose 版本、资源、现有服务、端口 88 和目标目录状态在本任务中均视为待 L4 核验，不能作为已通过事实。
 
-当前仓库没有项目级 Docker Compose、Dockerfile 或 ops 测试。Windows 本机缺少 PHP、Composer 和 Docker，因此本任务的自动门禁必须使用 Python 3.11 标准库；最终 Compose 语义另由目标服务器的真实 `docker compose config` 以只读流式输入手工核验。
+当前仓库没有项目级 Docker Compose、Dockerfile 或 ops 测试。Windows 本机缺少 PHP、Composer 和 Docker，因此本任务的自动门禁必须使用 Python 3.11 标准库；最终 Compose 语义由 `NUR-OPS-001` 在获批 L4 实施中使用目标服务器的真实 `docker compose config` 核验，本任务只提供命令和判定标准。
 
 源码核验确认 `public/core.php` 强制 PHP `>=8.0.2`，安全 document root 是 `public/`，HTTP 入口为 `public/index.php`、`public/admin.php`、`public/api.php`；根目录入口仅是兼容代理。安装器与锁文件要求 curl、GD、mbstring、PDO/PDO MySQL、Zip、Fileinfo、XML/DOM/SimpleXML/XMLReader/XMLWriter 及 PHP 标准扩展。稳态必须持久化 `runtime`、`public/static/upload`、`public/download`，可选 `public/storage`；数据库配置由仓库外受控文件挂载为 `config/database.php`。
 
-2026-07-13 已通过目标服务器 Buildx 只读核验候选多架构 manifest：`php:8.2-fpm-bookworm@sha256:a335d57be82b3a392fe5c6287571de29d0b11c491826c783318ccb785dc0f262`、`composer:2.8@sha256:5248900ab8b5f7f880c2d62180e40960cd87f60149ec9a1abfd62ac72a02577c`、`nginx:stable-alpine@sha256:0d3b80406a13a767339fbe2f41406d6c7da727ab89cf8fae399e81f780f814d1`、`mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b`。实施仍需在证据中记录目标 `linux/amd64` manifest 与最终镜像 ID。
+计划采用以下候选多架构 manifest-list digest：`php:8.2-fpm-bookworm@sha256:a335d57be82b3a392fe5c6287571de29d0b11c491826c783318ccb785dc0f262`、`composer:2.8@sha256:5248900ab8b5f7f880c2d62180e40960cd87f60149ec9a1abfd62ac72a02577c`、`nginx:stable-alpine@sha256:0d3b80406a13a767339fbe2f41406d6c7da727ab89cf8fae399e81f780f814d1`、`mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b`。本任务只检查这些值被集中固定且不是 `latest`；`NUR-OPS-001` 必须联网核验其可解析性、目标 `linux/amd64` manifest 与最终镜像 ID，核验前不得称为运行证据。
 
 ## 当前调用链与数据
 
 本任务不进入控制器、服务、视图、接口、权限、事件或业务表调用链。计划中的运行拓扑为：外部 88 -> Web 容器 -> PHP-FPM 应用容器 -> 内部 MySQL；源码、运行时、上传和数据库分别按最小写权限挂载。数据库连接值只在运行时从未跟踪配置注入，配置样例只声明变量名和生成方式。
 
-实际 PHP 扩展、前端入口、安装期写入文件、运行时与上传目录必须在实现前从 `composer.json`、入口脚本和服务代码核验。无法确认的目录不得直接给整个源码树写权限。
+PHP 扩展、前端入口、安装期写入文件、运行时与上传目录已从当前固定源码核验。无法确认的目录不得直接给整个源码树写权限。
 
-安装器要求根目录、config、插件、主题、路由和 public 多处可写，并会生成 `config/database.php`、随机改名后台入口；这是安装期行为，不是稳态最小权限依据。本栈不开放浏览器安装器：L4 任务在空测试库受控初始化并挂载数据库配置，稳态源码镜像只读，只给已核验的数据目录写权限。
+安装器要求根目录、config、插件、主题、路由和 public 多处可写，并会生成 `config/database.php`、随机改名后台入口；这是安装期行为，不是稳态最小权限依据。本栈不开放浏览器安装器：L4 任务在空测试库受控初始化，在仓库外生成完整 `config/database.php` 并只读挂载；该文件按受控样例读取 `/run/secrets/mysql_app_password`，稳态源码镜像只读，只给已核验的数据目录写权限。
 
 ## 影响范围
 
@@ -39,8 +39,8 @@
 
 ## 风险与边界
 
-- Compose 静态文件可能语法正确但运行失败；必须由目标 Docker Compose 解析器做只读核验，并在 L4 任务执行构建和健康检查。
-- 镜像 tag 可被上游覆盖；实现时记录可核验摘要，不凭空填写摘要。
+- Compose 静态文件可能语法正确但运行失败；本任务只交付离线合同，必须由 L4 任务使用目标 Docker Compose 解析器核验并执行构建和健康检查。
+- 镜像 tag 和 manifest list 可变化或不适配目标架构；候选摘要不是运行证据，必须由 L4 任务复核后记录目标架构摘要与镜像 ID。
 - ShopXO 可能需要安装期写配置或插件生成文件；只读源码策略必须依据实际写路径收敛，不能用全树可写掩盖问题。
 - MySQL 固定为 8.0，字符集使用 utf8mb4；该选择与 `config/shopxo.sql` 的 MySQL 8.0.42 导出事实一致。认证插件、SQL mode 和时区仍须在 L4 空库安装时真实验证，不能为通过而关闭严格模式。
 - 配置样例和测试输出必须扫描密钥；任何真实值出现即失败。

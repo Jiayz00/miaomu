@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-OPS-003",
+  "events": [
+    {
+      "type": "transition",
+      "from": "draft",
+      "to": "ready_for_analysis",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T03:50:44Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T03:50:44Z"
+    }
+  ]
+}

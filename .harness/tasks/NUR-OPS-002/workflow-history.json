@@ -25,6 +25,38 @@
       "by": "Codex",
       "reason": "",
       "at": "2026-07-13T03:33:48Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_implementation",
+      "to": "implementing",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T03:34:35Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "blocked",
+      "by": "Codex",
+      "reason": "计划要求远端只读验证但合同禁止网络访问，需回退修订需求映射与验证边界",
+      "at": "2026-07-13T03:37:54Z"
+    },
+    {
+      "type": "transition",
+      "from": "blocked",
+      "to": "ready_for_analysis",
+      "by": "Codex",
+      "reason": "合同修订后重新执行分析与计划门禁",
+      "at": "2026-07-13T03:37:55Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "cancelled",
+      "by": "Codex",
+      "reason": "安全需求漏映射导致 L2 风险分级错误，改由新的 L3 任务重新建立审批合同",
+      "at": "2026-07-13T03:44:05Z"
     }
   ]
 }
