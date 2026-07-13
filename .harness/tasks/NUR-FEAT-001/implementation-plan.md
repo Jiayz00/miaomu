@@ -2,17 +2,24 @@
 
 ## 实施步骤
 
-1. 在 `app/plugins/nursery/config.json` 写入 ShopXO 6.9.0 可识别的插件元数据和 Hook 映射。只注册源码已确认存在的 `plugins_service_system_begin`、顶部/底部/用户中心/后台菜单、商品按钮、`plugins_view_assign_data` 与 `plugins_view_fetch_begin`；不生成 `app/event.php`。JSON 解析或 Hook 映射测试失败即停止。
-2. 在 `service/ScopePolicy.php` 定义不可由请求修改的模块-控制器拒绝表、PX 插件标识、菜单/按钮过滤方法和正向边界。所有比较先做字符串小写化，按控制器整体拒绝所有 action；`index`、`api`、`admin` 分表处理，其他模块默认不由本策略拒绝。测试发现允许控制器误入拒绝表或拒绝控制器缺失即停止。
+1. 在 `app/plugins/nursery/config.json` 写入 ShopXO 6.9.0 可识别的插件元数据和 Hook 映射。只注册源码已确认存在的 `plugins_service_system_begin`、`plugins_service_navigation_header_handle`、`plugins_service_navigation_footer_handle`、`plugins_service_header_navigation_top_right_handle`、`plugins_service_quick_navigation_pc`、`plugins_service_quick_navigation_h5`、`plugins_service_app_home_navigation_h5`、`plugins_service_app_user_center_navigation_h5`、`plugins_service_bottom_navigation_handle`、`plugins_service_users_center_left_menu_handle`、`plugins_service_user_center_mini_navigation_handle`、`plugins_service_admin_menu_data`、`plugins_service_goods_buy_nav_button_handle`、`plugins_view_assign_data` 与 `plugins_view_fetch_begin`；不生成 `app/event.php`。JSON 解析或 Hook 映射测试失败即停止。
+2. 在 `service/ScopePolicy.php` 定义不可由请求修改的固定策略：
+   - Web/index 控制器 8 个：`buy, cart, order, orderaftersale, pay, useraddress, usergoodscomments, userintegral`。
+   - API 控制器 10 个：`buy, cart, cashier, order, orderaftersale, ordernotify, paylog, useraddress, usergoodscomments, userintegral`。
+   - Admin 控制器 12 个：`express, goodscart, goodscomments, integrallog, order, orderaftersale, payment, paylog, payrequestlog, refundlog, warehouse, warehousegoods`。
+   - PX 插件标识 23 个：`agent, aftersale, bargain, cart, coupon, delivery, distribution, finance, groupbuy, integral, inventory, live, memberlevel, membership, merchant, multimerchant, order, payment, points, refund, seckill, supplier, wallet`。
+   所有比较先做字符串小写化，命中控制器即拒绝其全部 action；仅处理 `index/api/admin`，`install` 和其他模块默认不匹配。插件路由只在控制器为 `plugins` 时读取 `PluginsRequestName()`。测试发现允许控制器误入、任一锁定项缺失、集合被请求参数扩展或 action 可绕过即停止。
 3. 在 `Hook.php` 以 `hook_name` 白名单分派：
    - system begin 调用 `RequestModule/Controller/Action`，命中时使用 ThinkPHP `abort(404, ...)` 中断；插件请求额外检查 `pluginsname`。
-   - 导航、后台菜单与权限、商品按钮通过引用原地过滤并重建数组索引。
+   - 数据库 header/footer 导航、顶部快捷导航、PC/H5 quick nav、H5 首页/用户中心导航、移动底部导航、用户中心 left/mini 导航根据结构化 `url/event_value/value/only_tag/type/control` 字段过滤并重建数组索引，不使用整段 HTML 字符串替换。
+   - 后台 `admin_left_menu` 按 `control` 递归过滤并移除空组；`admin_power` 按被拒控制器加下划线的 key 前缀过滤；`admin_plugins` 和 `admin_all_plugins` 按 PX 插件标识过滤。该 Hook 每次 `PowerMenuInit()` 返回前运行，因此缓存中的上游原值也会重新过滤。
+   - 商品按钮仅删除 `type=buy/cart`，保留 `show`、未来 `inquiry` 和未知扩展按钮。
    - view assign 仅在 `index/index/index` 清空 `user_order_status`。
    - view fetch 仅在 `index/user/index` 把模板路径替换为插件自有视图。
    未识别 Hook 不修改参数并返回空值。
 4. 在 `Event.php` 提供无数据库写入的标准生命周期回调，使 ShopXO 安装、启用、禁用与卸载流程可识别插件；不自动修改系统配置、管理员权限或历史数据。
 5. 在 `view/index/user/index.html` 复用当前主题的公共头部、导航、用户菜单和页脚，保留用户资料、消息、收藏及浏览历史数据，仅删除订单状态、进行中订单、购物车、售后、评价和积分链接。页面不创建“我的询价”假入口，后续询价任务通过插件/主题扩展。
-6. 在 `tests/nursery/test_scope_contract.py` 使用 Python 标准库解析 JSON 和源码，断言 Hook 映射、固定拒绝/允许集合、`abort` 语义、无动态请求控制策略、菜单/按钮过滤、替代视图无 PX URL、允许路径未引用核心文件，并用临时变异副本验证关键缺口会使测试失败。
+6. 在 `tests/nursery/test_scope_contract.py` 使用 Python 标准库解析 JSON 和源码，逐项断言 15 个 Hook、8/10/12 个控制器、23 个 PX 插件标识、固定正向控制器、`abort` 语义、`plugins` 控制器限定、无动态请求扩展策略、四类后台菜单/权限过滤、结构化导航过滤、按钮保留语义、替代视图无 PX URL及授权路径未引用核心文件，并用临时变异副本验证关键缺口会使测试失败。
 
 ## 验证顺序
 

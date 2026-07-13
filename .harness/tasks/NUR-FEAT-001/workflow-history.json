@@ -17,6 +17,22 @@
       "by": "Codex-Implementer",
       "reason": "Submit nursery scope plugin plan for independent L3 review",
       "at": "2026-07-13T13:31:59Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "ready_for_analysis",
+      "by": "Codex-Implementer",
+      "reason": "Independent plan review found the fixed Web API admin controller and PX plugin deny sets were not enumerated tightly enough for L3 approval",
+      "at": "2026-07-13T13:43:46Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "Resubmit plan with exact Web API admin controller sets, PX plugin identifiers, H5 navigation hooks and admin permission filtering",
+      "at": "2026-07-13T13:45:25Z"
     }
   ]
 }

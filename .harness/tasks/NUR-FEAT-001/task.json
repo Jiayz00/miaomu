@@ -16,7 +16,9 @@
   "in_scope": [
     "创建可由 ShopXO 正常安装和启用的 nursery 插件骨架，并在 config.json 登记经过源码验证的系统、导航、商品按钮、视图和后台菜单钩子。",
     "使用固定大小写无关拒绝表，在 plugins_service_system_begin 阻断 index、api、admin 的购物车、结算、订单、支付、售后、积分及关联后台控制器，并阻断已知 PX 商城插件入口。",
-    "过滤顶部导航、移动底部导航、用户中心左侧/快捷导航、后台菜单与权限数组中的排除能力，同时从商品详情按钮集合移除 buy 和 cart。",
+    "Web 固定拒绝 buy、cart、order、orderaftersale、pay、useraddress、usergoodscomments、userintegral；API 固定拒绝 buy、cart、cashier、order、orderaftersale、ordernotify、paylog、useraddress、usergoodscomments、userintegral。",
+    "后台固定拒绝 express、goodscart、goodscomments、integrallog、order、orderaftersale、payment、paylog、payrequestlog、refundlog、warehouse、warehousegoods；同步过滤 admin_left_menu、admin_power、admin_plugins 和 admin_all_plugins。",
+    "过滤数据库头尾导航、顶部快捷导航、H5 首页/用户中心导航、移动底部导航、用户中心左侧/mini 导航中的排除能力，同时从商品详情按钮集合移除 buy 和 cart。",
     "通过 plugins_view_assign_data 清除首页订单状态数据，并通过 plugins_view_fetch_begin 将用户中心首页切换到插件自有视图，彻底移除原模板硬编码的订单和购物车区块。",
     "新增无第三方依赖的离线合同测试，验证插件清单、拒绝表、Hook 注册、正负路由边界、视图无 PX 链接以及未修改上游商城源码。"
   ],
@@ -85,7 +87,7 @@
         "FR-HOME-001",
         "FR-CENTER-001"
       ],
-      "description": "Web/API 的 buy、cart、cashier、order、orderaftersale、ordernotify、pay/paylog、userintegral，以及后台对应交易控制器和已知 PX 插件入口统一返回不可达；大小写变体和非 index action 不能绕过。"
+      "description": "任务合同列明的 Web 8 个、API 10 个、后台 12 个控制器，以及固定 PX 插件标识集合统一返回不可达；大小写变体和非 index action 不能绕过，后台四类菜单/权限数组不再含对应能力。"
     },
     {
       "id": "AC-TASK-003",
@@ -149,7 +151,7 @@
       "thread_id": "019f566b-dffa-7913-a608-bc2dffbd2bea"
     },
     "plan": {
-      "agent_task": "/root/feat001_plan_review"
+      "agent_task": "/root/feat001_plan_review_v2"
     },
     "merge": {
       "agent_task": "/root/feat001_merge_review"
@@ -160,5 +162,5 @@
   "reviewer": "Codex-Review",
   "release_approver": null,
   "created_at": "2026-07-13T13:24:31Z",
-  "updated_at": "2026-07-13T13:31:59Z"
+  "updated_at": "2026-07-13T13:45:25Z"
 }

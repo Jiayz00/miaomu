@@ -21,12 +21,21 @@
 4. 硬编码页面：`plugins_view_assign_data` 在首页清空 `user_order_status`；`plugins_view_fetch_begin` 仅对 `index/user/index` 替换为插件自有视图，从模板层移除订单和购物车区块。
 5. 数据：本任务不查询、写入或迁移订单/支付/收藏/商品表；插件安装状态属于后续部署操作。历史商城表和数据不删除。
 
+固定路由策略在计划批准前锁定如下（全部小写比较，命中控制器后拒绝其所有 action）：
+
+- Web/index：`buy`、`cart`、`order`、`orderaftersale`、`pay`、`useraddress`、`usergoodscomments`、`userintegral`。
+- API：`buy`、`cart`、`cashier`、`order`、`orderaftersale`、`ordernotify`、`paylog`、`useraddress`、`usergoodscomments`、`userintegral`。
+- Admin：`express`、`goodscart`、`goodscomments`、`integrallog`、`order`、`orderaftersale`、`payment`、`paylog`、`payrequestlog`、`refundlog`、`warehouse`、`warehousegoods`。
+- PX 插件标识：`agent`、`aftersale`、`bargain`、`cart`、`coupon`、`delivery`、`distribution`、`finance`、`groupbuy`、`integral`、`inventory`、`live`、`memberlevel`、`membership`、`merchant`、`multimerchant`、`order`、`payment`、`points`、`refund`、`seckill`、`supplier`、`wallet`。
+
+固定正向回归集合至少包含：Web 的 `index/category/search/goods/user/personal/safety/usergoodsfavor/usergoodsbrowse/message/plugins`，API 的 `index/category/search/goods/user/personal/safety/usergoodsfavor/usergoodsbrowse/message/plugins`，后台的 `goods/goodscategory/goodsspectemplate/goodsparamstemplate/user/goodsfavor/goodsbrowse/site/navigation/role/power`，以及 `pluginsname=nursery`。`install` 模块不在策略处理模块集合内，部署层单独关闭安装器。
+
 ## 影响范围
 
 - 用户端：顶部、移动底部、商品详情和用户中心的交易入口消失；分类、搜索、商品、收藏和浏览历史继续使用上游链路。
-- 管理端：交易型菜单和权限 key 被插件运行时过滤；源码与表仍存在，便于上游同步和可控回滚。
+- 管理端：交易型菜单和权限 key 被插件运行时过滤；`admin_left_menu` 按 control 递归裁剪，`admin_power` 按 `<control>_` 前缀裁剪，`admin_plugins/admin_all_plugins` 按固定 PX 插件标识裁剪。源码与表仍存在，便于上游同步和可控回滚。
 - API：固定控制器拒绝表阻断购物车、结算、订单、支付、售后和积分的所有 action，不依赖 action 名逐项枚举。
-- 插件入口：对 coupon、distribution、seckill、groupbuy、bargain 等已知 PX 标识失败关闭；`nursery` 自身不受阻断。
+- 插件入口：当 `RequestController()` 为 `plugins` 时，以 `PluginsRequestName()` 读取并规范化 `pluginsname`，对锁定的 23 个 PX 标识失败关闭；`nursery` 自身不受阻断。
 - 历史数据：不执行 delete/update，不改变历史订单、收藏、用户或商品数据；部署后的路由不可达不等于数据删除。
 - 统计：本任务不新增或改变事件、PV/UV 或指标口径。
 - 安全：拒绝逻辑是应用层纵深防御，依赖插件已启用；不保护安装入口、静态文件或直连 FPM。
