@@ -20,7 +20,7 @@
 
     server-local smoke
         -> existing host-network Caddy 127.0.0.1:88
-        -> 127.0.0.1:19000
+        -> /run/miaomu-fpm/php-fpm.sock
         -> app PHP-FPM :9000
         -> internal backend
         -> db MySQL :3306
@@ -28,9 +28,9 @@
 Compose 只管理 app 与 db：
 
 - app 与 db 加入 internal backend。
-- app 将 FPM 9000 仅发布到宿主机 127.0.0.1:19000；该端口是 FastCGI 接口，不是公共 HTTP。
+- app 不声明 `ports` 或宿主机 TCP listener；FPM 只在 `miaomu_fpm_socket` 命名卷内创建 `/run/miaomu-fpm/php-fpm.sock`，group 10001、mode 0660。
 - db 不发布任何宿主机端口。
-- Caddy 保持 host network，不加入 backend，也不由 miaomu Compose 管理。
+- Caddy 保持 host network，不加入 backend，也不由 miaomu Compose 管理；共享 Caddy Compose 只读挂载 `miaomu_fpm_socket` 并增加 supplemental group 10001。
 - app、db 不挂载 Docker socket，均声明资源、日志和 Watchtower 禁用策略。
 - backend 使用 `internal: true`，展示栈默认没有外部网络；短信、邮件、远程图片抓取等能力不能现场放宽网络，必须进入后续获批出网合同。
 
@@ -38,11 +38,12 @@ Caddy 与 FPM 必须对脚本路径使用一致的 /var/www/html/public。NUR-OP
 
 - /root/jia/miaomu/public 映射到 /var/www/html/public；
 - miaomu 主项目的 uploads 卷映射到 /var/www/html/public/static/upload；
+- miaomu 主项目的 `miaomu_fpm_socket` 卷映射到 /run/miaomu-fpm，并通过 group 10001 连接 socket；
 - downloads 卷保持 app 私有，不进入 Caddy；Caddy 对 `/download/**` 直接拒绝。
 
 app 对上传、下载卷可写，Caddy 只读看到 uploads；downloads、runtime 与数据库卷不进入 Caddy。恢复项目使用不同 project 和卷，默认不接入共享 Caddy，避免恢复操作覆盖正式测试栈。
 
-宿主机回环不能防止同机进程直接伪造 FastCGI 参数。除 Caddy 精确 matcher 外，PHP-FPM 必须通过仅对 `fpm-fcgi` 生效的 prepend guard 对规范化后的 `SCRIPT_FILENAME` 做第二次三入口白名单校验，并拒绝 `PATH_INFO`；CLI 构建、维护和 L4 检查不受该 guard 误拦截。
+回环 TCP 与 `auto_prepend_file` 不能构成安全边界：直接 FastCGI 客户端可尝试用 `PHP_VALUE`/`PHP_ADMIN_VALUE` 覆盖 guard。修订方案取消全部 FPM TCP 暴露，把 socket 命名卷和 supplemental group 10001 作为 listener-level 边界；只有 app 与 `jia-caddy` 能看到并连接 socket，恢复项目使用不同卷且默认不挂 Caddy。PHP-FPM 仍通过仅对 `fpm-fcgi` 生效的 prepend guard 对规范化后的 `SCRIPT_FILENAME` 做三入口白名单校验并拒绝 `PATH_INFO`，但只作为可信 Caddy 配置出错时的纵深防御。Caddy 不得把任何 HTTP 输入映射到 `PHP_VALUE` 或 `PHP_ADMIN_VALUE`，CLI 构建、维护和 L4 检查不受 guard 误拦截。
 
 ShopXO 原生从 config/database.php 读取连接信息。仓库只提交 deploy/config/database.php.example；L4 在仓库外生成完整 /etc/miaomu/config/database.php 并只读挂载，该文件从 /run/secrets/mysql_app_password 读取口令。MySQL 使用 _FILE 变量。口令不进入 Compose 环境、Git、命令行或日志，也不修改仓库中的 config/database.php。
 
@@ -51,7 +52,7 @@ ShopXO 原生从 config/database.php 读取连接信息。仓库只提交 deploy
 版本化 Caddy 片段只描述独立 `127.0.0.1:88` 站点，不拥有现有 80/443 站点或 TLS。片段必须：
 
 - root 指向 /var/www/html/public；
-- FastCGI 指向 127.0.0.1:19000；
+- FastCGI 指向 `unix//run/miaomu-fpm/php-fpm.sock`；
 - 唯一允许进入 FPM 的入口是 index.php、admin.php、api.php；不得使用“等”扩大白名单；
 - 拒绝 install.php、core.php、router.php、Ace demo 目录 PHP、隐藏文件和敏感配置路径；
 - 拒绝大小写变体、php[0-9]*、phtml、phar、path-info、public/static/upload 与未来 storage 中的脚本执行；
@@ -63,32 +64,32 @@ ShopXO 原生从 config/database.php 读取连接信息。仓库只提交 deploy
 
 - 用户端、管理端和 API：本任务不启动服务，无运行行为变化。
 - 数据库：无 schema 或数据操作；只设计内部 db、持久卷和备份合同。
-- 共享网关：版本化新增 :88 片段与只读挂载要求，但本任务不修改 Caddy。
-- 安全：移除新增 Web 容器，减少一个镜像和网络面；新增的主要风险是 FastCGI 回环暴露、共享 Caddy 配置误改、媒体卷权限和脚本执行。
+- 共享网关：版本化新增 :88 片段、public/uploads/socket 三项只读挂载和 supplemental group 10001 要求，但本任务不修改 Caddy。
+- 安全：移除新增 Web 容器和 FPM TCP listener；主要风险收敛为 socket 卷或 group 被额外容器获得、共享 Caddy 配置误改、媒体卷权限和脚本执行。
 - 初始化：完整 SQL 数据清理、加密串重置、id=1 禁用和最小权限管理员创建是后续 L4 的受控一次性动作；本任务不执行，但必须把“未验证不得启动回环 88”固化为部署门禁。
 - 性能：环境指纹改为 Caddy v2.11.2 + PHP-FPM + MySQL，不再记录 Nginx；仍不声明任何业务性能结果。
 - 升级：PHP、Composer、MySQL 输入集中固定；Caddy 版本由共享服务管理，本项目不得在线升级。
 
 ## 方案比较
 
-1. 配置：使用 127.0.0.1:88 独立 Caddy 站点、回环 FastCGI、内部数据库和最小只读挂载。
+1. 配置：使用 127.0.0.1:88 独立 Caddy 站点、权限化 FastCGI Unix socket、内部数据库和最小只读挂载。
 2. 现有服务：按用户要求复用现有 host-network Caddy v2.11.2，是回环验收和后续 TLS Web 层的唯一方案。
 3. 新 Web 容器：Nginx、Apache 或第二个 Caddy 会重复网关、扩大镜像与端口面，且违反明确指令，禁止采用。
 4. 插件钩子和 nursery 插件：环境任务不需要业务扩展点。
 5. 独立模块：部署合同集中于 deploy/**、tests/ops/**、docs/operations/**。
 6. 核心适配：无，不修改 ShopXO、vendor 或数据库。
 
-宿主机直接安装 PHP/MySQL 会污染共享服务器；让 Caddy加入 Compose 网络与其 host-network 事实冲突；公开 FPM 或 MySQL 会扩大攻击面；新建第二 checkout 违反单目录约束，均不采用。
+宿主机直接安装 PHP/MySQL 会污染共享服务器；让 Caddy 加入 Compose 网络与其 host-network 事实冲突；发布 FPM TCP 或 MySQL 端口会扩大攻击面；新建第二 checkout 违反单目录约束，均不采用。
 
 ## 风险与边界
 
 - Caddy 配置路径、Compose 路径、容器名、镜像 ID、挂载或 host-network 事实与计划不一致时，NUR-OPS-001 必须停止并重新批准计划。
-- 127.0.0.1:19000 被占用时不得临时改为公共地址或任意端口；先重新锁定合同。
+- `miaomu_fpm_socket`、GID 10001 或 userns 映射冲突时不得临时改为 TCP、mode 0666 或共享现有 socket 卷；先重新锁定合同。
 - :88 只绑定回环并用于无真实账号和个人数据的服务器内验收；公网 38.12.21.18:88 必须不可达，正式登录、收藏和询价必须等待独立 L4 TLS 域名方案。
 - Caddy 无法以最小只读挂载访问 public 或 uploads 时，不得复制媒体到镜像或授予整棵源码写权限；downloads 始终不得挂载。
 - Caddy validate 失败、80/443 路由发生变化、Beszel 被影响或回滚文件缺失时，不得 reload/recreate。
 - 静态合同不能证明 Caddy 语法、镜像可构建、FPM 可达或应用可运行；全部由 L4 补证。
-- 任何真实密钥、Docker socket、非回环 FPM、宿主机 MySQL 端口、root 应用、全源码写权限或未拒绝脚本路径出现即失败。
+- 任何真实密钥、Docker socket、FPM TCP 端口、socket mode 0666、未授权容器挂载 socket 卷、宿主机 MySQL 端口、root 应用、全源码写权限或未拒绝脚本路径出现即失败。
 - 当前 NUR-OPS-001 仍声明旧独立 Web 拓扑、`network_access_required=false` 且无 `remote_execution`；在其整体重写和独立审批前，本任务制品不得被用于服务器变更。
 
 ## 预计文件

@@ -170,6 +170,94 @@
       "by": "Codex-Implementer",
       "reason": "Independent plan review rejected direct loopback FastCGI because PHP_VALUE and PHP_ADMIN_VALUE can disable auto_prepend_file; redesign deployment boundary before release",
       "at": "2026-07-13T13:12:28Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "Submit revised FPM guard and existing-Caddy two-service plan for autonomous independent approval",
+      "at": "2026-07-13T19:26:29Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "ready_for_analysis",
+      "by": "Codex-Implementer",
+      "reason": "Rebind plan review to an existing independent Codex agent because the thread limit prevents creating the predeclared reviewer",
+      "at": "2026-07-13T19:27:34Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "Submit revised existing-Caddy FPM plan to rebound independent reviewer",
+      "at": "2026-07-13T19:27:59Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "rejected",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/feat002_price_import_decision",
+      "codex_thread_id": "019f5c67-3630-77e2-a0b1-a762ecffb8aa",
+      "expected_agent_task": "/root/feat002_price_import_decision",
+      "observed_agent_task": "/root/feat002_price_import_decision",
+      "observed_codex_thread_id": "019f5c67-3630-77e2-a0b1-a762ecffb8aa",
+      "reason": "P1: The plan still publishes PHP-FPM on 127.0.0.1:19000 and relies on auto_prepend_file as the exact-entry guard, but it does not prevent a direct FastCGI client from supplying PHP_VALUE or PHP_ADMIN_VALUE to clear/replace that guard. Caddy matchers and loopback binding do not protect the FPM listener. Redesign to a permissioned Unix socket or specify and test an equivalent listener-level mechanism that makes both override parameters ineffective before resubmission.",
+      "at": "2026-07-13T19:32:13Z",
+      "review_artifact_path": ".harness/tasks/NUR-OPS-003/approval-plan.json",
+      "review_artifact_sha256": "139d8fbfc2dd395ccaf51ab3a38da3862410f1162408ca2d28a0bb70766df6ea",
+      "approval_context_sha256": "73b07330706d3339310a690d96b292b2b43e89c5c2679d08f129a008c613a7c2",
+      "reviewed_at": "2026-07-13T19:31:51Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "ready_for_analysis",
+      "by": "Codex-Implementer",
+      "reason": "Replace bypassable loopback FastCGI listener with a permissioned Unix-socket trust boundary",
+      "at": "2026-07-13T19:33:17Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "Resubmit permissioned Unix-socket plan after closing FastCGI parameter override finding",
+      "at": "2026-07-13T19:38:48Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/feat002_price_import_decision",
+      "codex_thread_id": "019f5c67-3630-77e2-a0b1-a762ecffb8aa",
+      "expected_agent_task": "/root/feat002_price_import_decision",
+      "observed_agent_task": "/root/feat002_price_import_decision",
+      "observed_codex_thread_id": "019f5c67-3630-77e2-a0b1-a762ecffb8aa",
+      "reason": "Independent re-review confirms the prior FastCGI override P1 is closed: all FPM TCP exposure is removed, a permissioned Unix socket volume and GID boundary limits access to app and jia-caddy, recovery is isolated, and Caddy/L4 tests prohibit PHP_VALUE/PHP_ADMIN_VALUE mapping.",
+      "at": "2026-07-13T19:41:09Z",
+      "review_artifact_path": ".harness/tasks/NUR-OPS-003/approval-plan.json",
+      "review_artifact_sha256": "4b5dc6614966b72093b7356f079568488027d2365ac3c164bbcc2b5088b66ec3",
+      "approval_context_sha256": "7689b8596f38d88174cb70a4fa7dca41ccb366d6e3c4633233b74960725e50c5",
+      "reviewed_at": "2026-07-13T19:40:46Z",
+      "plan_artifacts_sha256": "25a9d4e7705f042b1d915ced9183ed92b61a2b04fac3741e1f9148291a07bd1e",
+      "decision_context_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "contract_sha256": "52a5924bf9a297960053a88fd892fabb642de759e094c8512386cec0b8681401",
+      "policy_sha256": "d0af23ed66874ec095769ced061deb0da86dd0218e2b59811852456580608def"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "approved_for_implementation",
+      "by": "Codex-Implementer",
+      "reason": "Independent reviewer approved permissioned Unix-socket deployment plan",
+      "at": "2026-07-13T19:41:31Z"
     }
   ]
 }

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-OPS-003",
+  "stage": "plan",
+  "decision": "approved",
+  "actor": "Codex-Review",
+  "agent_task": "/root/feat002_price_import_decision",
+  "codex_thread_id": "019f5c67-3630-77e2-a0b1-a762ecffb8aa",
+  "result_marker": "APPROVED",
+  "approval_context_sha256": "7689b8596f38d88174cb70a4fa7dca41ccb366d6e3c4633233b74960725e50c5",
+  "reviewed_at": "2026-07-13T19:40:46Z",
+  "findings": [],
+  "summary": "Independent re-review found no P0-P2 plan defects. The prior FastCGI override P1 is closed because app and db expose no ports, PHP-FPM listens only on the fixed miaomu_fpm_socket Unix socket with group 10001 and mode 0660, only app and jia-caddy may mount or hold the access group, and recovery uses an isolated socket volume. Caddy uses three read-only mounts plus supplemental group 10001, never maps HTTP input to PHP_VALUE or PHP_ADMIN_VALUE, and all server, Docker, database, Caddy, socket-permission, negative FastCGI, rollback, and performance evidence remains an explicit L4 gate."
+}

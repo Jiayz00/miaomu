@@ -6,7 +6,7 @@
   "priority": "P0",
   "phase": 1,
   "risk_level": "L3",
-  "status": "ready_for_analysis",
+  "status": "approved_for_implementation",
   "requirement_ids": [
     "NFR-SEC-006",
     "NFR-PERF-005"
@@ -15,7 +15,7 @@
   "business_goal": "在不联网、不连接服务器、不写入密钥且不修改 ShopXO 业务代码的前提下，为服务器现有 host-network Caddy 设计可版本控制、可离线审查的 PHP-FPM 与 MySQL 两服务栈、安全接入合同和性能测量协议，为 NUR-OPS-001 在 /root/jia/miaomu 的 L4 部署提供确定输入。",
   "in_scope": [
     "在 deploy/** 定义仅含 app PHP-FPM 与 db MySQL 两个长期服务的 Compose 拓扑、应用镜像构建、非敏感配置样例、健康检查、资源限制、持久化和备份入口。",
-    "在 deploy/** 提供现有 Caddy v2.11.2 的 127.0.0.1:88 站点片段、FastCGI 回环接入、public 静态根和上传只读挂载合同，但不修改服务器上的 Caddy。",
+    "在 deploy/** 提供现有 Caddy v2.11.2 的 127.0.0.1:88 站点片段、权限化 FastCGI Unix socket、public 静态根和上传只读挂载合同，但不修改服务器上的 Caddy。",
     "在 tests/ops/** 提供仅用 Python 标准库执行的部署合同、安全规则、Caddy 接入和运维文档离线测试。",
     "在 docs/operations/** 记录单目录开发、Caddy 共享网关边界、配置注入、备份恢复、回滚和 NFR-PERF-005 性能测量协议。",
     "提供由 NUR-OPS-001 在获批 L4 remote_execution 中执行的 Compose 解析、镜像核验、Caddy 备份与验证、构建、启动和冒烟判定标准；本任务不执行这些命令。"
@@ -31,21 +31,21 @@
   "business_invariants": [
     "本任务只产出仓库内可逆制品；服务器部署、共享 Caddy 变更和监听端口继续由 L4 NUR-OPS-001 管理。",
     "Compose 只包含 app 与 db 两个长期服务，不包含 web 服务、Nginx 镜像或 edge 网络。",
-    "验收端口 88 只允许服务器现有 host-network Caddy v2.11.2 绑定 127.0.0.1；公网接口不得监听 88。app 的 FPM 只允许绑定宿主机 127.0.0.1 的已锁定 FastCGI 端口，MySQL 不发布宿主机端口。",
-    "Caddy 不加入苗木 Compose 网络；app 与 db 只加入 internal backend，Caddy 通过宿主机回环 FastCGI 访问 app。",
-    "Caddy 只读挂载与 app 同路径的 public 静态根和上传持久卷；downloads 卷仅供 app 私有写入，不挂入 Caddy，源码其余部分只读。",
+    "验收端口 88 只允许服务器现有 host-network Caddy v2.11.2 绑定 127.0.0.1；公网接口不得监听 88。app 不发布任何 FPM TCP 端口，只在 miaomu_fpm_socket 命名卷的 /run/miaomu-fpm/php-fpm.sock 创建 group 10001、mode 0660 的 Unix socket；MySQL 不发布宿主机端口。",
+    "Caddy 不加入苗木 Compose 网络；app 与 db 只加入 internal backend。共享 Caddy 只读挂载 miaomu_fpm_socket 并以 supplemental group 10001 通过 Unix socket 访问 app；除 app 与 jia-caddy 外不得挂载该卷或授予该组。",
+    "Caddy 只读挂载与 app 同路径的 public 静态根、上传持久卷和 FPM socket 目录；downloads 卷仅供 app 私有写入，不挂入 Caddy，源码其余部分只读。",
     "安装器、非白名单 PHP、隐藏或敏感路径、上传目录脚本以及整个 /download/** 必须由 Caddy 合同拒绝。",
     "镜像不得使用 latest；PHP、Composer 和 MySQL 候选 digest 集中记录，目标架构摘要和镜像 ID 必须由 NUR-OPS-001 真实核验；现有 Caddy 不由本任务拉取或升级。",
     "应用非 root、不得挂载 Docker socket，所有苗木容器禁用 Watchtower 自动更新；MySQL 初始化期 root 例外必须在 L4 证明稳态已降权。",
     "数据库口令、SSH 私钥、API Key、短信或邮件密钥和生产配置不得进入 Git、命令行、日志或证据。",
     "http://127.0.0.1:88 只用于服务器内无真实账号和个人数据的冒烟；http://38.12.21.18:88 必须不可达，真实用户入口必须由后续 L4 任务使用独立 TLS 域名。",
-    "新增 Caddy public 或 uploads 挂载时必须先验证完整候选 Caddyfile 与共享 Compose，再只 recreate jia-caddy；仅两个挂载已存在且只有配置变化时才允许 reload。",
+    "新增 Caddy public、uploads、FPM socket 挂载或 supplemental group 10001 时必须先验证完整候选 Caddyfile 与共享 Compose，再只 recreate jia-caddy；仅三项挂载和组权限均已存在且只有配置变化时才允许 reload。",
     "空库导入后必须清除样例交易和个人数据、禁用并清空 id=1 超管 token、创建 id/role 均不为 1 的最小权限管理员，并逐路由证明 SQL 控制台、插件/主题安装、在线升级、订单和支付能力不可达后，才能启动回环 :88。",
     "保持公开参考价格、收藏与询价独立、用户数据隔离和历史可追溯。"
   ],
   "dependencies": [
     "完整源码事实基线 846eb6a1cf7f94415ae9ae4c3eefb87d4fa9da3e 已通过 source-check。",
-    "用户已指定服务器现有 host-network Caddy v2.11.2 必须复用、端口 88 当前空闲且最终部署根为 /root/jia/miaomu；NUR-OPS-001 必须在写操作前重新核验并将 88 只绑定回环。",
+    "用户已指定服务器现有 host-network Caddy v2.11.2 必须复用、端口 88 当前空闲且最终部署根为 /root/jia/miaomu；NUR-OPS-001 必须在写操作前重新核验并将 88 只绑定回环，同时核验 named volume miaomu_fpm_socket、container GID 10001 和 userns 映射无冲突。",
     "NUR-OPS-001 必须以 L4、network_access_required=true 和锁定 remote_execution 合同执行共享 Caddy、服务器、数据库和端口动作。"
   ],
   "allowed_paths": [
@@ -85,14 +85,14 @@
       "requirement_ids": [
         "NFR-SEC-006"
       ],
-      "description": "离线合同可判定 Compose 无 web/Nginx、FPM 仅绑定 127.0.0.1、MySQL 不对宿主机暴露、应用非 root、Docker socket 禁止、Watchtower 禁用、源码只读，且密码仅由仓库外 secrets 和只读 database.php 注入。"
+      "description": "离线合同可判定 Compose 无 web/Nginx、app 无 ports 且 FPM 仅在 miaomu_fpm_socket 创建 group 10001/mode 0660 的固定 Unix socket、MySQL 不对宿主机暴露、应用非 root、Docker socket 禁止、Watchtower 禁用、源码只读，且密码仅由仓库外 secrets 和只读 database.php 注入。"
     },
     {
       "id": "AC-TASK-002",
       "requirement_ids": [
         "NFR-SEC-006"
       ],
-      "description": "仓库包含可离线判定的 Caddy v2.11.2 回环 127.0.0.1:88 接入合同：public 根与 uploads 只读挂载、downloads 不挂载且 /download/** 全拒绝、FastCGI 固定 127.0.0.1:19000、只允许 index.php/admin.php/api.php，拒绝安装器及大小写、php[0-9]*、phtml、phar、path-info 旁路，并要求共享 supervise 站点在变更前后和回滚后通过。"
+      "description": "仓库包含可离线判定的 Caddy v2.11.2 回环 127.0.0.1:88 接入合同：public、uploads 与 miaomu_fpm_socket 只读挂载，downloads 不挂载且 /download/** 全拒绝；Caddy 以 supplemental group 10001 连接 php-fpm.sock，只允许 index.php/admin.php/api.php，拒绝安装器及大小写、php[0-9]*、phtml、phar、path-info 旁路，不把请求数据映射为 PHP_VALUE/PHP_ADMIN_VALUE，并要求共享 supervise 站点在变更前后和回滚后通过。"
     },
     {
       "id": "AC-TASK-003",
@@ -142,9 +142,9 @@
   "manual_approvals": {
     "plan": {
       "required": true,
-      "status": "pending",
-      "approved_by": null,
-      "approved_at": null
+      "status": "approved",
+      "approved_by": "Codex-Review",
+      "approved_at": "2026-07-13T19:41:09Z"
     },
     "merge": {
       "required": true,
@@ -165,7 +165,7 @@
       "thread_id": "019f566b-dffa-7913-a608-bc2dffbd2bea"
     },
     "plan": {
-      "agent_task": "/root/ops003_plan_reapproval"
+      "agent_task": "/root/feat002_price_import_decision"
     },
     "merge": {
       "agent_task": "/root/ops003_merge_review"
@@ -176,5 +176,5 @@
   "reviewer": "Codex-Review",
   "release_approver": null,
   "created_at": "2026-07-13T03:44:16Z",
-  "updated_at": "2026-07-13T13:12:28Z"
+  "updated_at": "2026-07-13T19:41:31Z"
 }
