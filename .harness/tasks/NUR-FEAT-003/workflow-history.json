@@ -155,6 +155,14 @@
       "by": "Codex-Review",
       "reason": "Independent merge approval completed by /root/fav003_merge_review after both P1 findings were closed and all gates passed.",
       "at": "2026-07-13T22:59:37Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_merge",
+      "to": "closed",
+      "by": "Codex-Implementer",
+      "reason": "收藏功能已通过独立复审和 release-check，并快进合并到 main；真实 PHP/MySQL/HTTP 验证保留至 L4 集成发布任务",
+      "at": "2026-07-13T23:01:18Z"
     }
   ]
 }
