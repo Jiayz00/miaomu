@@ -22,6 +22,7 @@ import harness as harness_module
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SELFTEST_REQUIREMENT_ID = "NFR-PERF-001"
 
 
 def json_text(value: object) -> str:
@@ -61,7 +62,7 @@ class HarnessCoreTests(unittest.TestCase):
                 "title": "Harness self-test task",
                 "risk_level": "L4",
                 "status": status,
-                "requirement_ids": ["AC-001"],
+                "requirement_ids": [SELFTEST_REQUIREMENT_ID],
                 "business_goal": "验证项目 Harness 的状态、审批、事务与并发不变量。",
                 "in_scope": ["仅测试 Harness 临时副本。"],
                 "out_of_scope": ["不修改业务源码或外部环境。"],
@@ -75,7 +76,7 @@ class HarnessCoreTests(unittest.TestCase):
         task["acceptance_criteria"] = [
             {
                 "id": "AC-TASK-001",
-                "requirement_ids": ["AC-001"],
+                "requirement_ids": [SELFTEST_REQUIREMENT_ID],
                 "description": "Harness 不变量可确定性验证。",
             }
         ]
@@ -140,7 +141,7 @@ class HarnessCoreTests(unittest.TestCase):
             "requirement.md": [
                 f"# {task_id} 需求摘录",
                 "## 关联需求",
-                "- AC-001",
+                f"- {SELFTEST_REQUIREMENT_ID}",
                 "## 任务路由",
                 "- PRIORITY: P0",
                 "- PHASE: 0",
@@ -1414,7 +1415,7 @@ class HarnessCoreTests(unittest.TestCase):
         task["acceptance_criteria"] = [
             {
                 "id": "AC-TASK-001",
-                "requirement_ids": ["AC-001", "FR-INQ-006", "FR-NOPE-999"],
+                "requirement_ids": [SELFTEST_REQUIREMENT_ID, "FR-INQ-006", "FR-NOPE-999"],
                 "description": "验证任务合同之外的需求编号会被拒绝。",
             }
         ]
