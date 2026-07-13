@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "catalog_version": 1,
+  "settings": {
+    "max_category_depth": 2,
+    "max_spec_dimensions": 2,
+    "inventory_units": ["株", "盆", "丛", "平方米"],
+    "price_disclaimer": "页面所示价格为参考价格，实际交易条件可能因规格、数量、库存、运输距离、装卸方式、栽植服务及市场变化而调整，最终以双方确认结果为准。"
+  },
+  "categories": [
+    {"seed_key": "category.tree", "parent_seed_key": null, "name": "乔木", "vice_name": "", "describe": "", "sort": 80, "is_home_recommended": 1, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.tree.evergreen", "parent_seed_key": "category.tree", "name": "常绿乔木", "vice_name": "", "describe": "", "sort": 30, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.tree.deciduous", "parent_seed_key": "category.tree", "name": "落叶乔木", "vice_name": "", "describe": "", "sort": 20, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.tree.flowering_foliage", "parent_seed_key": "category.tree", "name": "观花与彩叶乔木", "vice_name": "", "describe": "", "sort": 10, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+
+    {"seed_key": "category.shrub", "parent_seed_key": null, "name": "灌木", "vice_name": "", "describe": "", "sort": 70, "is_home_recommended": 1, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.shrub.evergreen", "parent_seed_key": "category.shrub", "name": "常绿灌木", "vice_name": "", "describe": "", "sort": 30, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.shrub.deciduous_flowering", "parent_seed_key": "category.shrub", "name": "落叶与花灌木", "vice_name": "", "describe": "", "sort": 20, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.shrub.hedge", "parent_seed_key": "category.shrub", "name": "色块与绿篱苗", "vice_name": "", "describe": "", "sort": 10, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+
+    {"seed_key": "category.styled_bonsai", "parent_seed_key": null, "name": "造型与盆景", "vice_name": "", "describe": "", "sort": 60, "is_home_recommended": 1, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.styled_bonsai.tree", "parent_seed_key": "category.styled_bonsai", "name": "造型树", "vice_name": "", "describe": "", "sort": 30, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.styled_bonsai.shrub", "parent_seed_key": "category.styled_bonsai", "name": "造型灌木", "vice_name": "", "describe": "", "sort": 20, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.styled_bonsai.stump_bonsai", "parent_seed_key": "category.styled_bonsai", "name": "桩景盆景", "vice_name": "", "describe": "", "sort": 10, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+
+    {"seed_key": "category.vine_climber", "parent_seed_key": null, "name": "藤本与攀援", "vice_name": "", "describe": "", "sort": 50, "is_home_recommended": 1, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.vine_climber.evergreen", "parent_seed_key": "category.vine_climber", "name": "常绿藤本", "vice_name": "", "describe": "", "sort": 30, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.vine_climber.deciduous", "parent_seed_key": "category.vine_climber", "name": "落叶藤本", "vice_name": "", "describe": "", "sort": 20, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.vine_climber.flowering", "parent_seed_key": "category.vine_climber", "name": "观花藤本", "vice_name": "", "describe": "", "sort": 10, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+
+    {"seed_key": "category.groundcover_herb", "parent_seed_key": null, "name": "地被与草本", "vice_name": "", "describe": "", "sort": 40, "is_home_recommended": 1, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.groundcover_herb.groundcover", "parent_seed_key": "category.groundcover_herb", "name": "地被植物", "vice_name": "", "describe": "", "sort": 40, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.groundcover_herb.perennial_flower", "parent_seed_key": "category.groundcover_herb", "name": "宿根花卉", "vice_name": "", "describe": "", "sort": 30, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.groundcover_herb.ornamental_grass", "parent_seed_key": "category.groundcover_herb", "name": "观赏草", "vice_name": "", "describe": "", "sort": 20, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.groundcover_herb.lawn", "parent_seed_key": "category.groundcover_herb", "name": "草坪", "vice_name": "", "describe": "", "sort": 10, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+
+    {"seed_key": "category.bamboo", "parent_seed_key": null, "name": "竹类", "vice_name": "", "describe": "", "sort": 30, "is_home_recommended": 1, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.bamboo.running", "parent_seed_key": "category.bamboo", "name": "散生竹", "vice_name": "", "describe": "", "sort": 30, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.bamboo.clumping", "parent_seed_key": "category.bamboo", "name": "丛生竹", "vice_name": "", "describe": "", "sort": 20, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.bamboo.ornamental_small", "parent_seed_key": "category.bamboo", "name": "观赏小竹", "vice_name": "", "describe": "", "sort": 10, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+
+    {"seed_key": "category.aquatic_wetland", "parent_seed_key": null, "name": "水生与湿生", "vice_name": "", "describe": "", "sort": 20, "is_home_recommended": 1, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.aquatic_wetland.emergent", "parent_seed_key": "category.aquatic_wetland", "name": "挺水植物", "vice_name": "", "describe": "", "sort": 40, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.aquatic_wetland.floating_leaf", "parent_seed_key": "category.aquatic_wetland", "name": "浮叶植物", "vice_name": "", "describe": "", "sort": 30, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.aquatic_wetland.submerged", "parent_seed_key": "category.aquatic_wetland", "name": "沉水植物", "vice_name": "", "describe": "", "sort": 20, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.aquatic_wetland.wetland", "parent_seed_key": "category.aquatic_wetland", "name": "湿生植物", "vice_name": "", "describe": "", "sort": 10, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+
+    {"seed_key": "category.fruit_economic", "parent_seed_key": null, "name": "果树与经济苗", "vice_name": "", "describe": "", "sort": 10, "is_home_recommended": 1, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.fruit_economic.fruit_tree", "parent_seed_key": "category.fruit_economic", "name": "果树苗", "vice_name": "", "describe": "", "sort": 30, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.fruit_economic.nut_tree", "parent_seed_key": "category.fruit_economic", "name": "坚果苗", "vice_name": "", "describe": "", "sort": 20, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""},
+    {"seed_key": "category.fruit_economic.tea_mulberry_economic", "parent_seed_key": "category.fruit_economic", "name": "茶桑及其他经济苗", "vice_name": "", "describe": "", "sort": 10, "is_home_recommended": 0, "is_enable": 1, "seo_title": "", "seo_keywords": "", "seo_desc": ""}
+  ],
+  "spec_templates": [
+    {"seed_key": "spec.tree.chest_diameter_cm", "category_seed_key": "category.tree", "name": "胸径(cm)", "values": ["2", "3", "4", "5", "6", "8", "10", "12", "15", "18", "20", "25", "30", "35"], "is_enable": 1},
+    {"seed_key": "spec.tree.height_cm", "category_seed_key": "category.tree", "name": "高度(cm)", "values": ["80", "100", "120", "150", "180", "200", "250", "300", "350", "400", "500", "600", "800"], "is_enable": 1},
+    {"seed_key": "spec.shrub.crown_width_cm", "category_seed_key": "category.shrub", "name": "冠幅(cm)", "values": ["20", "30", "40", "50", "60", "80", "100", "120", "150", "180", "200", "250", "300"], "is_enable": 1},
+    {"seed_key": "spec.shrub.height_cm", "category_seed_key": "category.shrub", "name": "高度(cm)", "values": ["20", "30", "40", "50", "60", "80", "100", "120", "150", "180", "200", "250"], "is_enable": 1},
+    {"seed_key": "spec.styled_bonsai.ground_diameter_cm", "category_seed_key": "category.styled_bonsai", "name": "地径(cm)", "values": ["2", "3", "4", "5", "6", "8", "10", "12", "15", "18", "20", "25", "30"], "is_enable": 1},
+    {"seed_key": "spec.styled_bonsai.root_ball_cm", "category_seed_key": "category.styled_bonsai", "name": "土球规格(cm)", "values": ["20", "30", "40", "50", "60", "80", "100", "120", "150"], "is_enable": 1},
+    {"seed_key": "spec.vine_climber.height_cm", "category_seed_key": "category.vine_climber", "name": "高度(cm)", "values": ["30", "50", "80", "100", "120", "150", "180", "200", "250", "300"], "is_enable": 1},
+    {"seed_key": "spec.vine_climber.container_cm", "category_seed_key": "category.vine_climber", "name": "容器规格(cm)", "values": ["10", "12", "15", "18", "20", "25", "30", "35", "40"], "is_enable": 1},
+    {"seed_key": "spec.groundcover_herb.crown_width_cm", "category_seed_key": "category.groundcover_herb", "name": "冠幅(cm)", "values": ["10", "15", "20", "25", "30", "40", "50", "60", "80", "100"], "is_enable": 1},
+    {"seed_key": "spec.groundcover_herb.container_cm", "category_seed_key": "category.groundcover_herb", "name": "容器规格(cm)", "values": ["8", "10", "12", "15", "18", "20", "25", "30"], "is_enable": 1},
+    {"seed_key": "spec.bamboo.ground_diameter_cm", "category_seed_key": "category.bamboo", "name": "地径(cm)", "values": ["1", "2", "3", "4", "5", "6", "8", "10", "12", "15"], "is_enable": 1},
+    {"seed_key": "spec.bamboo.height_cm", "category_seed_key": "category.bamboo", "name": "高度(cm)", "values": ["50", "80", "100", "120", "150", "180", "200", "250", "300", "400", "500", "600"], "is_enable": 1},
+    {"seed_key": "spec.aquatic_wetland.height_cm", "category_seed_key": "category.aquatic_wetland", "name": "高度(cm)", "values": ["10", "20", "30", "40", "50", "60", "80", "100", "120", "150"], "is_enable": 1},
+    {"seed_key": "spec.aquatic_wetland.container_cm", "category_seed_key": "category.aquatic_wetland", "name": "容器规格(cm)", "values": ["8", "10", "12", "15", "18", "20", "25", "30", "35", "40"], "is_enable": 1},
+    {"seed_key": "spec.fruit_economic.ground_diameter_cm", "category_seed_key": "category.fruit_economic", "name": "地径(cm)", "values": ["1", "2", "3", "4", "5", "6", "8", "10", "12", "15", "18", "20"], "is_enable": 1},
+    {"seed_key": "spec.fruit_economic.grade", "category_seed_key": "category.fruit_economic", "name": "苗木等级", "values": ["一级", "二级", "三级"], "is_enable": 1}
+  ],
+  "parameter_fields": [
+    {"key": "chinese_name", "name": "中文名", "scope": 0, "required": 1, "data_type": 0, "value": ""},
+    {"key": "scientific_name", "name": "学名", "scope": 1, "required": 0, "data_type": 0, "value": ""},
+    {"key": "family_genus", "name": "科属", "scope": 0, "required": 0, "data_type": 0, "value": ""},
+    {"key": "plant_age", "name": "苗龄", "scope": 2, "required": 0, "data_type": 0, "value": ""},
+    {"key": "foliage_habit", "name": "常绿或落叶", "scope": 0, "required": 0, "data_type": 1, "value": "常绿\n半常绿\n落叶"},
+    {"key": "flowering_period", "name": "花期", "scope": 1, "required": 0, "data_type": 2, "value": "1月\n2月\n3月\n4月\n5月\n6月\n7月\n8月\n9月\n10月\n11月\n12月"},
+    {"key": "fruiting_period", "name": "果期", "scope": 1, "required": 0, "data_type": 2, "value": "1月\n2月\n3月\n4月\n5月\n6月\n7月\n8月\n9月\n10月\n11月\n12月"},
+    {"key": "light_requirement", "name": "光照要求", "scope": 0, "required": 0, "data_type": 1, "value": "全日照\n半日照\n耐阴"},
+    {"key": "soil_requirement", "name": "土壤要求", "scope": 1, "required": 0, "data_type": 2, "value": "酸性土\n中性土\n碱性土\n砂质土\n壤土\n黏土\n湿润土"},
+    {"key": "cold_tolerance", "name": "耐寒性", "scope": 0, "required": 0, "data_type": 1, "value": "强\n中\n弱"},
+    {"key": "drought_tolerance", "name": "耐旱性", "scope": 0, "required": 0, "data_type": 1, "value": "强\n中\n弱"},
+    {"key": "suitable_region", "name": "适生地区", "scope": 0, "required": 0, "data_type": 2, "value": "东北\n华北\n华东\n华中\n华南\n西南\n西北"},
+    {"key": "landscape_use", "name": "园林用途", "scope": 0, "required": 0, "data_type": 2, "value": "行道树\n庭荫树\n孤植\n列植\n群植\n绿篱\n色块\n地被\n花境\n盆景\n护坡\n水景\n果园\n经济林"},
+    {"key": "planting_season", "name": "栽植季节", "scope": 1, "required": 0, "data_type": 2, "value": "春季\n夏季\n秋季\n冬季"},
+    {"key": "care_difficulty", "name": "养护难度", "scope": 0, "required": 0, "data_type": 1, "value": "低\n中\n高"}
+  ],
+  "parameter_templates": [
+    {"seed_key": "params.tree.nursery", "category_seed_key": "category.tree", "name": "乔木苗木参数", "is_enable": 1},
+    {"seed_key": "params.shrub.nursery", "category_seed_key": "category.shrub", "name": "灌木苗木参数", "is_enable": 1},
+    {"seed_key": "params.styled_bonsai.nursery", "category_seed_key": "category.styled_bonsai", "name": "造型与盆景苗木参数", "is_enable": 1},
+    {"seed_key": "params.vine_climber.nursery", "category_seed_key": "category.vine_climber", "name": "藤本与攀援苗木参数", "is_enable": 1},
+    {"seed_key": "params.groundcover_herb.nursery", "category_seed_key": "category.groundcover_herb", "name": "地被与草本苗木参数", "is_enable": 1},
+    {"seed_key": "params.bamboo.nursery", "category_seed_key": "category.bamboo", "name": "竹类苗木参数", "is_enable": 1},
+    {"seed_key": "params.aquatic_wetland.nursery", "category_seed_key": "category.aquatic_wetland", "name": "水生与湿生苗木参数", "is_enable": 1},
+    {"seed_key": "params.fruit_economic.nursery", "category_seed_key": "category.fruit_economic", "name": "果树与经济苗参数", "is_enable": 1}
+  ]
+}

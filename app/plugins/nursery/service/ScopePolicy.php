@@ -171,11 +171,13 @@ class ScopePolicy
     ];
 
     private const DEFAULT_THEME_VIEW_REPLACEMENTS = [
+        'module/goods/grid/base' => '../../../plugins/nursery/view/index/module/goods/grid/base',
         'module/goods/list/base' => '../../../plugins/nursery/view/index/module/goods/list/base',
         'module/goods/slider/binding' => '../../../plugins/nursery/view/index/module/goods/slider/binding',
     ];
 
     private const DEFAULT_FALLBACK_VIEW_REPLACEMENTS = [
+        '../default/module/goods/grid/base' => '../../../plugins/nursery/view/index/module/goods/grid/base',
         '../default/module/goods/list/base' => '../../../plugins/nursery/view/index/module/goods/list/base',
         '../default/module/goods/slider/binding' => '../../../plugins/nursery/view/index/module/goods/slider/binding',
     ];

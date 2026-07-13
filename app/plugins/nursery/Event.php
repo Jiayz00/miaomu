@@ -1,6 +1,8 @@
 <?php
 namespace app\plugins\nursery;
 
+use app\plugins\nursery\service\CatalogMigration;
+
 class Event
 {
     public function Upload($params = [])
@@ -10,7 +12,7 @@ class Event
 
     public function BeginInstall($params = [])
     {
-        return DataReturn('success', 0);
+        return CatalogMigration::Preflight(isset($params['nursery_catalog_mode']) ? $params['nursery_catalog_mode'] : 'existing');
     }
 
     public function Install($params = [])
@@ -30,7 +32,7 @@ class Event
 
     public function BeginUpgrade($params = [])
     {
-        return DataReturn('success', 0);
+        return CatalogMigration::Preflight(isset($params['nursery_catalog_mode']) ? $params['nursery_catalog_mode'] : 'existing');
     }
 
     public function Upgrade($params = [])

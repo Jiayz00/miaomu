@@ -2,6 +2,7 @@
 namespace app\plugins\nursery;
 
 use app\plugins\nursery\service\ScopePolicy;
+use app\plugins\nursery\service\ReferencePriceService;
 
 class Hook
 {
@@ -46,6 +47,29 @@ class Hook
                     $params['error'] = MyLang('goods_only_show_title');
                 }
             }
+        } elseif($hook_name === 'plugins_service_goods_save_handle') {
+            if(isset($params['params'], $params['data'], $params['spec']) && is_array($params['params']) && is_array($params['data']) && is_array($params['spec']))
+            {
+                return ReferencePriceService::ValidateSave($params['params'], $params['data'], $params['spec']);
+            }
+            return DataReturn('苗木价格校验参数不完整', -1);
+        } elseif($hook_name === 'plugins_service_goods_save_thing_end') {
+            if(isset($params['data']['is_shelves']) && intval($params['data']['is_shelves']) === 1)
+            {
+                ReferencePriceService::AssertPublishedGoods(isset($params['goods_id']) ? intval($params['goods_id']) : 0);
+            }
+        } elseif($hook_name === 'plugins_service_goods_field_status_update') {
+            if(isset($params['field'], $params['status']) && $params['field'] === 'is_shelves' && intval($params['status']) === 1)
+            {
+                ReferencePriceService::AssertPublishedGoods(isset($params['goods_id']) ? intval($params['goods_id']) : 0);
+            }
+        } elseif($hook_name === 'plugins_service_goods_handle_begin') {
+            if(isset($params['goods']) && is_array($params['goods']))
+            {
+                ReferencePriceService::ApplyDisplay($params['goods']);
+            }
+        } elseif($hook_name === 'plugins_view_goods_detail_panel_price_bottom') {
+            return ReferencePriceService::DisclaimerHtml();
         } elseif($hook_name === 'plugins_view_assign_data') {
             $this->FilterAssignedViewData($params);
         } elseif($hook_name === 'plugins_view_fetch_begin') {

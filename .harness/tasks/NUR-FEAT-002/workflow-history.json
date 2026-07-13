@@ -79,6 +79,56 @@
       "by": "Codex-Implementer",
       "reason": "Harness 自测基础提交已独立修复，source-check 与新基线 preflight 通过，恢复目录价格业务实现",
       "at": "2026-07-13T18:25:35Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "Replay verification after restoring stable LF workspace for final approval binding",
+      "at": "2026-07-13T19:16:52Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "Fresh LF-stable verify, scope, evidence and review pack complete",
+      "at": "2026-07-13T19:19:19Z"
+    },
+    {
+      "type": "approval",
+      "stage": "merge",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/feat002_price_import_decision",
+      "codex_thread_id": "019f5c67-3630-77e2-a0b1-a762ecffb8aa",
+      "expected_agent_task": "/root/feat002_price_import_decision",
+      "observed_agent_task": "/root/feat002_price_import_decision",
+      "observed_codex_thread_id": "019f5c67-3630-77e2-a0b1-a762ecffb8aa",
+      "reason": "Fresh LF-stable independent review confirms no P0-P2 defects; verify 20260713T191702898265Z and scope/evidence gates pass, while PHP/MySQL/HTTP/browser remain L4 release gates.",
+      "at": "2026-07-13T19:23:03Z",
+      "review_artifact_path": ".harness/tasks/NUR-FEAT-002/approval-merge.json",
+      "review_artifact_sha256": "7539be59dcfc45f01a3c7f35995d0cb217978a3c32b71244fa05ab5f7bec892c",
+      "approval_context_sha256": "5061ae4a78f5bf050fe4c2193f82afb01511755166b6aeb90af06b5628282944",
+      "reviewed_at": "2026-07-13T19:20:37Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "approved_for_merge",
+      "by": "Codex-Implementer",
+      "reason": "Independent final merge review approved against LF-stable verification",
+      "at": "2026-07-13T19:23:25Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_merge",
+      "to": "closed",
+      "by": "Codex-Implementer",
+      "reason": "Approved source delivery is ready for final commit; runtime integration gates transferred to L4 deployment task",
+      "at": "2026-07-13T19:23:45Z"
     }
   ]
 }

@@ -87,17 +87,11 @@
                                     }
                                 {{/php}}
 
-                                {{if isset($v['show_field_price_status']) and $v['show_field_price_status'] eq 1}}
+                                {{if !empty($v['reference_price'])}}
                                     <div class="content-item-bottom am-nbfc">
                                         <p class="price am-text-truncate am-fl">
-                                            {{if isset($module_data['price_key'])}}
-                                                {{if isset($v[$module_data['price_key']])}}
-                                                    <strong class="price">{{$v.show_price_symbol}}{{$v[$module_data['price_key']]}}</strong>
-                                                {{/if}}
-                                            {{else/}}
-                                                <strong class="price">{{$v.show_price_symbol}}{{$v.price}}</strong>
-                                            {{/if}}
-                                            <span class="am-text-grey unit">{{$v.show_price_unit}}</span>
+                                            <span class="am-text-grey am-margin-right-xs">参考价</span>
+                                            <strong class="price">{{$v.reference_price.short_text}}</strong>
                                         </p>
                                     </div>
                                 {{/if}}

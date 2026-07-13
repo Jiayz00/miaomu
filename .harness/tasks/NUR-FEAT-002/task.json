@@ -6,7 +6,7 @@
   "priority": "P0",
   "phase": 1,
   "risk_level": "L3",
-  "status": "implementing",
+  "status": "closed",
   "requirement_ids": [
     "FR-CAT-001",
     "FR-CAT-002",
@@ -192,9 +192,9 @@
     },
     "merge": {
       "required": true,
-      "status": "pending",
-      "approved_by": null,
-      "approved_at": null
+      "status": "approved",
+      "approved_by": "Codex-Review",
+      "approved_at": "2026-07-13T19:23:03Z"
     },
     "release": {
       "required": false,
@@ -220,5 +220,5 @@
   "reviewer": "Codex-Review",
   "release_approver": null,
   "created_at": "2026-07-13T17:13:54Z",
-  "updated_at": "2026-07-13T18:25:35Z"
+  "updated_at": "2026-07-13T19:23:45Z"
 }

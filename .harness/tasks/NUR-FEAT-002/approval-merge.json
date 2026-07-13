@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-FEAT-002",
+  "stage": "merge",
+  "decision": "approved",
+  "actor": "Codex-Review",
+  "agent_task": "/root/feat002_price_import_decision",
+  "codex_thread_id": "019f5c67-3630-77e2-a0b1-a762ecffb8aa",
+  "result_marker": "APPROVED",
+  "approval_context_sha256": "5061ae4a78f5bf050fe4c2193f82afb01511755166b6aeb90af06b5628282944",
+  "reviewed_at": "2026-07-13T19:20:37Z",
+  "findings": [],
+  "summary": "Fresh LF-stable verification run 20260713T191702898265Z passed 3/3 with workspace fingerprint 65af6c565ef93f1e1037ca9c66d6e705264f6cca2cdef84ef0a635abeca3cfaf; independent review found no P0-P2 defects. PHP, MySQL, HTTP, browser, real concurrency, and the 500-item integrity limit remain mandatory L4 release gates."
+}

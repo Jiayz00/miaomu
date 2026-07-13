@@ -23,10 +23,12 @@ POLICY_FILE = PLUGIN_ROOT / "service" / "ScopePolicy.php"
 USER_VIEW_FILE = PLUGIN_ROOT / "view" / "index" / "user" / "index.html"
 LIST_VIEW_FILE = PLUGIN_ROOT / "view" / "index" / "module" / "goods" / "list" / "base.html"
 SLIDER_VIEW_FILE = PLUGIN_ROOT / "view" / "index" / "module" / "goods" / "slider" / "binding.html"
+GRID_VIEW_FILE = PLUGIN_ROOT / "view" / "index" / "module" / "goods" / "grid" / "base.html"
 UPSTREAM_LIST_VIEW_FILE = ROOT / "app" / "index" / "view" / "default" / "module" / "goods" / "list" / "base.html"
 UPSTREAM_SLIDER_VIEW_FILE = (
     ROOT / "app" / "index" / "view" / "default" / "module" / "goods" / "slider" / "binding.html"
 )
+UPSTREAM_GRID_VIEW_FILE = ROOT / "app" / "index" / "view" / "default" / "module" / "goods" / "grid" / "base.html"
 
 HOOK_CLASS = r"app\plugins\nursery\Hook"
 
@@ -44,6 +46,11 @@ EXPECTED_HOOKS = (
     "plugins_service_user_center_mini_navigation_handle",
     "plugins_service_admin_menu_data",
     "plugins_service_goods_buy_nav_button_handle",
+    "plugins_service_goods_save_handle",
+    "plugins_service_goods_save_thing_end",
+    "plugins_service_goods_field_status_update",
+    "plugins_service_goods_handle_begin",
+    "plugins_view_goods_detail_panel_price_bottom",
     "plugins_view_assign_data",
     "plugins_view_fetch_begin",
 )
@@ -211,11 +218,13 @@ PATHINFO_H5_MARKERS = (
 )
 
 DEFAULT_THEME_VIEW_REPLACEMENTS = {
+    "module/goods/grid/base": "../../../plugins/nursery/view/index/module/goods/grid/base",
     "module/goods/list/base": "../../../plugins/nursery/view/index/module/goods/list/base",
     "module/goods/slider/binding": "../../../plugins/nursery/view/index/module/goods/slider/binding",
 }
 
 DEFAULT_FALLBACK_VIEW_REPLACEMENTS = {
+    "../default/module/goods/grid/base": "../../../plugins/nursery/view/index/module/goods/grid/base",
     "../default/module/goods/list/base": "../../../plugins/nursery/view/index/module/goods/list/base",
     "../default/module/goods/slider/binding": "../../../plugins/nursery/view/index/module/goods/slider/binding",
 }
@@ -226,10 +235,16 @@ USER_CENTER_ENTRY_VIEWS = (
 )
 
 EXPECTED_PLUGIN_FILES = {
+    "catalog-v1.json",
     "config.json",
     "Event.php",
     "Hook.php",
+    "service/CatalogIntegrity.php",
+    "service/CatalogMigration.php",
+    "service/CatalogPolicy.php",
+    "service/ReferencePriceService.php",
     "service/ScopePolicy.php",
+    "view/index/module/goods/grid/base.html",
     "view/index/module/goods/list/base.html",
     "view/index/module/goods/slider/binding.html",
     "view/index/user/index.html",
@@ -292,6 +307,50 @@ SLIDER_CART_NODE = (
     '                                            </a>\n'
     "                                        {{/if}}\n"
 )
+
+LIST_UPSTREAM_PRICE_BLOCK = """                                        {{if isset($v['show_field_price_status']) and $v['show_field_price_status'] eq 1}}
+                                            {{if isset($module_data['price_key'])}}
+                                                {{if isset($v[$module_data['price_key']])}}
+                                                    <strong class="price">{{$v.show_price_symbol}}{{$v[$module_data['price_key']]}}</strong>
+                                                {{/if}}
+                                            {{else/}}
+                                                <strong class="price">{{$v.show_price_symbol}}{{$v.min_price}}</strong>
+                                            {{/if}}
+                                            <span class="am-text-grey unit">{{$v.show_price_unit}}</span>
+                                        {{/if}}
+"""
+
+LIST_REFERENCE_PRICE_BLOCK = """                                        {{if !empty($v['reference_price'])}}
+                                            <span class="am-text-grey am-margin-right-xs">参考价</span>
+                                            <strong class="price">{{$v.reference_price.short_text}}</strong>
+                                        {{/if}}
+"""
+
+SLIDER_UPSTREAM_PRICE_BLOCK = """                                {{if isset($v['show_field_price_status']) and $v['show_field_price_status'] eq 1}}
+                                    <div class="content-item-bottom am-nbfc">
+                                        <p class="price am-text-truncate am-fl">
+                                            {{if isset($module_data['price_key'])}}
+                                                {{if isset($v[$module_data['price_key']])}}
+                                                    <strong class="price">{{$v.show_price_symbol}}{{$v[$module_data['price_key']]}}</strong>
+                                                {{/if}}
+                                            {{else/}}
+                                                <strong class="price">{{$v.show_price_symbol}}{{$v.price}}</strong>
+                                            {{/if}}
+                                            <span class="am-text-grey unit">{{$v.show_price_unit}}</span>
+                                        </p>
+                                    </div>
+                                {{/if}}
+"""
+
+SLIDER_REFERENCE_PRICE_BLOCK = """                                {{if !empty($v['reference_price'])}}
+                                    <div class="content-item-bottom am-nbfc">
+                                        <p class="price am-text-truncate am-fl">
+                                            <span class="am-text-grey am-margin-right-xs">参考价</span>
+                                            <strong class="price">{{$v.reference_price.short_text}}</strong>
+                                        </p>
+                                    </div>
+                                {{/if}}
+"""
 
 
 class ContractError(AssertionError):
@@ -584,11 +643,11 @@ def validate_manifest_source(source: str) -> dict[str, Any]:
     require(isinstance(base, dict), "config.json base must be an object")
     require(isinstance(hooks, dict), "config.json hook must be an object")
     require(base.get("plugins") == "nursery", "plugin identifier must be nursery")
-    require(base.get("version") == "1.0.0", "plugin version must be explicit")
+    require(base.get("version") == "1.1.0", "plugin version must match the catalog/price release")
     require(base.get("apply_terminal") == ["pc", "h5"], "plugin terminals must be pc and h5")
     require(base.get("apply_version") == ["6.9.0"], "plugin must pin ShopXO 6.9.0")
     require(base.get("is_home") is False, "scope plugin must not expose a standalone homepage")
-    require(tuple(hooks.keys()) == EXPECTED_HOOKS, "config.json must register the exact 15 hooks")
+    require(tuple(hooks.keys()) == EXPECTED_HOOKS, "config.json must register the exact approved hook set")
     for hook_name, listeners in hooks.items():
         require(listeners == [HOOK_CLASS], f"unexpected listener mapping for {hook_name}")
     return config
@@ -655,16 +714,16 @@ def validate_policy_source(source: str) -> dict[str, tuple[str, ...]]:
     direct_view_replacements = extract_php_const_map(source, "DEFAULT_THEME_VIEW_REPLACEMENTS")
     require(
         direct_view_replacements == DEFAULT_THEME_VIEW_REPLACEMENTS,
-        "DEFAULT_THEME_VIEW_REPLACEMENTS differs from the two approved direct mappings",
+        "DEFAULT_THEME_VIEW_REPLACEMENTS differs from the three approved direct mappings",
     )
     fallback_view_replacements = extract_php_const_map(source, "DEFAULT_FALLBACK_VIEW_REPLACEMENTS")
     require(
         fallback_view_replacements == DEFAULT_FALLBACK_VIEW_REPLACEMENTS,
-        "DEFAULT_FALLBACK_VIEW_REPLACEMENTS differs from the two approved fallback mappings",
+        "DEFAULT_FALLBACK_VIEW_REPLACEMENTS differs from the three approved fallback mappings",
     )
     require(
         set(direct_view_replacements.values()) == set(fallback_view_replacements.values()),
-        "direct and fallback mappings must resolve to the same two plugin templates",
+        "direct and fallback mappings must resolve to the same three plugin templates",
     )
     parsed["DEFAULT_THEME_VIEW_REPLACEMENTS"] = tuple(direct_view_replacements)
     parsed["DEFAULT_FALLBACK_VIEW_REPLACEMENTS"] = tuple(fallback_view_replacements)
@@ -999,6 +1058,11 @@ def validate_hook_source(source: str) -> None:
         "self::navigation_hooks",
         "scopepolicy::filternavigation($params['data'])",
         "scopepolicy::filtergoodsbuttons($params['data'])",
+        "referencepriceservice::validatesave($params['params'],$params['data'],$params['spec'])",
+        "plugins_service_goods_save_thing_end",
+        "referencepriceservice::assertpublishedgoods(",
+        "referencepriceservice::applydisplay($params['goods'])",
+        "referencepriceservice::disclaimerhtml()",
         "$this->filteradminscope($params)",
         "$this->filterassignedviewdata($params)",
         "$this->replacerestrictedview($params)",
@@ -1095,9 +1159,13 @@ def validate_hook_file(path: Path) -> None:
 def validate_event_source(source: str) -> None:
     methods = tuple(re.findall(r"\bpublic\s+function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", source))
     require(methods == EXPECTED_EVENT_METHODS, "Event lifecycle callbacks changed")
-    for method in EXPECTED_EVENT_METHODS:
+    for method in ("Upload", "Install", "Uninstall", "Download", "Upgrade", "Delete"):
         body = compact_code(extract_php_method(source, method))
         require("return datareturn('success',0);".replace(" ", "") in body, f"{method} must be a no-op success callback")
+    for method in ("BeginInstall", "BeginUpgrade"):
+        body = compact_code(extract_php_method(source, method))
+        require("catalogmigration::preflight(" in body, f"{method} must call the read-only catalog preflight")
+        require("catalogmigration::run(" not in body, f"{method} must not run a write migration")
     lowered = source.lower()
     for forbidden in ("db::", "->execute(", "->query(", "config/shopxo.sql", "app\\service\\"):
         require(forbidden not in lowered, f"Event lifecycle must not mutate data/core: {forbidden}")
@@ -1175,7 +1243,15 @@ def controlled_goods_view_transform(upstream_source: str, cart_node: str, label:
         normalized_upstream.count(cart_node) == 1,
         f"pinned upstream {label} template must contain the approved cart node exactly once",
     )
-    return normalized_upstream.replace(cart_node, "", 1)
+    transformed = normalized_upstream.replace(cart_node, "", 1)
+    replacements = {
+        "goods list/base": (LIST_UPSTREAM_PRICE_BLOCK, LIST_REFERENCE_PRICE_BLOCK),
+        "goods slider/binding": (SLIDER_UPSTREAM_PRICE_BLOCK, SLIDER_REFERENCE_PRICE_BLOCK),
+    }
+    require(label in replacements, f"no approved reference-price transform for {label}")
+    old, new = replacements[label]
+    require(transformed.count(old) == 1, f"pinned upstream {label} price block changed")
+    return transformed.replace(old, new, 1)
 
 
 def validate_goods_view_source(
@@ -1189,22 +1265,15 @@ def validate_goods_view_source(
     expected_source = controlled_goods_view_transform(normalized_upstream, cart_node, label)
     require(
         normalized_source == expected_source,
-        f"nursery {label} template must equal pinned upstream with only its approved cart node removed",
+        f"nursery {label} template differs outside the approved cart and reference-price changes",
     )
 
     lowered = normalized_source.lower()
     for forbidden_marker in FORBIDDEN_GOODS_CART_MARKERS:
         require(forbidden_marker not in lowered, f"nursery {label} template retains cart marker: {forbidden_marker}")
 
-    for price_fragment in (
-        "show_price_symbol",
-        "show_price_unit",
-        '<strong class="price">',
-    ):
-        require(
-            normalized_source.count(price_fragment) == normalized_upstream.count(price_fragment) > 0,
-            f"nursery {label} template changed public price/unit output: {price_fragment}",
-        )
+    for price_fragment in ("reference_price", "reference_price.short_text", '<strong class="price">', "参考价"):
+        require(price_fragment in normalized_source, f"nursery {label} template lost reference price output: {price_fragment}")
     require(
         normalized_source.count("goods_url") == normalized_upstream.count("goods_url") > 0,
         f"nursery {label} template changed goods_url links",
@@ -1381,7 +1450,7 @@ def model_filter_shortcut_menu(items: Sequence[Any], route_markers: Sequence[str
 class ManifestContractTests(unittest.TestCase):
     def test_manifest_registers_exact_shopxo_hooks(self) -> None:
         config = validate_manifest_file(CONFIG_FILE)
-        self.assertEqual(len(config["hook"]), 15)
+        self.assertEqual(len(config["hook"]), len(EXPECTED_HOOKS))
 
     def test_removing_any_hook_fails_on_temporary_copy(self) -> None:
         original = validate_manifest_file(CONFIG_FILE)
@@ -1404,8 +1473,8 @@ class ScopePolicyContractTests(unittest.TestCase):
         self.assertEqual(len(parsed["DENIED_PLUGINS"]), 23)
         self.assertEqual(len(parsed["DENIED_PLUGIN_ALIASES"]), 4)
         self.assertEqual(len(parsed["HIDDEN_PLUGIN_ENTRIES"]), 8)
-        self.assertEqual(len(parsed["DEFAULT_THEME_VIEW_REPLACEMENTS"]), 2)
-        self.assertEqual(len(parsed["DEFAULT_FALLBACK_VIEW_REPLACEMENTS"]), 2)
+        self.assertEqual(len(parsed["DEFAULT_THEME_VIEW_REPLACEMENTS"]), len(DEFAULT_THEME_VIEW_REPLACEMENTS))
+        self.assertEqual(len(parsed["DEFAULT_FALLBACK_VIEW_REPLACEMENTS"]), len(DEFAULT_FALLBACK_VIEW_REPLACEMENTS))
         self.assertEqual(parsed["USER_CENTER_ENTRY_VIEWS"], USER_CENTER_ENTRY_VIEWS)
 
     def test_exact_goods_view_mappings_and_theme_model(self) -> None:
@@ -2224,7 +2293,7 @@ class UserViewContractTests(unittest.TestCase):
 
 
 class GoodsModuleViewContractTests(unittest.TestCase):
-    def test_goods_views_equal_pinned_upstream_with_only_cart_nodes_removed(self) -> None:
+    def test_goods_views_equal_approved_pinned_upstream_transform(self) -> None:
         cases = (
             (LIST_VIEW_FILE, UPSTREAM_LIST_VIEW_FILE, LIST_CART_NODE, "goods list/base"),
             (SLIDER_VIEW_FILE, UPSTREAM_SLIDER_VIEW_FILE, SLIDER_CART_NODE, "goods slider/binding"),
@@ -2239,9 +2308,10 @@ class GoodsModuleViewContractTests(unittest.TestCase):
             (SLIDER_VIEW_FILE, UPSTREAM_SLIDER_VIEW_FILE, SLIDER_CART_NODE, "goods slider/binding"),
         )
         critical_fragments = (
-            "show_price_symbol",
-            "show_price_unit",
+            "reference_price",
+            "reference_price.short_text",
             '<strong class="price">',
+            "参考价",
             "goods_url",
         ) + EXPECTED_GOODS_VIEW_HOOKS
         for plugin_path, upstream_path, cart_node, label in cases:
@@ -2305,7 +2375,7 @@ class RepositoryBoundaryTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, combined)
 
-    def test_event_lifecycle_is_installable_but_data_free(self) -> None:
+    def test_event_lifecycle_is_installable_and_write_free(self) -> None:
         validate_event_source(read_utf8(EVENT_FILE))
 
 
