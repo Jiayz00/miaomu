@@ -71,6 +71,14 @@
       "by": "Codex-Implementer",
       "reason": "业务计划与独立审查保持有效，仅更新已修复的 Harness 自测基础提交后重新预检",
       "at": "2026-07-13T18:22:10Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_implementation",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "Harness 自测基础提交已独立修复，source-check 与新基线 preflight 通过，恢复目录价格业务实现",
+      "at": "2026-07-13T18:25:35Z"
     }
   ]
 }
