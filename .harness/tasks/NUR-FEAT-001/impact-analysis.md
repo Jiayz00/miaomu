@@ -33,7 +33,7 @@
 ## 影响范围
 
 - 用户端：顶部、移动底部、商品详情和用户中心的交易入口消失；分类、搜索、商品、收藏和浏览历史继续使用上游链路。
-- 管理端：交易型菜单和权限 key 被插件运行时过滤；`admin_left_menu` 按 control 递归裁剪，`admin_power` 按 `<control>_` 前缀裁剪，`admin_plugins/admin_all_plugins` 按固定 PX 插件标识裁剪。源码与表仍存在，便于上游同步和可控回滚。
+- 管理端：交易型菜单和权限 key 被插件运行时过滤；`admin_left_menu` 先按 control 递归裁剪，再识别 ShopXO 注入的无 control 插件项（`id/key=plugins-<name>`，URL 含同一规范化 `pluginsname`）并按固定 PX 标识裁剪；`admin_power` 按 `<control>_` 前缀裁剪，`admin_plugins/admin_all_plugins` 按固定 PX 插件标识裁剪。源码与表仍存在，便于上游同步和可控回滚。
 - API：固定控制器拒绝表阻断购物车、结算、订单、支付、售后和积分的所有 action，不依赖 action 名逐项枚举。
 - 插件入口：当 `RequestController()` 为 `plugins` 时，以 `PluginsRequestName()` 读取并规范化 `pluginsname`，对锁定的 23 个 PX 标识失败关闭；`nursery` 自身不受阻断。
 - 历史数据：不执行 delete/update，不改变历史订单、收藏、用户或商品数据；部署后的路由不可达不等于数据删除。
@@ -58,6 +58,7 @@
 - 后台菜单缓存可能保留旧菜单；安装/启用/禁用后必须刷新 ShopXO 缓存，运行验收不能只检查新会话外观。
 - 插件替换用户中心视图只针对 `index/user/index`；其他资料、安全、收藏、浏览页面继续回退当前主题/默认主题。
 - 第三方商城插件标识无法穷举；首版固定拒绝已知 PX 标识，部署时同时证明未安装未批准插件。
+- ShopXO 在后台一级菜单下动态注入的插件项没有 `control`，只有 `id/key=plugins-<name>` 和插件 URL；只按 control 过滤会漏项，合同测试必须覆盖全部 23 个 PX 插件菜单形态。
 - 本机缺少 PHP/MySQL，静态测试不能证明框架异常响应、菜单缓存或数据库无副作用；这些保持未验证直至部署任务执行。
 
 ## 预计文件
