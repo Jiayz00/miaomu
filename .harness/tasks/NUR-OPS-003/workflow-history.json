@@ -408,6 +408,14 @@
       "by": "Codex-Implementer",
       "reason": "最终暂存态已由独立 reviewer 重新批准。",
       "at": "2026-07-13T21:50:24Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_merge",
+      "to": "closed",
+      "by": "Codex-Implementer",
+      "reason": "离线部署合同已提交，验证、独立审查和 release-check 全部通过；真实部署由后续 L4 任务执行。",
+      "at": "2026-07-13T21:51:38Z"
     }
   ]
 }

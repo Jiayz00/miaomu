@@ -6,7 +6,7 @@
   "priority": "P0",
   "phase": 1,
   "risk_level": "L3",
-  "status": "approved_for_merge",
+  "status": "closed",
   "requirement_ids": [
     "NFR-SEC-006",
     "NFR-PERF-005"
@@ -176,5 +176,5 @@
   "reviewer": "Codex-Review",
   "release_approver": null,
   "created_at": "2026-07-13T03:44:16Z",
-  "updated_at": "2026-07-13T21:50:24Z"
+  "updated_at": "2026-07-13T21:51:38Z"
 }
