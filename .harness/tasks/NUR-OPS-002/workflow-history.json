@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-OPS-002",
+  "events": [
+    {
+      "type": "transition",
+      "from": "draft",
+      "to": "ready_for_analysis",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T03:33:47Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T03:33:48Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "approved_for_implementation",
+      "by": "Codex",
+      "reason": "",
+      "at": "2026-07-13T03:33:48Z"
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "id": "NUR-OPS-002",
+  "title": "可复现 Docker 测试栈与离线合同",
+  "type": "operations",
+  "priority": "P0",
+  "phase": 1,
+  "risk_level": "L2",
+  "status": "approved_for_implementation",
+  "requirement_ids": [
+    "NFR-PERF-005"
+  ],
+  "decision_ids": [],
+  "business_goal": "在不连接服务器、不写入密钥和不修改 ShopXO 业务代码的前提下，建立可版本控制、可离线审查的 Docker Compose 测试栈、部署合同和运维手册，为 NUR-OPS-001 的真实服务器部署及 NFR-PERF-005 性能基线提供确定输入。",
+  "in_scope": [
+    "在 deploy/** 定义 Web、PHP 应用和 MySQL 的隔离 Compose 拓扑、镜像构建、非敏感配置样例、健康检查、资源限制、持久化和备份入口。",
+    "在 tests/ops/** 提供仅用 Python 标准库执行的部署合同、安全规则和运维文档离线测试。",
+    "在 docs/operations/** 记录单目录开发、Compose 使用、配置注入、备份恢复、回滚和性能测量协议。",
+    "通过只读流式检查让目标服务器的 Docker Compose 解析器验证最终 compose.yaml，不创建远端文件或容器。"
+  ],
+  "out_of_scope": [
+    "连接服务器执行写操作、创建 /root/jia/miaomu、拉取或构建镜像、启动容器、监听 88 端口、初始化数据库或发布任何环境。",
+    "修改 ShopXO 控制器、服务、模板、静态资源、框架、vendor 或数据库结构。",
+    "提供真实密钥、数据库密码、SSH 私钥、生产配置或提交任何 .env 文件。",
+    "把尚未部署或尚未实现的商品、收藏、询价、分析流程表述为性能通过。",
+    "供应商、多商户、分销、购物车、订单、支付与售后能力。"
+  ],
+  "business_invariants": [
+    "本任务只产出仓库内可逆制品，服务器部署和公开端口仍由 L4 NUR-OPS-001 管理。",
+    "Compose 项目名、服务名、网络、卷和容器名不得与现有 caddy 或 beszel-monitoring 冲突。",
+    "Web 仅设计为发布 88 端口，MySQL 不发布宿主机端口，应用容器不得挂载 Docker socket。",
+    "镜像不得使用 latest；版本和实施时核验的摘要必须集中记录，Watchtower 对所有苗木服务禁用。",
+    "仓库、配置样例、测试和文档不得包含任何真实密钥或口令。",
+    "保持公开参考价格、收藏与询价独立、用户数据隔离和历史可追溯。"
+  ],
+  "dependencies": [
+    "完整源码事实基线 846eb6a1cf7f94415ae9ae4c3eefb87d4fa9da3e 已通过 source-check。",
+    "NUR-OPS-001 的只读服务器盘点已确认 Ubuntu 22.04、Docker 29.4.2、Compose 5.1.3 和端口 88 空闲。"
+  ],
+  "allowed_paths": [
+    "deploy/**",
+    "docs/operations/**",
+    "tests/ops/**"
+  ],
+  "forbidden_paths": [
+    ".env",
+    ".env.*",
+    "rsakeys/**",
+    "vendor/**",
+    "runtime/**"
+  ],
+  "shopxo_core_change": {
+    "required": false,
+    "paths": [],
+    "reason": "",
+    "registration": ""
+  },
+  "database_change": {
+    "required": false,
+    "affected_tables": [],
+    "migration_paths": [],
+    "fresh_install_baseline_exception": {
+      "requested": false,
+      "reason": ""
+    },
+    "rollback_plan": "本任务不修改数据库；回滚只删除或还原仓库内 Compose、Dockerfile、测试和文档制品。",
+    "verification": "确认 Git diff 不包含 config/shopxo.sql、迁移文件或数据库连接操作，离线合同测试仍通过。"
+  },
+  "new_dependency_allowed": true,
+  "network_access_required": false,
+  "acceptance_criteria": [
+    {
+      "id": "AC-TASK-001",
+      "requirement_ids": [
+        "NFR-PERF-005"
+      ],
+      "description": "仓库包含离线测试可判定的 Web/PHP/MySQL Compose 合同：端口 88、内部数据库网络、持久卷、健康检查、资源限制、非 root 应用、固定镜像策略、Watchtower 禁用和真实密钥拒绝均有明确断言。"
+    },
+    {
+      "id": "AC-TASK-002",
+      "requirement_ids": [
+        "NFR-PERF-005"
+      ],
+      "description": "运维手册定义固定环境指纹、预热、并发、样本数、P50/P95、错误率和后续商品列表、详情、收藏、询价、行为上报、30 日趋势、导出的补测责任，且不伪造未执行结果。"
+    }
+  ],
+  "required_tests": [
+    {
+      "id": "harness_selftest",
+      "description": "运行项目级 Harness 回归测试，确认本任务没有削弱范围、审批或证据门禁。",
+      "command": [
+        "python",
+        "scripts/harness_selftest.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300
+    },
+    {
+      "id": "deployment_contract",
+      "description": "离线验证 Compose、Dockerfile、配置样例和运维文档的结构与安全合同。",
+      "command": [
+        "python",
+        "tests/ops/test_deployment_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    }
+  ],
+  "rollback": {
+    "required": true,
+    "plan": "按单一任务提交还原 deploy/**、docs/operations/** 和 tests/ops/**；本任务不运行容器、不创建卷、不改服务器，因此无需数据回滚。",
+    "verification": "确认三类授权路径恢复到任务前指纹，source-check 和 Harness 自检通过，并确认服务器容器、端口、卷和文件从未被本任务修改。"
+  },
+  "manual_approvals": {
+    "plan": {
+      "required": false,
+      "status": "not_required",
+      "approved_by": null,
+      "approved_at": null
+    },
+    "merge": {
+      "required": true,
+      "status": "pending",
+      "approved_by": null,
+      "approved_at": null
+    },
+    "release": {
+      "required": false,
+      "status": "not_required",
+      "approved_by": null,
+      "approved_at": null
+    }
+  },
+  "owner": "Codex",
+  "reviewer": "Jiayz00",
+  "release_approver": null,
+  "created_at": "2026-07-13T03:22:51Z",
+  "updated_at": "2026-07-13T03:33:48Z"
+}
