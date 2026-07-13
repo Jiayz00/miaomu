@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "id": "NUR-OPS-001",
+  "title": "单目录开发与服务器验证环境基线",
+  "type": "operations",
+  "priority": "P0",
+  "phase": 1,
+  "risk_level": "L4",
+  "status": "draft",
+  "requirement_ids": [
+    "NFR-SEC-006",
+    "NFR-PERF-005"
+  ],
+  "decision_ids": [],
+  "business_goal": "在不把密钥或生产配置写入仓库的前提下，为固定 ShopXO 6.9.0 源码建立可复现的单目录开发、服务器测试、端口 88 验证、备份和回滚基线，并为后续 P0 功能固定可执行的环境与性能验收入口。",
+  "in_scope": [
+    "核验固定上游提交、完整 ShopXO 源码以及 Docker Compose、PHP、Composer、MySQL 和 Web 服务运行条件。",
+    "在 deploy/** 中维护不含凭据的服务器预检、配置样例、备份、部署、回滚和冒烟说明或脚本。",
+    "在 tests/ops/** 中提供可在目标测试服务器真实执行的环境与部署合同检查。",
+    "将测试实例部署到 /root/jia/miaomu 并由 Web 服务监听 88 端口，保留实际命令、退出码和脱敏证据。",
+    "在部署环境确认后记录首版性能基线方法、预算和可执行入口；尚未实现的业务流程明确标记待后续任务补测。"
+  ],
+  "out_of_scope": [
+    "任何苗木业务功能、主题页面、数据统计或 ShopXO 核心行为修改。",
+    "供应商、多商户、分销、购物车、订单、支付与售后能力。",
+    "访问或写入生产密钥、生产数据库、生产环境以及自动发布生产环境。",
+    "关闭火绒、写入全局安全软件排除项、修改用户级或全局 Codex 配置。",
+    "修改 ShopXO 数据库结构；新建测试库时只使用固定上游的完整安装基线。"
+  ],
+  "business_invariants": [
+    "本地开发只使用 D:/苗木网站 这一份项目工作区，不创建第二项目目录或 Git worktree。",
+    "数据库口令、SSH 私钥、API Key、短信或邮件密钥和生产配置不得进入 Git、测试输出或评审证据。",
+    "测试服务器在执行任何发布动作前必须由项目负责人确认为非生产环境；生产环境访问保持禁止。",
+    "ShopXO 源码必须与固定上游提交 d1825c5404054b535255d8fcad675a5dae0ab633 一致，缺失文件不得伪装为通过。",
+    "环境、数据库、HTTP、备份或性能检查未执行时必须记录 blocked，不得表述为通过。",
+    "后续业务任务仍保持公开参考价格、收藏与询价独立、用户数据隔离和历史可追溯。"
+  ],
+  "dependencies": [
+    "在远端写操作前复核 38.12.21.18 是测试环境，且现有 caddy、beszel、80/443/8090 服务不受影响。",
+    "为 L4 任务指定不同于 owner 和 reviewer 的真实 release_approver。"
+  ],
+  "allowed_paths": [
+    "deploy/**",
+    "docs/operations/**",
+    "tests/ops/**"
+  ],
+  "forbidden_paths": [
+    ".env",
+    ".env.*",
+    "rsakeys/**",
+    "vendor/**",
+    "runtime/**"
+  ],
+  "shopxo_core_change": {
+    "required": false,
+    "paths": [],
+    "reason": "",
+    "registration": ""
+  },
+  "database_change": {
+    "required": false,
+    "affected_tables": [],
+    "migration_paths": [],
+    "fresh_install_baseline_exception": {
+      "requested": false,
+      "reason": ""
+    },
+    "rollback_plan": "本任务不修改数据库结构；测试库初始化失败时删除未投入使用的测试库并从部署前备份或固定上游安装基线重新创建。",
+    "verification": "核验任务差异中不存在 schema migration，测试库表结构来自固定上游 config/shopxo.sql，任何后续结构变更由独立 DATA/FEAT 任务管理。"
+  },
+  "new_dependency_allowed": true,
+  "network_access_required": false,
+  "acceptance_criteria": [
+    {
+      "id": "AC-TASK-001",
+      "requirement_ids": [
+        "NFR-SEC-006"
+      ],
+      "description": "Git 跟踪文件和已提交证据不包含数据库口令、SSH 私钥、API Key 或生产配置；服务器配置只通过仓库外受限文件注入，并有脱敏扫描结果。"
+    },
+    {
+      "id": "AC-TASK-002",
+      "requirement_ids": [
+        "NFR-PERF-005"
+      ],
+      "description": "固定上游源码在确认的非生产服务器 /root/jia/miaomu 可复现启动，PHP/Composer/MySQL/Web 服务版本有证据，88 端口内外冒烟通过，并记录后续商品列表、详情、收藏、询价、行为上报、30 日趋势和导出的性能基线入口与补测责任。"
+    }
+  ],
+  "required_tests": [
+    {
+      "id": "harness_selftest",
+      "description": "运行项目级 Harness 回归测试，确认环境任务未削弱门禁。",
+      "command": [
+        "python",
+        "scripts/harness_selftest.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300
+    },
+    {
+      "id": "deploy_contract",
+      "description": "校验部署清单、端口、路径、回滚步骤和敏感信息占位规则。",
+      "command": [
+        "python",
+        "tests/ops/test_deployment_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "compose_config",
+      "description": "解析独立 miaomu Compose 栈并验证服务、网络、卷和端口配置有效。",
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "miaomu",
+        "-f",
+        "deploy/compose.yaml",
+        "config",
+        "--quiet"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "composer_validate",
+      "description": "在应用容器内验证固定 ShopXO Composer 元数据和锁文件一致性。",
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "miaomu",
+        "-f",
+        "deploy/compose.yaml",
+        "exec",
+        "-T",
+        "app",
+        "composer",
+        "validate",
+        "--no-check-publish",
+        "--strict"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300
+    },
+    {
+      "id": "server_environment",
+      "description": "在应用容器内核验 PHP 版本、扩展、源码完整性、目录权限和非生产环境标记。",
+      "command": [
+        "docker",
+        "compose",
+        "-p",
+        "miaomu",
+        "-f",
+        "deploy/compose.yaml",
+        "exec",
+        "-T",
+        "app",
+        "php",
+        "tests/ops/environment_check.php"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    }
+  ],
+  "rollback": {
+    "required": true,
+    "plan": "发布前记录当前提交、Web/PHP 配置和数据库/上传备份；失败时停止 88 端口新实例，恢复上一提交与对应配置，必要时恢复测试库和上传备份。若此前无实例，则移除本任务创建的测试服务配置并保留脱敏日志。",
+    "verification": "确认 88 端口不再指向失败版本或已恢复到上一健康提交，执行上一版本健康检查，核验数据库和上传资源校验值，并记录回滚命令、退出码和时间。"
+  },
+  "manual_approvals": {
+    "plan": {
+      "required": true,
+      "status": "pending",
+      "approved_by": null,
+      "approved_at": null
+    },
+    "merge": {
+      "required": true,
+      "status": "pending",
+      "approved_by": null,
+      "approved_at": null
+    },
+    "release": {
+      "required": true,
+      "status": "pending",
+      "approved_by": null,
+      "approved_at": null
+    }
+  },
+  "owner": "Codex",
+  "reviewer": "Jiayz00",
+  "release_approver": null,
+  "created_at": "2026-07-13T02:39:55Z",
+  "updated_at": "2026-07-13T03:11:24Z"
+}
