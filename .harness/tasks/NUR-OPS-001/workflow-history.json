@@ -351,6 +351,48 @@
       "by": "Codex-Review",
       "reason": "独立计划代理确认 corrected contract baseline，业务实现将在 preflight 后合入。",
       "at": "2026-07-18T19:38:15Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_implementation",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "基线锁定后已合入部署实现与合同测试，开始最终验证。",
+      "at": "2026-07-18T19:38:59Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "最终有效 verify 4/4 通过，提交真实证据和独立审查。",
+      "at": "2026-07-18T19:45:40Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Review",
+      "reason": "独立合并审查未发现 P0-P2；有效 verify 与 review-pack 一致，SSH 255 仅保留为 release blocker。",
+      "at": "2026-07-18T19:52:24Z"
+    },
+    {
+      "type": "approval",
+      "stage": "merge",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/ops001_merge_review",
+      "codex_thread_id": "019f7624-93c3-7012-bdfd-a5e02221aee4",
+      "expected_agent_task": "/root/ops001_merge_review",
+      "observed_agent_task": "/root/ops001_merge_review",
+      "observed_codex_thread_id": "019f7624-93c3-7012-bdfd-a5e02221aee4",
+      "reason": "独立审查确认当前 HEAD 与有效 verify/review-pack 一致，未发现 P0-P2；SSH 255 仅阻断 release。",
+      "at": "2026-07-18T19:52:52Z",
+      "review_artifact_path": ".harness/tasks/NUR-OPS-001/approval-merge.json",
+      "review_artifact_sha256": "b2f64fc279529ef30377246f12acd44eccd5122270968631f1de88771a645df9",
+      "approval_context_sha256": "0ca56168a69e659f0529d8601bb511e32e6bd40c1451849c40c715506e13decf",
+      "reviewed_at": "2026-07-19T03:51:52+08:00"
     }
   ]
 }

@@ -9,9 +9,9 @@
 
 ## 自动测试证据
 
-VERIFY_CONTRACT_SHA256: 370bfbf5e8f7a636092c2a93e6801bd404c272858668a51d80b4ed77f334000c
+VERIFY_CONTRACT_SHA256: 6a55a14ab345dfd044a33961e8aa3c49aff2e5d0f35a7ac0e81dc59f43b9fd68
 
-Harness verify 运行目录：`.harness/runs/NUR-OPS-001/20260718T191123630967Z-verify`。scope base：`b467fe2cc6a49d013e02827173451e622ec50993`；已实际运行：
+Harness verify 运行目录：`.harness/runs/NUR-OPS-001/20260718T194150030953Z-verify`。scope base：`42c7e4b1213a208b6bf8b6fc9b8d6db28f2f3283`；已实际运行：
 
 TEST_COMMAND: task_check ["python", "scripts/harness.py", "task-check", "NUR-OPS-001"]
 TEST_RESULT: task_check exit_code=0
@@ -26,7 +26,7 @@ TEST_RESULT: deploy_contract exit_code=0
 TEST_COMMAND: release_inputs_contract ["python", "deploy/validate_release_inputs.py", "--contract-only"]
 TEST_RESULT: release_inputs_contract exit_code=0
 
-本次 verify 实际结果：`harness_selftest` 61 项通过、2 项 Windows 权限 skip；`harness_remote_selftest` 59 项通过（含 Caddy 容器内 `/etc/caddy/Caddyfile` 固定动作回归）；部署合同 42 项通过；release-input 合同通过。所有测试均为退出码 0，未触发超时或输出上限；verify 前后控制面哈希和业务工作区指纹一致，变更清单未包含 Harness 策略文件。
+本次 verify 实际结果：`harness_selftest` 61 项通过、2 项 Windows 权限 skip；`harness_remote_selftest` 59 项通过（含 Caddy 容器内 `/etc/caddy/Caddyfile` 固定动作回归）；部署合同 43 项通过；release-input 合同通过。所有测试均为退出码 0，未触发超时或输出上限；verify 前后控制面哈希和业务工作区指纹一致，变更清单未包含 Harness 策略文件。
 
 本次还完成项目级 Harness bootstrap 修复：仅允许合同声明的 Caddy `docker compose run ... caddy jia-caddy validate --config /etc/caddy/Caddyfile` 容器内路径，任意路径或服务变体仍 fail-closed；未扩大宿主机 `managed_roots`。
 
@@ -38,7 +38,7 @@ TEST_RESULT: release_inputs_contract exit_code=0
 
 ## 已知限制
 
-- remote execution 尚未运行；目标环境事实需要每次发布前重新核验。
+- 已按 broker 尝试两次只读 `inventory_pwd`，均为 `exit_code=255` 且无输出；本地 TCP 22 可达，但 SSH 认证/会话未建立。未执行任何远程写动作，完整远端部署目前 blocked，恢复 SSH 后必须从 inventory 重新开始。
 - HMAC secret 的值不可读取或记录；只能证明外部文件元数据和幂等保留行为。
 - 收藏、询价、行为上报、30 日趋势和导出性能依赖后续功能/夹具，未具备时必须分别记 blocked/not_run。
 - 本证据不能作为 release approval 或部署成功证明；审批、release seal 和真实服务器测试仍是后续门禁。

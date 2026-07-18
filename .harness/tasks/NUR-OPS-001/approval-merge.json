@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-OPS-001",
+  "stage": "merge",
+  "decision": "approved",
+  "actor": "Codex-Review",
+  "agent_task": "/root/ops001_merge_review",
+  "codex_thread_id": "019f7624-93c3-7012-bdfd-a5e02221aee4",
+  "result_marker": "APPROVED",
+  "approval_context_sha256": "0ca56168a69e659f0529d8601bb511e32e6bd40c1451849c40c715506e13decf",
+  "reviewed_at": "2026-07-19T03:51:52+08:00",
+  "findings": [],
+  "summary": "独立合并审查覆盖 42c7e4b1213a208b6bf8b6fc9b8d6db28f2f3283 至 04b4806125da456a63bfcaefa427d492d0c3e0f7，并补查合同基线修复；未发现 P0-P2 缺陷。有效 verify 20260718T194150030953Z 为 4/4 通过且控制面完整，有效 review-pack 20260718T194600015120Z 的 task、plan、scope、evidence 和安全扫描均通过。Docker context、schema 后置核验、steady marker 权限及 Caddy 候选发布竞态修复均有回归覆盖。两次 SSH inventory_pwd exit_code=255 仅作为 release 和远端部署阻断项，不阻断当前合并批准。"
+}
