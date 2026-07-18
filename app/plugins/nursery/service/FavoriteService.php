@@ -4,6 +4,8 @@ namespace app\plugins\nursery\service;
 use think\facade\Db;
 use app\service\UserService;
 use app\service\ResourcesService;
+use app\service\RegionService;
+use app\service\GoodsService;
 
 class FavoriteService
 {
@@ -17,6 +19,7 @@ class FavoriteService
             $goods_id = self::StrictGoodsId($params);
             FavoriteMigration::AssertReady();
             self::AssertGoodsCanBeFavorited($goods_id);
+            FavoriteRateLimit::Consume($user_id, 'add');
             try {
                 $inserted = Db::name('GoodsFavor')->insert([
                     'goods_id' => $goods_id,
@@ -44,6 +47,8 @@ class FavoriteService
         try {
             $user_id = self::AuthenticatedUserId($user);
             $goods_id = self::StrictGoodsId($params);
+            FavoriteMigration::AssertReady();
+            FavoriteRateLimit::Consume($user_id, 'cancel');
             $deleted = Db::name('GoodsFavor')->where(['user_id'=>$user_id, 'goods_id'=>$goods_id])->delete();
             if($deleted === false)
             {
@@ -72,16 +77,33 @@ class FavoriteService
             $user_id = self::AuthenticatedUserId($user);
             $page = self::PositivePage($params['page'] ?? 1, 1);
             $page_size = min(self::PositivePage($params['page_size'] ?? 12, 12), 50);
-            $start = ($page-1)*$page_size;
             $total = intval(Db::name('GoodsFavor')->where(['user_id'=>$user_id])->count());
+            $page_total = max(1, intval(ceil($total/$page_size)));
+            $page = min($page, $page_total);
+            $start = ($page-1)*$page_size;
             $rows = Db::name('GoodsFavor')->alias('f')
                 ->leftJoin('goods g', 'g.id=f.goods_id')
                 ->where(['f.user_id'=>$user_id])
-                ->field('f.goods_id,f.add_time,g.id AS goods_exists,g.title,g.images,g.price,g.min_price,g.max_price,g.inventory_unit,g.is_shelves,g.is_delete_time')
+                ->field('f.goods_id,f.add_time,g.id AS goods_exists,g.title,g.images,g.price,g.min_price,g.max_price,g.inventory_unit,g.produce_region,g.is_shelves,g.is_delete_time')
                 ->order('f.id desc')
                 ->limit($start, $page_size)
                 ->select()
                 ->toArray();
+            $goods_ids = [];
+            $region_ids = [];
+            foreach($rows as $row)
+            {
+                if(!empty($row['goods_exists']))
+                {
+                    $goods_ids[] = intval($row['goods_id']);
+                    if(!empty($row['produce_region']))
+                    {
+                        $region_ids[] = intval($row['produce_region']);
+                    }
+                }
+            }
+            $spec_map = self::PrimarySpecMap($goods_ids);
+            $region_map = empty($region_ids) ? [] : RegionService::RegionName(array_values(array_unique($region_ids)));
             foreach($rows as &$row)
             {
                 $exists = !empty($row['goods_exists']);
@@ -100,10 +122,15 @@ class FavoriteService
                     $row['show_price_symbol'] = ResourcesService::CurrencyDataSymbol();
                     ReferencePriceService::ApplyDisplay($row);
                     $row['images'] = empty($row['images']) ? '' : AttachmentPathViewHandle($row['images']);
+                    $row['primary_spec_text'] = $spec_map[intval($row['goods_id'])] ?? '';
+                    $region_id = intval($row['produce_region'] ?? 0);
+                    $row['produce_region_name'] = ($region_id > 0 && is_array($region_map) && array_key_exists($region_id, $region_map)) ? (string) $region_map[$region_id] : '';
                 } else {
                     $row['title'] = '商品已删除';
                     $row['images'] = '';
                     $row['reference_price'] = null;
+                    $row['primary_spec_text'] = '';
+                    $row['produce_region_name'] = '';
                 }
                 $row['goods_id'] = intval($row['goods_id']);
                 $row['add_time'] = intval($row['add_time']);
@@ -113,7 +140,7 @@ class FavoriteService
                 $row['can_view'] = ($state === 'active');
                 $row['goods_url'] = $row['can_view'] ? MyUrl('index/goods/index', ['id'=>$row['goods_id']]) : '';
                 $row['inquiry_url'] = $row['can_view'] ? PluginsHomeUrl('nursery', 'inquiry', 'form', ['goods_id'=>$row['goods_id']]) : '';
-                unset($row['goods_exists'], $row['price'], $row['min_price'], $row['max_price'], $row['inventory_unit'], $row['is_shelves'], $row['is_delete_time']);
+                unset($row['goods_exists'], $row['price'], $row['min_price'], $row['max_price'], $row['inventory_unit'], $row['produce_region'], $row['is_shelves'], $row['is_delete_time']);
             }
             unset($row);
             return DataReturn('收藏列表读取成功', 0, [
@@ -121,7 +148,7 @@ class FavoriteService
                 'total'      => $total,
                 'page'       => $page,
                 'page_size'  => $page_size,
-                'page_total' => max(1, intval(ceil($total/$page_size))),
+                'page_total' => $page_total,
                 'has_previous' => $page > 1,
                 'previous_page'=> max(1, $page-1),
                 'has_next'     => $page*$page_size < $total,
@@ -214,6 +241,29 @@ class FavoriteService
     private static function OwnPairExists($user_id, $goods_id)
     {
         return Db::name('GoodsFavor')->where(['user_id'=>$user_id, 'goods_id'=>$goods_id])->count() > 0;
+    }
+
+    private static function PrimarySpecMap($goods_ids)
+    {
+        $goods_ids = array_values(array_unique(array_filter(array_map('intval', (array) $goods_ids))));
+        if(empty($goods_ids))
+        {
+            return [];
+        }
+        $result = [];
+        $specifications = GoodsService::GoodsSpecificationsData($goods_ids, []);
+        if(!is_array($specifications))
+        {
+            return $result;
+        }
+        foreach($goods_ids as $goods_id)
+        {
+            if(isset($specifications[$goods_id]) && is_array($specifications[$goods_id]))
+            {
+                $result[$goods_id] = GoodsDisplayService::SpecificationText($specifications[$goods_id]);
+            }
+        }
+        return $result;
     }
 
     private static function IsDuplicateKeyError($error)

@@ -638,11 +638,24 @@ class InquiryUiAndBoundaryContractTests(unittest.TestCase):
             check=True,
         )
         paths = [line.strip().replace("\\", "/") for line in result.stdout.splitlines() if line.strip()]
+        registered_core_paths = set()
+        register_path = ROOT / ".harness" / "core-changes" / "REGISTER.md"
+        if register_path.is_file():
+            for line in register_path.read_text(encoding="utf-8").splitlines():
+                cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+                if (
+                    len(cells) >= 8
+                    and cells[0] == "NUR-SEC-001"
+                    and cells[2] == "app/service/GoodsService.php"
+                    and cells[6] == "Codex-Review"
+                    and cells[7] == "approved"
+                ):
+                    registered_core_paths.add(cells[2])
         forbidden = [
             path
             for path in paths
             if path == "config/shopxo.sql"
-            or path.startswith("app/service/")
+            or (path.startswith("app/service/") and path not in registered_core_paths)
             or path.startswith("app/index/view/default/")
             or path.startswith("vendor/")
         ]

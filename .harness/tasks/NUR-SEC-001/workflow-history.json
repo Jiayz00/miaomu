@@ -47,6 +47,14 @@
       "by": "Codex-Review",
       "reason": "独立计划审查已批准；允许自动实现",
       "at": "2026-07-18T20:48:13Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_implementation",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-18T20:49:52Z"
     }
   ]
 }

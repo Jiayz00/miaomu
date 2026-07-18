@@ -2593,6 +2593,20 @@ class GoodsService
             $field = $params['field'];
             $status = intval($params['state']);
 
+            // The status hook runs after the update. Capture the previous
+            // shelf state under the same transaction so an extension can
+            // record a truthful old/new audit pair without a race.
+            $previous_goods = null;
+            if($field === 'is_shelves')
+            {
+                $previous_goods = Db::name('Goods')->where(['id'=>$goods_id])
+                    ->field('id,is_shelves,price,min_price,max_price')->lock(true)->find();
+                if(empty($previous_goods))
+                {
+                    throw new \Exception(MyLang('data_id_error_tips'));
+                }
+            }
+
             // 数据更新
             if(!Db::name('Goods')->where(['id'=>$goods_id])->update([$field=>$status, 'upd_time'=>time()]))
             {
@@ -2608,6 +2622,7 @@ class GoodsService
                 'goods_id'      => $goods_id,
                 'field'         => $field,
                 'status'        => $status,
+                'previous_goods'=> $previous_goods,
             ]);
 
             // 提交事务

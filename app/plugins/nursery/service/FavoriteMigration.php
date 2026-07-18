@@ -15,14 +15,22 @@ class FavoriteMigration
             $definition = self::Definition();
             $inspection = self::Inspect($definition, true);
             $ledger = self::ReadLedger($definition, false);
+            $security = SecurityMigration::Status();
+            if(!is_array($security) || intval($security['code'] ?? -1) !== 0)
+            {
+                throw new \RuntimeException((string) ($security['msg'] ?? '苗木安全结构状态读取失败'));
+            }
+            $security_data = is_array($security['data'] ?? null) ? $security['data'] : [];
+            $security_ready = !empty($security_data['ready']);
             return DataReturn('苗木收藏结构状态读取成功', 0, [
                 'schema_version'    => self::FAVORITE_SCHEMA_VERSION,
-                'ready'             => $inspection['ready'] && $ledger !== null,
-                'migration_required'=> !$inspection['ready'] || $ledger === null,
+                'ready'             => $inspection['ready'] && $ledger !== null && $security_ready,
+                'migration_required'=> !$inspection['ready'] || $ledger === null || !$security_ready,
                 'duplicate_groups'  => $inspection['duplicate_groups'],
                 'duplicate_rows'    => $inspection['duplicate_rows'],
                 'index_name'        => $inspection['index_name'],
                 'ledger_present'    => $ledger !== null,
+                'security'          => $security_data,
                 'write_performed'   => false,
             ]);
         } catch(\Throwable $e) {
@@ -36,7 +44,14 @@ class FavoriteMigration
             $definition = self::Definition();
             $inspection = self::Inspect($definition, true);
             $ledger = self::ReadLedger($definition, false);
-            $ready = $inspection['ready'] && $ledger !== null;
+            $security = SecurityMigration::Preflight();
+            if(!is_array($security) || intval($security['code'] ?? -1) !== 0)
+            {
+                throw new \RuntimeException((string) ($security['msg'] ?? '苗木安全结构只读预检失败'));
+            }
+            $security_data = is_array($security['data'] ?? null) ? $security['data'] : [];
+            $security_ready = !empty($security_data['ready']);
+            $ready = $inspection['ready'] && $ledger !== null && $security_ready;
             return DataReturn('苗木收藏结构只读预检通过', 0, [
                 'schema_version'    => self::FAVORITE_SCHEMA_VERSION,
                 'ready'             => $ready,
@@ -45,6 +60,7 @@ class FavoriteMigration
                 'duplicate_rows'    => 0,
                 'index_name'        => $inspection['index_name'],
                 'ledger_present'    => $ledger !== null,
+                'security'          => $security_data,
                 'write_performed'   => false,
             ]);
         } catch(\Throwable $e) {
@@ -68,10 +84,16 @@ class FavoriteMigration
                 {
                     throw new \RuntimeException('该收藏迁移 run-id 已绑定其他操作者');
                 }
+                $security = SecurityMigration::Run($actor, self::SecurityRunId($run_id));
+                if(!is_array($security) || intval($security['code'] ?? -1) !== 0)
+                {
+                    throw new \RuntimeException((string) ($security['msg'] ?? '苗木安全结构迁移失败'));
+                }
                 self::AssertReady();
                 return DataReturn('苗木收藏迁移已执行过该 run-id', 0, [
                     'schema_version' => self::FAVORITE_SCHEMA_VERSION,
                     'index_created'  => false,
+                    'security'       => $security['data'] ?? [],
                     'replayed'       => true,
                 ]);
             }
@@ -91,10 +113,16 @@ class FavoriteMigration
             $ledger = empty($ledger_row) ? self::NewLedger($definition) : $ledger_row['ledger'];
             self::AppendRun($ledger, $actor, $run_id, $index_created);
             self::WriteLedger(empty($ledger_row) ? null : intval($ledger_row['id']), $definition, $ledger);
+            $security = SecurityMigration::Run($actor, self::SecurityRunId($run_id));
+            if(!is_array($security) || intval($security['code'] ?? -1) !== 0)
+            {
+                throw new \RuntimeException((string) ($security['msg'] ?? '苗木安全结构迁移失败'));
+            }
             self::AssertReady();
             return DataReturn('苗木收藏迁移完成', 0, [
                 'schema_version' => self::FAVORITE_SCHEMA_VERSION,
                 'index_created'  => $index_created,
+                'security'       => $security['data'] ?? [],
                 'replayed'       => false,
             ]);
         } catch(\Throwable $e) {
@@ -119,7 +147,13 @@ class FavoriteMigration
         {
             throw new \RuntimeException('苗木收藏写入未启用：迁移台账缺失');
         }
+        SecurityMigration::AssertReady();
         return true;
+    }
+
+    private static function SecurityRunId($run_id)
+    {
+        return substr((string) $run_id.'-security', 0, 100);
     }
 
     private static function Definition()

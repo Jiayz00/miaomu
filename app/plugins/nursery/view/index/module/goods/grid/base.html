@@ -90,6 +90,12 @@
                                 <p class="am-text-truncate-2 goods-title am-padding-horizontal-sm">
                                     <a href="{{$v.goods_url}}" target="_blank" rel="noopener noreferrer">{{$v.title|raw}}</a>
                                 </p>
+                                {{if !empty($v['primary_spec_text']) or !empty($v['produce_region_name'])}}
+                                    <p class="nursery-specimen-meta am-padding-horizontal-sm">
+                                        {{if !empty($v['primary_spec_text'])}}<span><b>规格</b> {{$v.primary_spec_text}}</span>{{/if}}
+                                        {{if !empty($v['produce_region_name'])}}<span><b>产地</b> {{$v.produce_region_name}}</span>{{/if}}
+                                    </p>
+                                {{/if}}
                                 {{if !empty($v['reference_price']) or (isset($v['show_field_original_price_status']) and $v['show_field_original_price_status'] eq 1)}}
                                     <div class="item-bottom am-flex am-flex-justify-between am-gap-1 am-flex-items-end am-padding-sm">
                                         <div class="price-content">
@@ -139,6 +145,12 @@
                                 <p class="am-text-truncate-2-md goods-title">
                                     <a href="{{$v.goods_url}}" target="_blank" rel="noopener noreferrer">{{$v.title|raw}}</a>
                                 </p>
+                                {{if !empty($v['primary_spec_text']) or !empty($v['produce_region_name'])}}
+                                    <p class="nursery-specimen-meta">
+                                        {{if !empty($v['primary_spec_text'])}}<span><b>规格</b> {{$v.primary_spec_text}}</span>{{/if}}
+                                        {{if !empty($v['produce_region_name'])}}<span><b>产地</b> {{$v.produce_region_name}}</span>{{/if}}
+                                    </p>
+                                {{/if}}
                             </div>
                         {{/if}}
 

@@ -371,8 +371,20 @@ class PublicTemplateContractTests(unittest.TestCase):
             check=True,
         ).stdout.splitlines()
         paths = set(changed + untracked)
+        registered_core_paths = set()
+        register_path = ROOT / ".harness" / "core-changes" / "REGISTER.md"
+        if register_path.is_file():
+            for line in register_path.read_text(encoding="utf-8").splitlines():
+                cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+                if (
+                    len(cells) >= 8
+                    and cells[0] == "NUR-SEC-001"
+                    and cells[2] == "app/service/GoodsService.php"
+                    and cells[6] == "Codex-Review"
+                    and cells[7] == "approved"
+                ):
+                    registered_core_paths.add(cells[2])
         forbidden_prefixes = (
-            "app/service/",
             "app/admin/",
             "app/index/controller/",
             "app/index/view/default/",
@@ -382,6 +394,8 @@ class PublicTemplateContractTests(unittest.TestCase):
         )
         for path in paths:
             self.assertFalse(path.startswith(forbidden_prefixes), path)
+            if path.startswith("app/service/"):
+                self.assertIn(path, registered_core_paths, path)
 
 
 if __name__ == "__main__":

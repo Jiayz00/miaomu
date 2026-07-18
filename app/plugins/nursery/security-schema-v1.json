@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "security_schema_version": 1,
+  "tables": {
+    "favorite_rate_limit": {
+      "logical_name": "PluginsNurseryFavoriteRateLimit",
+      "name": "sxo_plugins_nursery_favorite_rate_limit",
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "columns": [
+        {"name": "user_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "action", "type": "char(16)", "nullable": false, "default": "", "extra": ""},
+        {"name": "window_started_at", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "attempt_count", "type": "tinyint unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "updated_at", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""}
+      ],
+      "indexes": [
+        {"name": "PRIMARY", "unique": true, "columns": ["user_id", "action"]},
+        {"name": "idx_nursery_favorite_rate_updated", "unique": false, "columns": ["updated_at"]}
+      ]
+    },
+    "goods_audit": {
+      "logical_name": "PluginsNurseryGoodsAudit",
+      "name": "sxo_plugins_nursery_goods_audit",
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "columns": [
+        {"name": "id", "type": "bigint unsigned", "nullable": false, "default": null, "extra": "auto_increment"},
+        {"name": "goods_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "admin_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "action", "type": "char(32)", "nullable": false, "default": "", "extra": ""},
+        {"name": "old_value", "type": "text", "nullable": false, "default": null, "extra": ""},
+        {"name": "new_value", "type": "text", "nullable": false, "default": null, "extra": ""},
+        {"name": "reason", "type": "varchar(255)", "nullable": true, "default": null, "extra": ""},
+        {"name": "request_id", "type": "varchar(64)", "nullable": false, "default": "", "extra": ""},
+        {"name": "add_time", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""}
+      ],
+      "indexes": [
+        {"name": "PRIMARY", "unique": true, "columns": ["id"]},
+        {"name": "idx_nursery_goods_audit_goods_time", "unique": false, "columns": ["goods_id", "add_time"]},
+        {"name": "idx_nursery_goods_audit_admin_time", "unique": false, "columns": ["admin_id", "add_time"]},
+        {"name": "idx_nursery_goods_audit_request", "unique": false, "columns": ["request_id"]}
+      ]
+    }
+  },
+  "ledger": {
+    "only_tag": "plugins_nursery_security_schema_v1",
+    "name": "苗木安全结构迁移台账"
+  }
+}

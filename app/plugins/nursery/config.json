@@ -63,7 +63,13 @@
     "plugins_service_goods_list_handle_begin": [
       "app\\plugins\\nursery\\Hook"
     ],
+    "plugins_service_search_goods_list_begin": [
+      "app\\plugins\\nursery\\Hook"
+    ],
     "plugins_service_goods_save_handle": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_goods_save_thing_begin": [
       "app\\plugins\\nursery\\Hook"
     ],
     "plugins_service_goods_save_thing_end": [
@@ -73,6 +79,9 @@
       "app\\plugins\\nursery\\Hook"
     ],
     "plugins_service_goods_handle_begin": [
+      "app\\plugins\\nursery\\Hook"
+    ],
+    "plugins_service_goods_handle_end": [
       "app\\plugins\\nursery\\Hook"
     ],
     "plugins_view_goods_detail_panel_price_bottom": [

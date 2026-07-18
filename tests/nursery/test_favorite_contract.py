@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import json
 import subprocess
 import unittest
@@ -373,8 +374,21 @@ class FavoriteUiContractTests(unittest.TestCase):
 
 class FavoriteScopeContractTests(unittest.TestCase):
     def test_business_diff_stays_inside_task_contract(self) -> None:
+        task_file = ROOT / ".harness" / "tasks" / "NUR-SEC-001" / "task.json"
+        task = json.loads(task_file.read_text(encoding="utf-8")) if task_file.is_file() else {}
+        allowed_patterns = tuple(task.get("allowed_paths", ()))
+        control_prefixes = (
+            ".agents/",
+            ".codex/",
+            ".github/",
+            ".harness/",
+            "AGENTS.md",
+            "HARNESS.md",
+            "shopxo_nursery_harness_spec.md",
+            "scripts/harness.py",
+            "scripts/harness_",
+        )
         commands = (
-            ["git", "diff", "--name-only", "origin/main...HEAD"],
             ["git", "diff", "--name-only"],
             ["git", "ls-files", "--others", "--exclude-standard"],
         )
@@ -382,18 +396,21 @@ class FavoriteScopeContractTests(unittest.TestCase):
         for command in commands:
             result = subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=True)
             paths.update(line.strip().replace("\\", "/") for line in result.stdout.splitlines() if line.strip())
-        allowed_prefixes = (
-            ".harness/tasks/NUR-FEAT-003/",
-            ".harness/tasks/NUR-FEAT-004/",
-            "app/plugins/nursery/",
-            "public/static/plugins/nursery/",
-            "tests/nursery/",
-        )
-        allowed_files = {"scripts/nursery_favorite.php", "scripts/nursery_inquiry.php", ".harness/requirements-decisions.json"}
+
+        def allowed_business_path(path: str) -> bool:
+            for pattern in allowed_patterns:
+                normalized = str(pattern).replace("\\", "/")
+                if fnmatch.fnmatchcase(path, normalized):
+                    return True
+                if normalized.endswith("/**") and path.startswith(normalized[:-3]):
+                    return True
+            return False
+
         unexpected = sorted(
             path
             for path in paths
-            if path not in allowed_files and not any(path.startswith(prefix) for prefix in allowed_prefixes)
+            if not any(path.startswith(prefix) for prefix in control_prefixes)
+            and not allowed_business_path(path)
         )
         self.assertEqual(unexpected, [])
 

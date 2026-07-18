@@ -144,6 +144,42 @@
     overflow-wrap: anywhere;
 }
 
+.nursery-specimen-meta,
+.nursery-favorite-spec,
+.nursery-favorite-origin {
+    color: #526157;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0 0 8px;
+    overflow-wrap: anywhere;
+}
+
+.nursery-specimen-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    min-height: 18px;
+}
+
+.nursery-specimen-meta span {
+    min-width: 0;
+}
+
+.nursery-specimen-meta b,
+.nursery-favorite-spec span,
+.nursery-favorite-origin span {
+    color: #7a877d;
+    font-weight: 400;
+    margin-right: 4px;
+}
+
+.nursery-favorite-spec,
+.nursery-favorite-origin {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
 .nursery-favorite-price {
     align-items: baseline;
     display: flex;

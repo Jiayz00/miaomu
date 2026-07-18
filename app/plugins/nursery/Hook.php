@@ -5,6 +5,8 @@ use app\plugins\nursery\service\ScopePolicy;
 use app\plugins\nursery\service\ReferencePriceService;
 use app\plugins\nursery\service\FavoriteService;
 use app\plugins\nursery\service\InquiryService;
+use app\plugins\nursery\service\GoodsDisplayService;
+use app\plugins\nursery\service\GoodsAuditService;
 
 class Hook
 {
@@ -60,6 +62,15 @@ class Hook
             if(RequestModule() === 'index' && isset($params['params']) && is_array($params['params']))
             {
                 $params['params']['is_favor'] = 1;
+                $params['params']['is_spec'] = 1;
+                $params['params']['is_params'] = 1;
+            }
+        } elseif($hook_name === 'plugins_service_search_goods_list_begin') {
+            if(RequestModule() === 'index' && isset($params['params']) && is_array($params['params']))
+            {
+                $params['params']['is_favor'] = 1;
+                $params['params']['is_spec'] = 1;
+                $params['params']['is_params'] = 1;
             }
         } elseif($hook_name === 'plugins_service_goods_save_handle') {
             if(isset($params['params'], $params['data'], $params['spec']) && is_array($params['params']) && is_array($params['data']) && is_array($params['spec']))
@@ -67,20 +78,39 @@ class Hook
                 return ReferencePriceService::ValidateSave($params['params'], $params['data'], $params['spec']);
             }
             return DataReturn('苗木价格校验参数不完整', -1);
+        } elseif($hook_name === 'plugins_service_goods_save_thing_begin') {
+            GoodsAuditService::PrepareSave(
+                isset($params['goods_id']) ? intval($params['goods_id']) : 0,
+                isset($params['params']) && is_array($params['params']) ? $params['params'] : []
+            );
         } elseif($hook_name === 'plugins_service_goods_save_thing_end') {
             if(isset($params['data']['is_shelves']) && intval($params['data']['is_shelves']) === 1)
             {
                 ReferencePriceService::AssertPublishedGoods(isset($params['goods_id']) ? intval($params['goods_id']) : 0);
             }
+            GoodsAuditService::CommitSave(
+                isset($params['goods_id']) ? intval($params['goods_id']) : 0,
+                isset($params['params']) && is_array($params['params']) ? $params['params'] : []
+            );
         } elseif($hook_name === 'plugins_service_goods_field_status_update') {
             if(isset($params['field'], $params['status']) && $params['field'] === 'is_shelves' && intval($params['status']) === 1)
             {
                 ReferencePriceService::AssertPublishedGoods(isset($params['goods_id']) ? intval($params['goods_id']) : 0);
             }
+            GoodsAuditService::RecordStatus(
+                isset($params['params']) && is_array($params['params']) ? $params['params'] : [],
+                isset($params['previous_goods']) && is_array($params['previous_goods']) ? $params['previous_goods'] : [],
+                isset($params['status']) ? intval($params['status']) : 0
+            );
         } elseif($hook_name === 'plugins_service_goods_handle_begin') {
             if(isset($params['goods']) && is_array($params['goods']))
             {
                 ReferencePriceService::ApplyDisplay($params['goods']);
+            }
+        } elseif($hook_name === 'plugins_service_goods_handle_end') {
+            if(RequestModule() === 'index' && isset($params['goods']) && is_array($params['goods']))
+            {
+                GoodsDisplayService::DecorateGoods($params['goods']);
             }
         } elseif($hook_name === 'plugins_view_goods_detail_panel_price_bottom') {
             return ReferencePriceService::DisclaimerHtml();
@@ -194,7 +224,12 @@ class Hook
 
     private function AppendInquiryButton($params)
     {
-        if(RequestModule() !== 'index' || !isset($params['goods']['id']) || intval($params['goods']['id']) <= 0 || intval($params['goods']['is_shelves'] ?? 0) !== 1)
+        if(RequestModule() !== 'index'
+            || !isset($params['goods']['id'])
+            || intval($params['goods']['id']) <= 0
+            || intval($params['goods']['is_shelves'] ?? 0) !== 1
+            || !array_key_exists('is_delete_time', $params['goods'])
+            || intval($params['goods']['is_delete_time']) !== 0)
         {
             return;
         }

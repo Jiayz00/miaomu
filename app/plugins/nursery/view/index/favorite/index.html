@@ -31,6 +31,12 @@
                     </div>
                     <div class="nursery-favorite-content">
                         <h2>{{$item.title}}</h2>
+                        {{if !empty($item['primary_spec_text'])}}
+                            <p class="nursery-favorite-spec"><span>主要规格</span>{{$item.primary_spec_text}}</p>
+                        {{/if}}
+                        {{if !empty($item['produce_region_name'])}}
+                            <p class="nursery-favorite-origin"><span>产地</span>{{$item.produce_region_name}}</p>
+                        {{/if}}
                         {{if !empty($item['reference_price'])}}
                             <p class="nursery-favorite-price"><span>当前参考价</span><strong>{{$item.reference_price.short_text}}</strong></p>
                         {{else /}}

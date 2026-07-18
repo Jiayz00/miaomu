@@ -48,10 +48,13 @@ EXPECTED_HOOKS = (
     "plugins_service_goods_buy_nav_button_handle",
     "plugins_service_goods_buy_left_nav_handle",
     "plugins_service_goods_list_handle_begin",
+    "plugins_service_search_goods_list_begin",
     "plugins_service_goods_save_handle",
+    "plugins_service_goods_save_thing_begin",
     "plugins_service_goods_save_thing_end",
     "plugins_service_goods_field_status_update",
     "plugins_service_goods_handle_begin",
+    "plugins_service_goods_handle_end",
     "plugins_view_goods_detail_panel_price_bottom",
     "plugins_view_assign_data",
     "plugins_view_fetch_begin",
@@ -242,6 +245,7 @@ EXPECTED_PLUGIN_FILES = {
     "catalog-v1.json",
     "favorite-schema-v1.json",
     "inquiry-schema-v1.json",
+    "security-schema-v1.json",
     "config.json",
     "Event.php",
     "Hook.php",
@@ -253,6 +257,10 @@ EXPECTED_PLUGIN_FILES = {
     "service/ReferencePriceService.php",
     "service/FavoriteMigration.php",
     "service/FavoriteService.php",
+    "service/FavoriteRateLimit.php",
+    "service/GoodsAuditService.php",
+    "service/GoodsDisplayService.php",
+    "service/SecurityMigration.php",
     "service/BaseService.php",
     "service/InquiryMigration.php",
     "service/InquiryStateMachine.php",
@@ -373,6 +381,22 @@ SLIDER_REFERENCE_PRICE_BLOCK = """                                {{if !empty($v
                                             <strong class="price">{{$v.reference_price.short_text}}</strong>
                                         </p>
                                     </div>
+                                {{/if}}
+"""
+
+LIST_SPEC_ORIGIN_BLOCK = """                                {{if !empty($v['primary_spec_text']) or !empty($v['produce_region_name'])}}
+                                    <p class="nursery-specimen-meta">
+                                        {{if !empty($v['primary_spec_text'])}}<span><b>规格</b> {{$v.primary_spec_text}}</span>{{/if}}
+                                        {{if !empty($v['produce_region_name'])}}<span><b>产地</b> {{$v.produce_region_name}}</span>{{/if}}
+                                    </p>
+                                {{/if}}
+"""
+
+SLIDER_SPEC_ORIGIN_BLOCK = """                                {{if !empty($v['primary_spec_text']) or !empty($v['produce_region_name'])}}
+                                    <p class="nursery-specimen-meta">
+                                        {{if !empty($v['primary_spec_text'])}}<span><b>规格</b> {{$v.primary_spec_text}}</span>{{/if}}
+                                        {{if !empty($v['produce_region_name'])}}<span><b>产地</b> {{$v.produce_region_name}}</span>{{/if}}
+                                    </p>
                                 {{/if}}
 """
 
@@ -1337,7 +1361,18 @@ def strip_favorite_view_additions(source: str, label: str) -> str:
         indexes = [index for index, line in enumerate(lines) if marker in line]
         require(len(indexes) == 1, f"nursery {label} must load {marker} exactly once")
         del lines[indexes[0]]
-    return "".join(lines)
+    stripped = "".join(lines)
+    display_blocks = {
+        "goods list/base": LIST_SPEC_ORIGIN_BLOCK,
+        "goods slider/binding": SLIDER_SPEC_ORIGIN_BLOCK,
+    }
+    display_block = display_blocks.get(label)
+    require(display_block is not None, f"no approved display transform for {label}")
+    require(
+        stripped.count(display_block) == 1,
+        f"nursery {label} must contain one controlled specification/origin block",
+    )
+    return stripped.replace(display_block, "", 1)
 
 
 def validate_goods_view_source(
@@ -2399,6 +2434,11 @@ class GoodsModuleViewContractTests(unittest.TestCase):
             '<strong class="price">',
             "参考价",
             "goods_url",
+            "primary_spec_text",
+            "produce_region_name",
+            "nursery-specimen-meta",
+            "规格",
+            "产地",
         ) + EXPECTED_GOODS_VIEW_HOOKS
         for plugin_path, upstream_path, cart_node, label in cases:
             source = read_utf8(plugin_path)
