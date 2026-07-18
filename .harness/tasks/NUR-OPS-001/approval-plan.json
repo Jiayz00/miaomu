@@ -7,10 +7,11 @@
   "agent_task": "/root/ops001_plan_review",
   "codex_thread_id": "019f760c-9c0b-76b0-8d9c-94d6e38118a7",
   "result_marker": "APPROVED",
-  "approval_context_sha256": "66e28f699f982f40048e54c63aa1ea364b724dbb3c75d1fbf7bdc1e6fd03ce1c",
-  "reviewed_at": "2026-07-19T02:25:14+08:00",
+  "approval_context_sha256": "912f43dead87f4d8843882274fe9e33d137a49c119f7694af451043b2568bd5d",
+  "reviewed_at": "2026-07-19T03:37:10+08:00",
   "findings": [
-    "修复 schema bootstrap 失败重试的 fail-closed 缺陷：未知表、marker 非单行或 run_id/status 不匹配时均在任何 DROP 前停止；清理集合仅限固定 schema manifest。"
+    "修复 schema bootstrap 失败重试的 fail-closed 缺陷：未知表、marker 非单行或 run_id/status 不匹配时均在任何 DROP 前停止；清理集合仅限固定 schema manifest。",
+    "确认 corrected baseline 的稳态 marker 使用 mysql 用户 install -m 0444，Dockerfile.dockerignore 保留 config/shopxo.sql 与 schema manifest；四份计划、远程目标和动作边界未漂移。"
   ],
-  "summary": "独立计划审查确认部署入口会执行 catalog、favorite、inquiry v1 前向迁移，已将 database_change.required 设为 true，列出受影响表并锁定 bootstrap 编排入口；迁移实现仍由已批准的 NUR-FEAT-002/003/004 拥有，fresh baseline 例外未启用。针对失败重试路径的未知表删除风险已修复并由部署合同 41/41 测试覆盖。备份、schema/台账、幂等、回滚和未执行服务器证据均已明确为后续 L4 门禁。"
+  "summary": "独立计划审查确认部署入口会执行 catalog、favorite、inquiry v1 前向迁移，已将 database_change.required 设为 true，列出受影响表并锁定 bootstrap 编排入口；迁移实现仍由已批准的 NUR-FEAT-002/003/004 拥有，fresh baseline 例外未启用。失败重试路径、稳态 marker 权限和 Docker build context 的 schema 输入均已纳入 corrected baseline；四份计划与远程动作未变。真实服务器、数据库、Caddy、回滚和性能证据仍由后续 L4 门禁提供。"
 }

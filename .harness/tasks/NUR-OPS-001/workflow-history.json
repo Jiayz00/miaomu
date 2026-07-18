@@ -313,6 +313,36 @@
       "by": "/root",
       "reason": "准备将修正后的合同单独放入业务差异之前的基线。",
       "at": "2026-07-18T19:32:35Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "/root",
+      "reason": "修正后的合同基线已独立提交，准备自动计划审批。",
+      "at": "2026-07-18T19:34:45Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/ops001_plan_review",
+      "codex_thread_id": "019f760c-9c0b-76b0-8d9c-94d6e38118a7",
+      "expected_agent_task": "/root/ops001_plan_review",
+      "observed_agent_task": "/root/ops001_plan_review",
+      "observed_codex_thread_id": "019f760c-9c0b-76b0-8d9c-94d6e38118a7",
+      "reason": "",
+      "at": "2026-07-18T19:37:32Z",
+      "review_artifact_path": ".harness/tasks/NUR-OPS-001/approval-plan.json",
+      "review_artifact_sha256": "259c54c6cbee83fdb1905e622f7eb47bb09ac90df6bb91997f5033416146153a",
+      "approval_context_sha256": "912f43dead87f4d8843882274fe9e33d137a49c119f7694af451043b2568bd5d",
+      "reviewed_at": "2026-07-19T03:37:10+08:00",
+      "plan_artifacts_sha256": "9a51674df70e7b03c72ef1c1d365f2d1175cc8fa153288bd31e60f1df468853b",
+      "decision_context_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "contract_sha256": "0ad1a62a15530cad416803da033aa761458591ca79190f10b3b21df13d92dd81",
+      "policy_sha256": "08a260d356a88a4ddd3592cfd6f2d784cca9022f3e39a94201ee84d42b5efb45"
     }
   ]
 }
