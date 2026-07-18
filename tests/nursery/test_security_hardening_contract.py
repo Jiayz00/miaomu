@@ -164,16 +164,55 @@ class NurseryDisplayContractTests(unittest.TestCase):
 
 class CoreBoundaryContractTests(unittest.TestCase):
     def test_only_registered_goods_status_hook_core_change_is_present(self) -> None:
+        task = json.loads(read(ROOT / ".harness" / "tasks" / "NUR-SEC-001" / "task.json"))
+        registered = sorted(
+            str(path).replace("\\", "/")
+            for path in task.get("shopxo_core_change", {}).get("paths", [])
+        )
+        state_path = ROOT / ".harness" / "state" / "active-task.json"
+        base = ""
+        if state_path.is_file():
+            try:
+                state = json.loads(read(state_path))
+                base = str(state.get("scope_base_commit", "")).strip()
+            except (OSError, ValueError):
+                base = ""
+        if base:
+            range_arg = f"{base}..HEAD"
+        else:
+            probe = subprocess.run(
+                ["git", "rev-parse", "--verify", "origin/main"],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            range_arg = "origin/main...HEAD" if probe.returncode == 0 else "HEAD~1"
         result = subprocess.run(
-            ["git", "diff", "--name-only", "HEAD~1", "--", "app/service"],
+            ["git", "diff", "--name-only", range_arg, "--", "app/service"],
             cwd=ROOT,
             text=True,
             capture_output=True,
             check=True,
         )
-        changed = [line.strip().replace("\\", "/") for line in result.stdout.splitlines() if line.strip()]
-        self.assertIn("app/service/GoodsService.php", changed)
-        self.assertEqual(changed, ["app/service/GoodsService.php"])
+        changed = {
+            line.strip().replace("\\", "/")
+            for line in result.stdout.splitlines()
+            if line.strip()
+        }
+        working = subprocess.run(
+            ["git", "diff", "--name-only", "--", "app/service"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        changed.update(
+            line.strip().replace("\\", "/")
+            for line in working.stdout.splitlines()
+            if line.strip()
+        )
+        self.assertEqual(sorted(changed), registered)
 
 
 if __name__ == "__main__":
