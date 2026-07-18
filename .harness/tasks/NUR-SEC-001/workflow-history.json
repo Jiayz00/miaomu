@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-SEC-001",
+  "events": [
+    {
+      "type": "transition",
+      "from": "draft",
+      "to": "ready_for_analysis",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-18T20:42:52Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-18T20:42:52Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/business_gap_review",
+      "codex_thread_id": "019f76ea-23c8-7b51-a91e-10f73d0b53f2",
+      "expected_agent_task": "/root/business_gap_review",
+      "observed_agent_task": "/root/business_gap_review",
+      "observed_codex_thread_id": "019f76ea-23c8-7b51-a91e-10f73d0b53f2",
+      "reason": "",
+      "at": "2026-07-18T20:45:43Z",
+      "review_artifact_path": ".harness/tasks/NUR-SEC-001/approval-plan.json",
+      "review_artifact_sha256": "d817abb23ff1662dd2448701be68ce35b06cd8fbbe6e023bcb1aca426316a34d",
+      "approval_context_sha256": "4ec190f4cf42c6efe7d3612cac91453f2432e61d9ab5e6b5ae48d7b17164c079",
+      "reviewed_at": "2026-07-19T04:45:00+08:00",
+      "plan_artifacts_sha256": "cab8acea96aa19e077df55b46d861fcec0077c843d70c6e4cfe23fbf4e48b3c5",
+      "decision_context_sha256": "a2f1e0731be7d1aacf54c682d637ddbe8f1219a3cd699ca690fe8e27bf036755",
+      "contract_sha256": "f98deb2263b07ca8dda829cc2d46c23b5d97c69c44e4d98ba2cb9f58be88b24b",
+      "policy_sha256": "142ac6af4ae468241d91c07ae01a56e944c203296066764bc564c3eac7fed169"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "approved_for_implementation",
+      "by": "Codex-Review",
+      "reason": "独立计划审查已批准；允许自动实现",
+      "at": "2026-07-18T20:48:13Z"
+    }
+  ]
+}

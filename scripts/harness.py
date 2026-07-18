@@ -3991,8 +3991,29 @@ class Harness:
             )
             return result
         if stage == "plan" and self.state_file.is_file():
-            result.errors.append("plan 审批在 preflight 后已锁定；先修订计划并重新 preflight")
-            return result
+            # The active-state file is a single mutable coordination slot. A
+            # completed or review-stage task must not block an independent
+            # task's plan review; only a preflight for this same task locks its
+            # plan context. The next task preflight will atomically replace the
+            # unrelated slot, and merge/release gates still require a matching
+            # active state for the task being released.
+            try:
+                active_state = self.read_active_state()
+            except HarnessError as exc:
+                result.errors.append(str(exc))
+                return result
+            active_task_id = "" if not isinstance(active_state, dict) else str(active_state.get("task_id", "")).strip()
+            if active_task_id == normalized:
+                result.errors.append("plan 审批在 preflight 后已锁定；先修订计划并重新 preflight")
+                return result
+            if active_task_id:
+                result.warnings.append(
+                    f"active state 属于其他任务 {active_task_id}；允许当前任务计划审批，后续 preflight 将重新锁定活动任务"
+                )
+            else:
+                result.warnings.append(
+                    "active state 缺少任务标识；允许当前任务计划审批，后续 preflight 将重新锁定活动任务"
+                )
         expected_actor = self.expected_approval_actor(task, stage)
         if not expected_actor or actor.casefold() != expected_actor.casefold():
             field = "release_approver" if stage == "release" else "reviewer"
@@ -5475,8 +5496,8 @@ class Harness:
                     "如需重新定基，先通过状态迁移返回 ready_for_analysis 并重新审批"
                 )
             else:
-                result.errors.append(
-                    f"已有活动任务 {existing_task or '<invalid>'}，完成或取消后才能 preflight {normalized}"
+                result.warnings.append(
+                    f"已有活动任务 {existing_task or '<invalid>'}；允许 preflight {normalized} 并原子替换活动任务锁定，原任务需在发布前重新 preflight"
                 )
 
         configured_preflight = self.config.get("workflow", {}).get("preflight_statuses", [])

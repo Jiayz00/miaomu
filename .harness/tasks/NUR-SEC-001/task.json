@@ -1,0 +1,232 @@
+{
+  "schema_version": 2,
+  "id": "NUR-SEC-001",
+  "title": "苗木展示字段与商品操作安全加固",
+  "type": "security",
+  "priority": "P0",
+  "phase": 2,
+  "risk_level": "L3",
+  "status": "approved_for_implementation",
+  "requirement_ids": [
+    "FR-FAV-003",
+    "FR-LIST-001",
+    "FR-DETAIL-002",
+    "FR-ADMIN-GOODS-005",
+    "NFR-SEC-004",
+    "NFR-SEC-005",
+    "AC-005"
+  ],
+  "decision_ids": [
+    "DEC-CATALOG-IMPORT-MODE",
+    "DEC-PRICE-VALIDITY",
+    "DEC-PX-BASELINE-NAV"
+  ],
+  "business_goal": "补齐苗木首版公开展示与商品操作安全边界：收藏页和所有商品卡片可比较地显示主要规格与产地，下架商品不暴露不可用的询价入口，收藏写操作具备独立的用户级频率限制，商品公开价格与上下架变化在事务内追加管理员审计记录。",
+  "in_scope": [
+    "在 nursery 商品列表、首页卡片和收藏列表中加载并展示服务端规格/参数真源派生的主要规格文本、计价单位和产地；不修改 ShopXO 默认模板或商品表结构。",
+    "为收藏 add/cancel 增加按认证用户与动作分离的数据库固定窗口限流，迁移幂等、并发安全、失败关闭且不依赖询价限流表。",
+    "为价格保存和 is_shelves 状态变更新增 nursery 自有 append-only 审计表与前向迁移；在商品保存事务和状态更新事务中记录管理员、商品、动作、旧值、新值、原因/请求标识和时间，只记录价格/状态摘要，不记录个人正文。",
+    "在已验证的 ShopXO 状态更新钩子前补充最小 previous-state 参数，使插件能够可靠判断真实上下架变化；不删除核心商城代码。",
+    "补充离线合同、PX 回归和收藏/目录价格回归；保留询价、收藏、公开价格、历史保留和用户隔离不变量。"
+  ],
+  "out_of_scope": [
+    "供应商、多商户、分销、购物车、订单、支付与售后能力。"
+  ],
+  "business_invariants": [
+    "保持公开参考价格、收藏与询价独立、用户数据隔离和历史可追溯。"
+  ],
+  "dependencies": [
+    "NUR-FEAT-001 已建立 nursery 请求范围和 PX 菜单/路由过滤。",
+    "NUR-FEAT-002 已建立目录、规格、产地和公开参考价真源。",
+    "NUR-FEAT-003 已建立唯一收藏、用户隔离和下架保留。",
+    "NUR-FEAT-004 已建立询价独立入口和询价限流；本任务不得复用其频控状态。"
+  ],
+  "allowed_paths": [
+    "app/plugins/nursery/**",
+    "public/static/plugins/nursery/**",
+    "app/service/GoodsService.php",
+    "scripts/nursery_favorite.php",
+    "tests/nursery/**"
+  ],
+  "forbidden_paths": [
+    ".env",
+    ".env.*",
+    "rsakeys/**",
+    "vendor/**",
+    "runtime/**"
+  ],
+  "shopxo_core_change": {
+    "required": true,
+    "paths": [
+      "app/service/GoodsService.php"
+    ],
+    "reason": "固定 ShopXO 6.9.0 的 goods_field_status_update 钩子只在 update 后触发，插件无法从数据库可靠恢复旧 is_shelves 值；仅在更新前读取并通过同一事务钩子参数传递 previous_goods，才能满足真实上下架审计。其它列表/收藏/审计行为均留在 nursery 插件。",
+    "registration": ".harness/core-changes/REGISTER.md 中的 NUR-SEC-001 行：只在 GoodsStatusUpdate 的事务内增加 previous_goods 读取与钩子参数，不改变字段写入、状态机、权限或删除语义；回滚移除该参数读取即可。"
+  },
+  "database_change": {
+    "required": true,
+    "affected_tables": [
+      "sxo_plugins_nursery_favorite_rate_limit",
+      "sxo_plugins_nursery_goods_audit",
+      "sxo_config"
+    ],
+    "migration_paths": [
+      "app/plugins/nursery/security-schema-v1.json",
+      "app/plugins/nursery/service/SecurityMigration.php",
+      "app/plugins/nursery/service/FavoriteMigration.php",
+      "scripts/nursery_favorite.php"
+    ],
+    "fresh_install_baseline_exception": {
+      "requested": false,
+      "reason": "既有实例和 fresh 实例都通过 FavoriteMigration 编排同一前向 security schema v1；不修改 config/shopxo.sql。"
+    },
+    "rollback_plan": "迁移只创建缺失的 nursery 表和台账，结构冲突 fail-closed，不 DROP/TRUNCATE/DELETE；应用回滚保留限流和审计历史。只有另立 L4 数据任务且无依赖时才可删除新表。",
+    "verification": "在隔离 MySQL 中核对两表字段、索引、引擎、字符集、无外键、台账哈希、重复执行和部分建表前向修复；验证限流并发唯一行与审计 append-only 行数。"
+  },
+  "new_dependency_allowed": false,
+  "network_access_required": false,
+  "acceptance_criteria": [
+    {
+      "id": "AC-TASK-001",
+      "requirement_ids": [
+        "FR-FAV-003",
+        "FR-LIST-001"
+      ],
+      "description": "对包含规格和产地的合成商品执行首页、搜索列表、网格/图文列表和我的收藏渲染；每个卡片/收藏项均出现非空主要规格、产地、公开参考价/单位，且查询使用 GoodsService 规格与 RegionService 真源，不改变收藏或询价关系。"
+    },
+    {
+      "id": "AC-TASK-002",
+      "requirement_ids": [
+        "FR-DETAIL-002",
+        "FR-ADMIN-GOODS-005"
+      ],
+      "description": "下架或逻辑删除商品的详情 HTML 不再出现可提交的立即询价入口；服务端仍拒绝旁路提交，收藏和历史询价入口保持可追溯。上架商品的收藏/询价按钮继续并列。"
+    },
+    {
+      "id": "AC-TASK-003",
+      "requirement_ids": [
+        "NFR-SEC-004"
+      ],
+      "description": "同一认证用户在固定 60 秒窗口内对收藏 add 或 cancel 的第 21 次尝试被拒绝；add 与 cancel 计数相互独立，重复/并发请求最多产生一个计数行，窗口过期后可重置，迁移或计数缺失时写操作失败关闭。"
+    },
+    {
+      "id": "AC-TASK-004",
+      "requirement_ids": [
+        "NFR-SEC-005"
+      ],
+      "description": "管理员真实修改商品规格价格或 is_shelves 状态时，在同一事务内追加一条只含商品、管理员、动作、旧摘要、新摘要、时间和请求标识的审计行；相同值不生成虚假变更，事务回滚不留孤立审计，审计历史不可由普通商品操作删除。"
+    },
+    {
+      "id": "AC-TASK-005",
+      "requirement_ids": [
+        "AC-005"
+      ],
+      "description": "目录公开价、收藏唯一性/下架保留、询价快照/PX 路由回归和 Harness 范围检查全部通过；未执行的 PHP/MySQL/浏览器项明确记录为未覆盖，不冒充通过。"
+    }
+  ],
+  "required_tests": [
+    {
+      "id": "nursery_security_hardening_contract",
+      "description": "离线验证安全迁移、收藏限流、商品审计、规格/产地展示、下架询价入口和最小核心差异。",
+      "command": [
+        "python",
+        "tests/nursery/test_security_hardening_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 180
+    },
+    {
+      "id": "nursery_favorite_regression",
+      "description": "回归收藏唯一性、用户隔离、下架保留、主要规格/产地字段和真实询价入口。",
+      "command": [
+        "python",
+        "tests/nursery/test_favorite_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "nursery_catalog_price_regression",
+      "description": "回归目录、规格、公开参考价真源和列表展示，不允许审计写回公开价。",
+      "command": [
+        "python",
+        "tests/nursery/test_catalog_price_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "nursery_inquiry_regression",
+      "description": "确认收藏限流/商品审计不改变询价快照、状态、独立性和用户隔离。",
+      "command": [
+        "python",
+        "tests/nursery/test_inquiry_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "nursery_scope_regression",
+      "description": "回归 PX 路由、导航、商品按钮和核心边界。",
+      "command": [
+        "python",
+        "tests/nursery/test_scope_contract.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "harness_selftest",
+      "description": "验证安全任务的 L3 数据、权限、审批、范围和真实证据门限。",
+      "command": [
+        "python",
+        "scripts/harness_selftest.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 300
+    }
+  ],
+  "rollback": {
+    "required": true,
+    "plan": "未部署时只回退本任务授权路径差异；已部署时先关闭收藏写入口或回退应用代码，保留 security 表、限流计数和商品审计历史，不执行 DROP/TRUNCATE/DELETE。核心 previous_goods 参数回滚后插件审计写入停止并保持旧商城行为。",
+    "verification": "重新运行 source-check、六项 required_tests、scope/evidence/review-pack；隔离数据库对比收藏/询价/公开价行数与值未减少，审计历史只增不减，PX 路由仍不可达。"
+  },
+  "manual_approvals": {
+    "plan": {
+      "required": true,
+      "status": "approved",
+      "approved_by": "Codex-Review",
+      "approved_at": "2026-07-18T20:45:43Z"
+    },
+    "merge": {
+      "required": true,
+      "status": "pending",
+      "approved_by": null,
+      "approved_at": null
+    },
+    "release": {
+      "required": false,
+      "status": "not_required",
+      "approved_by": null,
+      "approved_at": null
+    }
+  },
+  "codex_role_bindings": {
+    "implementation": {
+      "agent_task": "/root",
+      "thread_id": "019f566b-dffa-7913-a608-bc2dffbd2bea"
+    },
+    "plan": {
+      "agent_task": "/root/business_gap_review"
+    },
+    "merge": {
+      "agent_task": "/root/business_review"
+    },
+    "release": null
+  },
+  "owner": "Codex-Implementer",
+  "reviewer": "Codex-Review",
+  "release_approver": null,
+  "created_at": "2026-07-18T20:33:05Z",
+  "updated_at": "2026-07-18T20:48:13Z"
+}

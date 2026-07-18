@@ -1597,6 +1597,49 @@ class HarnessCoreTests(unittest.TestCase):
         self.assertFalse(policy_gate.ok)
         self.assertTrue(any("任务执行策略" in item for item in policy_gate.errors))
 
+    def test_unrelated_active_state_does_not_block_plan_approval(self) -> None:
+        task_id = "NUR-OPS-973"
+        task = self.task_value(task_id, status="awaiting_plan_approval")
+        task["type"] = "operations"
+        task["reviewer"] = "Reviewer"
+        self.enable_codex_bindings(task)
+        self.write_task(task_id, task)
+        self.write_valid_plan_artifacts(task_id)
+        self.write_history(
+            task_id,
+            [
+                {
+                    "type": "transition",
+                    "from": "draft",
+                    "to": "ready_for_analysis",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:00Z",
+                },
+                {
+                    "type": "transition",
+                    "from": "ready_for_analysis",
+                    "to": "awaiting_plan_approval",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:01Z",
+                },
+            ],
+        )
+        self.harness.state_file.parent.mkdir(parents=True, exist_ok=True)
+        self.harness.state_file.write_text(
+            json_text({"schema_version": 1, "task_id": "NUR-OPS-974"}),
+            encoding="utf-8",
+        )
+        approved = self.approve_bound_stage(
+            task_id,
+            stage="plan",
+            actor="Reviewer",
+            reason="unrelated active state is not this plan's lock",
+        )
+        self.assertTrue(approved.ok, approved.errors)
+        self.assertTrue(any("其他任务" in item for item in approved.warnings))
+
     def test_plan_approval_hash_invalidates_after_contract_change(self) -> None:
         task_id = "NUR-OPS-972"
         task = self.task_value(task_id, status="awaiting_plan_approval")
