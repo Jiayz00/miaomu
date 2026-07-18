@@ -8,7 +8,7 @@
 - 后台新增询价列表、详情、回复、状态、手机号 reveal 和终态重开六项权限。列表/详情默认脱敏，完整手机号仅在专门权限下审计后返回。
 - 状态机采用 `pending/replied/user_viewed/communicating/completed/closed`；回复、状态、重开和 reveal 审计只追加。回复价格是单次回复数据，不覆盖商品公开价或询价快照。
 - 完全相同内容使用仓库外实例密钥 HMAC-SHA-256 做 600 秒防重；每个认证用户 60 秒最多 5 次提交尝试。新增五张 nursery 自有表和 `sxo_config` schema v1 台账。
-- nursery 配置使用项目内静态 logo，使非超级管理员可在 ShopXO 角色管理中看到并分配全部六项询价权限；不依赖外部图片地址。
+- nursery 配置使用项目内静态 logo.svg，使非超级管理员可在 ShopXO 角色管理中看到并分配全部六项询价权限；不依赖外部图片地址。
 
 ## 发布前提
 

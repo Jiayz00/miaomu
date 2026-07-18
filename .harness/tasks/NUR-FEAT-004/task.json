@@ -55,7 +55,7 @@
     "实现 600 秒完全重复防护：使用仓库外实例密钥 HMAC-SHA-256 计算规范化内容指纹；规格语义使用服务端逐项验证并有序 canonical 的 [{type,value}] 加规格公开价和单位，GoodsSpecBase.id 仅作快照引用；窗口内拒绝且不刷新时间，过期后在行锁内更新。",
     "完整输入、规格和公开价校验通过后，以独立短事务实现每个认证用户首个尝试起算的 60 秒固定窗口最多 5 次提交尝试；频控计数先提交，再运行防重与询价事务，因此重复拒绝或后续业务回滚不撤销计数。第 6 次拒绝且不创建询价，窗口过期后在行锁内重置。",
     "新增五张 nursery 自有询价表和 sxo_config 非敏感 schema v1 台账；使用 GET_LOCK、information_schema 实际结构核验、幂等前向迁移和中断后重试，不修改 config/shopxo.sql，不对 ShopXO 商品、用户或管理员表建立外键。",
-    "扩展详情、收藏列表、用户中心和后台菜单，提供 PC/H5 基础询价界面；为 config.json base.logo 配置项目内 public/static/plugins/nursery/images/logo.png，确保非超级管理员可配置六项插件权限；新增离线询价合同测试并回归收藏、目录公开价、PX 范围和 Harness。"
+    "扩展详情、收藏列表、用户中心和后台菜单，提供 PC/H5 基础询价界面；为 config.json base.logo 配置项目内 public/static/plugins/nursery/images/logo.svg，确保非超级管理员可配置六项插件权限；新增离线询价合同测试并回归收藏、目录公开价、PX 范围和 Harness。"
   ],
   "out_of_scope": [
     "FR-INQ-007 新询价或回复通知、短信、邮件、站内信和任何通知重试队列。",

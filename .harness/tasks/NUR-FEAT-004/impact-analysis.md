@@ -5,7 +5,7 @@
 - 固定上游为 ShopXO 6.9.0 `d1825c5404054b535255d8fcad675a5dae0ab633`，当前仓库 `source-check` 通过。
 - `app/index/controller/Plugins.php`、`app/api/controller/Plugins.php` 和 `app/admin/controller/Plugins.php` 均通过 `PluginsService::PluginsControlCall()` 调用 `app/plugins/<name>/<group>/<Control>.php`。index/api 上下文带认证 `user`，admin 上下文带 `admin` 和 `admin_plugins`，请求中的同名字段不能作为身份真源。
 - `PluginsService::PluginsAdminPowerMenu()` 会调用插件 `service/BaseService.php::AdminPowerMenu()`；admin 插件网关使用 `control-action` 与角色缓存执行权限检查，适合声明询价列表、详情、回复、状态、手机号 reveal 和重开六类权限。
-- `AdminRoleService` 只有在插件 `plugins`、`name`、`logo` 均非空时才把插件加入非超级管理员角色配置；当前 nursery `config.json` 的 `base.logo` 为空。必须新增项目内 `public/static/plugins/nursery/images/logo.png` 并设置本地 URL，否则六项细粒度权限无法由非超管角色配置。
+- `AdminRoleService` 只有在插件 `plugins`、`name`、`logo` 均非空时才把插件加入非超级管理员角色配置；当前 nursery `config.json` 的 `base.logo` 为空。必须新增项目内 `public/static/plugins/nursery/images/logo.svg` 并设置本地 URL，否则六项细粒度权限无法由非超管角色配置。
 - nursery 已注册 `plugins_service_goods_buy_nav_button_handle`、`plugins_service_users_center_left_menu_handle` 和 `plugins_service_admin_menu_data`。现有 Hook 只过滤商城按钮和导航，尚未增加询价入口。
 - NUR-FEAT-002 的 `ReferencePriceService` 以 `sxo_goods_spec_base.price` 为价格真源并校验商品汇总；询价应读取该真源构造快照，不新建或反向写价格模型。
 - NUR-FEAT-003 的 `FavoriteService` 已按认证用户左连接读取收藏并保留下架/删除记录；当前收藏页故意没有假询价入口，`test_favorite_contract.py` 和 `test_scope_contract.py` 也会拒绝任何占位询价。本任务需把这些断言更新为只允许真实 nursery Inquiry URL，且继续验证无收藏副作用。
@@ -95,7 +95,7 @@
 ## 预计文件
 
 - 修改：`app/plugins/nursery/config.json`（含非空项目内 `base.logo`）、`Hook.php`、`Event.php`、`service/ScopePolicy.php`、`service/FavoriteService.php`、收藏/商品/用户中心相关 nursery 视图及现有 nursery CSS/JS。
-- 新增：`service/BaseService.php`、`InquiryMigration.php`、`InquiryService.php`、`InquiryStateMachine.php`；`index/Inquiry.php`、`api/Inquiry.php`、`admin/Inquiry.php`；用户端和后台询价视图；询价 CSS/JS；`public/static/plugins/nursery/images/logo.png` 项目内可解码位图。
+- 新增：`service/BaseService.php`、`InquiryMigration.php`、`InquiryService.php`、`InquiryStateMachine.php`；`index/Inquiry.php`、`api/Inquiry.php`、`admin/Inquiry.php`；用户端和后台询价视图；询价 CSS/JS；`public/static/plugins/nursery/images/logo.svg` 项目内可加载矢量标识。
 - 迁移：`app/plugins/nursery/inquiry-schema-v1.json`、`scripts/nursery_inquiry.php`。
 - 测试：`tests/nursery/test_inquiry_contract.py`，并更新 favorite/catalog/scope 合同以识别真实询价能力且保留原不变量。
 - 核心登记：无。若实现发现必须修改授权路径外文件，立即停止并新建核心适配任务，不能扩大本合同。

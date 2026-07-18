@@ -6,7 +6,7 @@
 
 命令：`["python", "tests/nursery/test_inquiry_contract.py"]`
 
-离线断言 `inquiry-schema-v1.json` 的五表、复合唯一守卫、索引、无外键和 config 台账；迁移使用同连接 `GET_LOCK`、`information_schema`、DDL 后复核、结构完整后写台账、幂等重放和运行时 `AssertReady`；控制器只使用注入 user/admin，Web/API POST 与 nonce 边界正确；快照来自商品/逐项规格/公开价真源且创建后不可变，`GoodsSpecBase.id` 仅作引用；状态矩阵逐项匹配 `DEC-INQ-STATE`，回复/history/reopen/reveal 只追加；dup-v1 对有序 `[{type,value}]`、规格价/单位与公开价上下文执行 NFKC/canonical JSON/HMAC，禁止无分隔拼接；完整校验后独立频控事务先提交，600 秒防重+询价使用第二事务；项目内 logo 可解码且 config 引用本地路径，BaseService 显式声明六个动作；手机号 reveal 先审计后返回；无通知、导出、统计、事件、核心或 `config/shopxo.sql` 差异。
+离线断言 `inquiry-schema-v1.json` 的五表、复合唯一守卫、索引、无外键和 config 台账；迁移使用同连接 `GET_LOCK`、`information_schema`、DDL 后复核、结构完整后写台账、幂等重放和运行时 `AssertReady`；控制器只使用注入 user/admin，Web/API POST 与 nonce 边界正确；快照来自商品/逐项规格/公开价真源且创建后不可变，`GoodsSpecBase.id` 仅作引用；状态矩阵逐项匹配 `DEC-INQ-STATE`，回复/history/reopen/reveal 只追加；dup-v1 对有序 `[{type,value}]`、规格价/单位与公开价上下文执行 NFKC/canonical JSON/HMAC，禁止无分隔拼接；完整校验后独立频控事务先提交，600 秒防重+询价使用第二事务；项目内 logo.svg 可安全解析且 config 引用本地路径，BaseService 显式声明六个动作；手机号 reveal 先审计后返回；无通知、导出、统计、事件、核心或 `config/shopxo.sql` 差异。
 
 ### nursery_favorite_regression
 
@@ -42,7 +42,7 @@
 6. **60 秒 5 次限流。** 无效输入、无效规格或无效价格在完整校验阶段拒绝且不计数；A 的五次不同有效内容在 60 秒内均进入防重判定，第六次被拒绝且无询价。再用完全相同内容验证：第一次成功、后续重复拒绝仍逐次计数并在第六次由频控拒绝；防重/业务事务回滚后 rate_limit 计数不回退。并发六次也最多五次进入防重；`delta >= 60` 重置。B 独立计数。
 7. **状态与回复。** 从 pending 覆盖全部允许/禁止矩阵；pending 只能普通关闭或由回复转 replied。用户首次查看 replied 转 user_viewed，重复/并发查看只有一条状态历史。回复在 pending/replied/user_viewed/communicating 追加，非 replied 转 replied；回复与状态/history 同事务，失败无孤立回复。completed/closed 普通动作不能离开终态，只有 reopen 角色加非空原因可转 communicating。
 8. **价格隔离。** 回复填写本次参考单价、总额及各项费用；发布前后比较 `sxo_goods`、`sxo_goods_spec_base` 和 inquiry snapshot 价格字段完全不变。页面明确区分“提交时公开参考价”和“本次回复报价”。
-9. **后台权限与隐私。** 验证 config 的项目内 logo 实际可加载，非超级管理员角色页出现 nursery 插件，并可分别配置 BaseService 显式声明的 index/detail/reply/statusupdate/contactreveal/reopen；遗漏任一声明测试失败。未授权直达 URL/API 均拒绝。列表与详情初始 HTML/JSON 只含脱敏手机号。contactreveal 必须 POST/AJAX/nonce，审计插入失败时不返回；成功时审计先存在且仅授权响应含完整 fixture 号码，日志/证据保持脱敏。
+9. **后台权限与隐私。** 验证 config 的项目内 logo.svg 无脚本/外链且实际可加载，非超级管理员角色页出现 nursery 插件，并可分别配置 BaseService 显式声明的 index/detail/reply/statusupdate/contactreveal/reopen；遗漏任一声明测试失败。未授权直达 URL/API 均拒绝。列表与详情初始 HTML/JSON 只含脱敏手机号。contactreveal 必须 POST/AJAX/nonce，审计插入失败时不返回；成功时审计先存在且仅授权响应含完整 fixture 号码，日志/证据保持脱敏。
 10. **筛选与超时。** 创建不同编号、商品、用户、手机、状态、时间和地区记录，逐一验证筛选；无首次回复满 24 小时为超时，已回复或未满 24 小时不超时。分页总数与过滤结果一致，不以当前商品存在为前提。
 11. **PC/H5 浏览器。** 检查商品详情收藏与立即询价并列、收藏页 active 项直接询价、未登录引导、表单校验/重复/限流反馈、我的询价空态/分页/详情时间线、后台列表/详情/回复/状态/reveal 弹层。确认窄屏无重叠，完整手机号不预埋 DOM，页面无购物车、订单、支付、通知或导出占位。
 12. **回归与日志。** 运行收藏、目录价格、PX 范围回归；检查 PHP-FPM/MySQL/Caddy 应用日志仅有脱敏错误，无持续 5xx、SQL 死锁风暴、密钥或个人数据输出。Caddy 仅复用既有网关，不新增 Nginx 或第二个 Caddy。
