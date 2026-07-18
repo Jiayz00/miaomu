@@ -97,6 +97,14 @@
       "by": "Codex-Implementer",
       "reason": "独立 reviewer 已批准合并，最新证据与审查包通过",
       "at": "2026-07-18T16:01:45Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_merge",
+      "to": "closed",
+      "by": "Codex-Implementer",
+      "reason": "询价实现已合并，后续服务器部署由 NUR-OPS-001 接管。",
+      "at": "2026-07-18T16:38:35Z"
     }
   ]
 }
