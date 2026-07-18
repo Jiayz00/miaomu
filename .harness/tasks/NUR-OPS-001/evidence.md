@@ -9,9 +9,9 @@
 
 ## 自动测试证据
 
-VERIFY_CONTRACT_SHA256: c2e7593bc267907653252f2eed93923d3a3373a337dabb2bcba71ff1b0899fd7
+VERIFY_CONTRACT_SHA256: 370bfbf5e8f7a636092c2a93e6801bd404c272858668a51d80b4ed77f334000c
 
-Harness verify 运行目录：`.harness/runs/NUR-OPS-001/20260718T164927146651Z-verify`。已实际运行：
+Harness verify 运行目录：`.harness/runs/NUR-OPS-001/20260718T191123630967Z-verify`。scope base：`b467fe2cc6a49d013e02827173451e622ec50993`；已实际运行：
 
 TEST_COMMAND: task_check ["python", "scripts/harness.py", "task-check", "NUR-OPS-001"]
 TEST_RESULT: task_check exit_code=0
@@ -25,6 +25,10 @@ TEST_COMMAND: deploy_contract ["python", "tests/ops/test_deployment_contract.py"
 TEST_RESULT: deploy_contract exit_code=0
 TEST_COMMAND: release_inputs_contract ["python", "deploy/validate_release_inputs.py", "--contract-only"]
 TEST_RESULT: release_inputs_contract exit_code=0
+
+本次 verify 实际结果：`harness_selftest` 61 项通过、2 项 Windows 权限 skip；`harness_remote_selftest` 59 项通过（含 Caddy 容器内 `/etc/caddy/Caddyfile` 固定动作回归）；部署合同 42 项通过；release-input 合同通过。所有测试均为退出码 0，未触发超时或输出上限；verify 前后控制面哈希和业务工作区指纹一致，变更清单未包含 Harness 策略文件。
+
+本次还完成项目级 Harness bootstrap 修复：仅允许合同声明的 Caddy `docker compose run ... caddy jia-caddy validate --config /etc/caddy/Caddyfile` 容器内路径，任意路径或服务变体仍 fail-closed；未扩大宿主机 `managed_roots`。
 
 未执行的 PHP、Docker、Caddy、MySQL、HTTP、浏览器、并发和回滚不写为通过。
 
