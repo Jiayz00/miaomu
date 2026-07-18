@@ -117,26 +117,86 @@ class GoodsAuditService
 
     private static function Summary($goods, $goods_id)
     {
-        $prices = Db::name('GoodsSpecBase')->where(['goods_id'=>intval($goods_id)])
-            ->order('id asc')->column('price');
-        $normalized = [];
-        foreach($prices as $price)
-        {
-            $normalized[] = self::Price((string) $price);
-        }
-        sort($normalized, SORT_STRING);
         $summary = [
             'price'      => self::Price($goods['price'] ?? ''),
             'min_price'  => self::Price($goods['min_price'] ?? ''),
             'max_price'  => self::Price($goods['max_price'] ?? ''),
-            'spec_prices'=> $normalized,
+            'spec_prices'=> self::SpecificationPrices($goods_id),
         ];
-        $encoded = json_encode($summary, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
+        return ['price_summary'=>self::CanonicalJson($summary)];
+    }
+
+    private static function SpecificationPrices($goods_id)
+    {
+        $goods_id = intval($goods_id);
+        $bases = Db::name('GoodsSpecBase')->where(['goods_id'=>$goods_id])
+            ->field('id,price')->order('id asc')->select()->toArray();
+        if(empty($bases))
+        {
+            return [];
+        }
+
+        $type_names = Db::name('GoodsSpecType')->where(['goods_id'=>$goods_id])
+            ->order('id asc')->column('name');
+        $values = Db::name('GoodsSpecValue')->where(['goods_id'=>$goods_id])
+            ->field('goods_spec_base_id,value')
+            ->order('goods_spec_base_id asc,id asc')->select()->toArray();
+        $values_by_base = [];
+        foreach($values as $value)
+        {
+            $base_id = intval($value['goods_spec_base_id'] ?? 0);
+            if($base_id > 0)
+            {
+                $values_by_base[$base_id][] = (string) ($value['value'] ?? '');
+            }
+        }
+
+        $rows = [];
+        foreach($bases as $base)
+        {
+            $base_id = intval($base['id'] ?? 0);
+            $identity = [];
+            $base_values = $values_by_base[$base_id] ?? [];
+            if(!empty($type_names) && count($base_values) !== count($type_names))
+            {
+                throw new \RuntimeException('商品规格类型和值数量不一致，无法写入价格审计');
+            }
+            if(empty($type_names) && !empty($base_values))
+            {
+                throw new \RuntimeException('商品规格值缺少规格类型，无法写入价格审计');
+            }
+            foreach($base_values as $index=>$value)
+            {
+                $identity[] = [
+                    'type'  => (string) $type_names[$index],
+                    'value' => $value,
+                ];
+            }
+            // ShopXO may persist the same specification columns in a new
+            // order. Sort the semantic pairs so column reordering does not
+            // create a false price mutation audit.
+            usort($identity, function($left, $right) {
+                return strcmp(self::CanonicalJson($left), self::CanonicalJson($right));
+            });
+            $rows[] = [
+                'spec'  => $identity,
+                'price' => self::Price($base['price'] ?? ''),
+            ];
+        }
+        usort($rows, function($left, $right) {
+            return strcmp(self::CanonicalJson($left), self::CanonicalJson($right));
+        });
+        return $rows;
+    }
+
+    private static function CanonicalJson($value)
+    {
+        $encoded = json_encode($value, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION);
         if($encoded === false)
         {
             throw new \RuntimeException('商品价格审计摘要编码失败');
         }
-        return ['price_summary'=>$encoded];
+        return $encoded;
     }
 
     private static function Price($value)

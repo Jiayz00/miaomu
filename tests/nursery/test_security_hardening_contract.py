@@ -120,6 +120,25 @@ class ProductAuditContractTests(unittest.TestCase):
         self.assertIn("self::$pending_save = []", self.audit)
         self.assertNotRegex(self.audit, r"->(?:delete|update)\(", re.I)
 
+    def test_spec_price_summary_preserves_the_specification_identity(self) -> None:
+        for token in (
+            "SpecificationPrices",
+            "GoodsSpecType",
+            "GoodsSpecValue",
+            "goods_spec_base_id,value",
+            "'spec'  => $identity",
+            "CanonicalJson",
+            "usort($identity",
+            "规格类型和值数量不一致",
+        ):
+            self.assertIn(token, self.audit)
+        self.assertNotIn("->column('price')", self.audit)
+
+    def test_spec_identity_is_canonicalized_before_price_comparison(self) -> None:
+        identity_sort = self.audit.index("usort($identity")
+        row_append = self.audit.index("$rows[] = [", identity_sort)
+        self.assertLess(identity_sort, row_append)
+
     def test_manifest_registers_all_audit_hooks(self) -> None:
         for hook in (
             "plugins_service_goods_save_thing_begin",
