@@ -332,7 +332,7 @@ draft
 
 ### 8.4 授权锁定
 
-计划批准事件先锁定规范化的完整任务授权合同与执行策略，并对 `requirement.md`、`impact-analysis.md`、`implementation-plan.md` 和 `test-plan.md` 计算制品 SHA-256，同时计算任务关联的已解决需求决策上下文哈希。`preflight` 再把同一组哈希与计划审批上下文锁定到 `.harness/state/active-task.json`。任一授权字段、远程目标/动作、计划制品或关联决策变化都会使旧审批/活动状态失效，必须重新审查并运行 `preflight`。已有 active state 不能被再次 preflight 覆盖并改写 `scope_base_commit`；重新定基必须先按状态机返回分析阶段、修订计划并重新审批。生命周期状态、`evidence.md` 及合并/发布审批结果是受控后置内容，只能通过 Harness CLI 或指定证据文件更新。
+计划批准事件先锁定规范化的完整任务授权合同与执行策略，并对 `requirement.md`、`impact-analysis.md`、`implementation-plan.md` 和 `test-plan.md` 计算制品 SHA-256，同时计算任务关联的已解决需求决策上下文哈希。`preflight` 再把同一组哈希与计划审批上下文锁定到 `.harness/state/active-task.json`。首次进入 `implementing` 前，任一授权字段、远程目标/动作、计划制品或关联决策变化都会使旧 plan 审批失效，必须重新审查并运行 `preflight`。任务历史已进入 `implementing` 后，仅四份计划制品漂移降为 warning，允许在受控恢复活动状态后重新 `preflight`，但必须由后续独立 merge 代码/功能审查重新核验。任务合同、执行策略、需求决策上下文、远程目标或动作漂移仍失败关闭并要求重做 plan 审批；L4 的独立 release 审批、release seal、远程合同、备份与回滚门禁不变。已有 active state 不能被再次 preflight 覆盖并改写 `scope_base_commit`。生命周期状态、`evidence.md` 及合并/发布审批结果是受控后置内容，只能通过 Harness CLI 或指定证据文件更新。
 
 任务文件和审批字段仍是仓库内容，哈希与 Codex agent task/thread 只能提供审计关联，不能单独证明密码学身份。实现、审查和发布代理必须在合同与实际协作记录中分离，最终信任由独立代理输出、验证证据、Git 平台记录和受保护分支共同提供。
 

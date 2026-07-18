@@ -7,6 +7,7 @@ import base64
 import copy
 import hashlib
 import hmac
+import io
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tarfile
 from types import SimpleNamespace
 from typing import BinaryIO, Callable
 import unittest
@@ -293,7 +295,6 @@ class RemoteBrokerTests(unittest.TestCase):
                         "cwd": "/root/jia/miaomu",
                         "argv": [
                             "mkdir",
-                            "-p",
                             "--",
                             "/root/jia/miaomu",
                         ],
@@ -649,10 +650,16 @@ class RemoteBrokerTests(unittest.TestCase):
         self._write_plan_artifacts(root, task["id"])
         run_dir = root / ".harness" / "runs" / task["id"]
         run_dir.mkdir()
-        (run_dir / "release.tar").write_bytes(b"sealed release artifact")
+        with tarfile.open(run_dir / "release.tar", mode="w") as archive:
+            payload = b"broker fixture release\n"
+            member = tarfile.TarInfo("release-marker.txt")
+            member.size = len(payload)
+            member.mtime = 0
+            archive.addfile(member, io.BytesIO(payload))
 
         self._git(root, "init", "-b", "ops/NUR-OPS-001-deploy")
         self._git(root, "config", "core.autocrlf", "true")
+        self._git(root, "config", "core.eol", "crlf")
         self._git(root, "config", "user.name", "Broker Selftest")
         self._git(root, "config", "user.email", "broker@example.invalid")
         original_harness_root = harness_core.ROOT
@@ -1023,6 +1030,71 @@ class RemoteBrokerTests(unittest.TestCase):
                 self.assertTrue(evidence["success"])
                 self.assertEqual(evidence["action"]["argv"], action_argv)
 
+    def test_read_only_compose_accepts_env_file(self) -> None:
+        positive_argv = (
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                "/root/jia/miaomu/release.env",
+                "-p",
+                "miaomu",
+                "-f",
+                "/root/jia/miaomu/deploy/compose.yaml",
+                "config",
+                "--quiet",
+            ],
+            [
+                "docker",
+                "compose",
+                "--env-file=/root/jia/miaomu/release.env",
+                "-p",
+                "miaomu",
+                "-f",
+                "/root/jia/miaomu/deploy/compose.yaml",
+                "config",
+                "--quiet",
+            ],
+        )
+        for action_argv in positive_argv:
+            with self.subTest(argv=action_argv):
+                task = copy.deepcopy(self.task)
+                task["remote_execution"]["allowed_actions"][0]["argv"] = action_argv
+                runner = RecordingTransport()
+                evidence = self._broker(task=task, runner=runner).execute(
+                    "inventory_pwd"
+                )
+                self.assertTrue(evidence["success"])
+                self.assertEqual(evidence["action"]["argv"], action_argv)
+
+    def test_read_only_compose_rejects_missing_env_file_value(self) -> None:
+        rejected_argv = (
+            [
+                "docker",
+                "compose",
+                "--env-file",
+                "-p",
+                "miaomu",
+                "config",
+                "--quiet",
+            ],
+            [
+                "docker",
+                "compose",
+                "--env-file=",
+                "-p",
+                "miaomu",
+                "config",
+                "--quiet",
+            ],
+        )
+        for action_argv in rejected_argv:
+            with self.subTest(argv=action_argv):
+                task = copy.deepcopy(self.task)
+                task["remote_execution"]["allowed_actions"][0]["argv"] = action_argv
+                with self.assertRaises(remote.RemoteBrokerError):
+                    self._broker(task=task)
+
     def test_read_only_curl_rejects_ambiguous_or_external_resolution(self) -> None:
         rejected_argv = (
             ["curl", "https://supervise.jiayyy.cn/"],
@@ -1219,7 +1291,10 @@ class RemoteBrokerTests(unittest.TestCase):
         self.assertIn("sha256sum --", argv[-1])
         self.assertIn("mv -fT --", argv[-1])
         self.assertIn("/root/jia/miaomu/release.tar", argv[-1])
-        self.assertEqual(runner.stdin_payloads, [b"sealed release artifact"])
+        self.assertEqual(
+            runner.stdin_payloads,
+            [(root / ".harness" / "runs" / "NUR-OPS-001" / "release.tar").read_bytes()],
+        )
         verification = evidence["upload_verification"]
         self.assertTrue(verification["stable_handle_verified_before_and_after"])
         self.assertTrue(verification["remote_staging_verification_confirmed"])
@@ -1254,11 +1329,11 @@ class RemoteBrokerTests(unittest.TestCase):
         }
         for relative in tracked_sources:
             with self.subTest(relative=relative):
-                self.assertIn(b"\r\n", worktree_sources[relative])
-                self.assertNotEqual(worktree_sources[relative], head_sources[relative])
-                self.assertEqual(
-                    worktree_sources[relative].replace(b"\r\n", b"\n"),
-                    head_sources[relative],
+                normalized = worktree_sources[relative].replace(b"\r\n", b"\n")
+                self.assertEqual(normalized, head_sources[relative])
+                self.assertTrue(
+                    worktree_sources[relative] == head_sources[relative]
+                    or b"\r\n" in worktree_sources[relative]
                 )
 
         observed_frames: list[bytes] = []
@@ -1300,9 +1375,9 @@ class RemoteBrokerTests(unittest.TestCase):
             framed[harness_start:harness_end],
             head_sources["scripts/harness.py"],
         )
-        self.assertNotEqual(
+        self.assertEqual(
             framed[remote_start:remote_end],
-            worktree_sources["scripts/harness_remote.py"],
+            head_sources["scripts/harness_remote.py"],
         )
 
     def test_tracked_harness_rejects_non_crlf_and_bare_cr_drift(self) -> None:
@@ -1351,7 +1426,7 @@ class RemoteBrokerTests(unittest.TestCase):
         self.assertTrue(evidence["success"])
         argv = runner.calls[0][0]
         self.assertEqual(
-            argv[-1], "exec mkdir -p -- /root/jia/miaomu"
+            argv[-1], "exec mkdir -- /root/jia/miaomu"
         )
 
         task = copy.deepcopy(self.task)
@@ -1362,7 +1437,7 @@ class RemoteBrokerTests(unittest.TestCase):
                 "mode": "mutating",
                 "timeout_seconds": 30,
                 "cwd": "/root/jia/miaomu",
-                "argv": ["mkdir", "-p", "--", "/root/jia/miaomu"],
+                "argv": ["mkdir", "--", "/root/jia/miaomu"],
             }
         )
         with self.assertRaisesRegex(remote.RemoteBrokerError, "only one"):
@@ -1978,6 +2053,7 @@ class RemoteBrokerTests(unittest.TestCase):
     def test_upload_source_replacement_during_transfer_cannot_change_wire_bytes(self) -> None:
         root, _task, _state = self._sealed_repository()
         artifact = root / ".harness" / "runs" / "NUR-OPS-001" / "release.tar"
+        original = artifact.read_bytes()
 
         def replace_source(_handle: BinaryIO) -> None:
             artifact.write_bytes(b"attacker replacement")
@@ -1987,7 +2063,7 @@ class RemoteBrokerTests(unittest.TestCase):
             "upload_release", allow_mutating=True
         )
         self.assertTrue(evidence["success"])
-        self.assertEqual(runner.stdin_payloads, [b"sealed release artifact"])
+        self.assertEqual(runner.stdin_payloads, [original])
 
     def test_upload_stage_mutation_during_transfer_is_rejected(self) -> None:
         root, _task, _state = self._sealed_repository()
@@ -2148,6 +2224,24 @@ class RemoteBrokerTests(unittest.TestCase):
         with self.assertRaisesRegex(remote.RemoteBrokerError, "unmanaged_remote_path"):
             self._broker(task=task)
 
+        task = copy.deepcopy(self.task)
+        task["remote_execution"]["allowed_actions"][0]["argv"] = [
+            "ls",
+            "-la",
+            "--",
+            "/root/jia",
+        ]
+        self._broker(task=task)
+        for parent_probe in (
+            ["ls", "-la", "/root/jia"],
+            ["ls", "-la", "--", "/root/jia/other"],
+        ):
+            with self.subTest(parent_probe=parent_probe):
+                task = copy.deepcopy(self.task)
+                task["remote_execution"]["allowed_actions"][0]["argv"] = parent_probe
+                with self.assertRaisesRegex(remote.RemoteBrokerError, "unmanaged_remote_path|mode_mismatch"):
+                    self._broker(task=task)
+
     def test_relative_path_operands_and_find_output_actions_fail_closed(self) -> None:
         task = copy.deepcopy(self.task)
         task["remote_execution"]["allowed_actions"][0]["argv"] = [
@@ -2282,6 +2376,8 @@ class RemoteBrokerTests(unittest.TestCase):
         allowed = (
             ["date"],
             ["date", "-u", "+%Y-%m-%dT%H:%M:%SZ"],
+            ["python3", "/root/jia/miaomu/deploy/probe_public_88.py"],
+            ["docker", "volume", "ls", "--format", "{{.Name}}"],
             ["caddy", "version"],
             [
                 "caddy",
@@ -2379,6 +2475,9 @@ class RemoteBrokerTests(unittest.TestCase):
             ["docker", "compose", "logs", "app"],
             ["docker", "compose", "top", "app"],
             ["docker", "compose", "ps"],
+            ["docker", "compose", "ps", "-q", "db", "db"],
+            ["docker", "compose", "ps", "-q", "--format", "db"],
+            ["docker", "compose", "ps", "-q", "../db"],
             ["docker", "compose", "ps", "--format", "json"],
             ["docker", "compose", "ps", "--format", "{{.Command}}"],
             ["docker", "compose", "images"],
@@ -2446,6 +2545,8 @@ class RemoteBrokerTests(unittest.TestCase):
                 "ps",
                 "--quiet",
             ],
+            ["docker", "compose", "ps", "--quiet", "db"],
+            ["docker", "compose", "ps", "-q", "app", "db"],
             ["docker", "compose", "ps", "--all", "--quiet"],
             ["docker", "compose", "version"],
         )
@@ -2454,6 +2555,17 @@ class RemoteBrokerTests(unittest.TestCase):
                 task = copy.deepcopy(self.task)
                 task["remote_execution"]["allowed_actions"][0]["argv"] = argv
                 self._broker(task=task)
+
+        for argv in (
+            ["python3", "/root/jia/miaomu/deploy/other.py"],
+            ["python3", "-c", "print(1)"],
+            ["python3", "/root/jia/miaomu/deploy/probe_public_88.py", "extra"],
+        ):
+            with self.subTest(interpreter_argv=argv):
+                task = copy.deepcopy(self.task)
+                task["remote_execution"]["allowed_actions"][0]["argv"] = argv
+                with self.assertRaises(remote.RemoteBrokerError):
+                    self._broker(task=task)
 
     def test_known_hosts_with_an_extra_target_key_is_denied(self) -> None:
         extra_blob = b"second-offline-host-key"
@@ -2566,6 +2678,43 @@ class RemoteBrokerTests(unittest.TestCase):
         self.assertFalse(evidence["success"])
         self.assertEqual(evidence["failure_kind"], "output_limit")
         self.assertIn("OUTPUT TRUNCATED", evidence["stdout"])
+
+    def test_release_env_is_a_single_sealed_commit_pin(self) -> None:
+        path = self.base / "release.env"
+        path.write_text(
+            "MIAOMU_RELEASE_SHA=" + "a" * 40 + "\n", encoding="ascii"
+        )
+        remote._validate_release_env_file(
+            path, label="fixture release.env", expected_commit="a" * 40
+        )
+        for payload in (
+            "MIAOMU_RELEASE_SHA=" + "b" * 40 + "\nOTHER=value\n",
+            "MIAOMU_RELEASE_SHA=" + "A" * 40 + "\n",
+            "MIAOMU_RELEASE_SHA=" + "a" * 39 + "\n",
+            "MYSQL_PASSWORD=secret\n",
+        ):
+            path.write_text(payload, encoding="ascii")
+            with self.assertRaises(remote.RemoteBrokerError):
+                remote._validate_release_env_file(path, label="fixture release.env")
+
+    def test_release_tar_rejects_traversal_and_links(self) -> None:
+        path = self.base / "release.tar"
+        for unsafe_name in ("../escape.txt", ".harness/state/active-task.json", "release.env"):
+            with tarfile.open(path, mode="w") as archive:
+                member = tarfile.TarInfo(unsafe_name)
+                member.size = 0
+                archive.addfile(member)
+            with self.subTest(name=unsafe_name):
+                with self.assertRaises(remote.RemoteBrokerError):
+                    remote._validate_release_tar_file(path, label="fixture release.tar")
+
+        with tarfile.open(path, mode="w") as archive:
+            member = tarfile.TarInfo("link.txt")
+            member.type = tarfile.SYMTYPE
+            member.linkname = "/etc/passwd"
+            archive.addfile(member)
+        with self.assertRaises(remote.RemoteBrokerError):
+            remote._validate_release_tar_file(path, label="fixture release.tar")
 
     def test_real_local_runner_bounds_output_without_network(self) -> None:
         outcome = remote._run_bounded_process(

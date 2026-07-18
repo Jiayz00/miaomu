@@ -40,7 +40,7 @@
 - 仓库根及其祖先、必需源码、Harness 控制面、任务、状态、证据、报告和测试路径不得经过符号链接、Windows 目录联接或未知 reparse point；Python 3.11+ 必须失败关闭。测试输出与超时上限由代码固定，配置不得放宽。
 - 不读取或记录密钥内容，不访问合同外数据库；远程或发布动作只允许在用户明确授权的 L4 operations 任务中，经项目 broker 严格按 `remote_execution` 锁定主机指纹、外部凭据引用、受管根和精确动作执行。mutating 动作还必须锁定已批准的干净 Git release commit。
 - L3/L4、高风险权限、数据、统计和核心修改不得由实现角色自行批准。owner、reviewer、release_approver 可由不同 Codex 代理承担；自动审批必须在任务 v2 合同中预先锁定 implementation/plan/merge/release canonical agent task，审批 thread 必须不同于 implementation thread，L4 发布代理还必须独立于其余角色，并引用多轮审查、验证、备份和回滚证据。
-- Codex agent task、`CODEX_THREAD_ID`、审查制品和 Git 记录只是项目内自声明审计上下文，不是密码学身份或远程授权凭据；实现代理不得据此自批，任何制品或锁定上下文变化都必须使相应审批失效。
+- Codex agent task、`CODEX_THREAD_ID`、审查制品和 Git 记录只是项目内自声明审计上下文，不是密码学身份或远程授权凭据；实现代理不得据此自批。首次进入实现前，制品或锁定上下文变化会使 plan 审批失效；任务已实际进入 `implementing` 后，只有四份计划制品的漂移可改为显式 warning 并要求重新 `preflight`，由必需的独立 merge 代码/功能审查锁定当前内容。任务合同、执行策略、需求决策、远程目标或动作变化仍使 plan 审批失效；L4 release 审查及远程安全门不变。
 
 ## 5. 项目级隔离
 

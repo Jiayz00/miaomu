@@ -29,7 +29,7 @@ draft
 → closed
 ```
 
-Use `blocked` or `cancelled` when appropriate. Do not skip approval for L3/L4, database, authorization, analytics-contract, or core-impact work.
+Use `blocked` or `cancelled` when appropriate. Do not skip the initial required plan approval for L3/L4, database, authorization, analytics-contract, or core-impact work. Once history proves the task already entered `implementing`, changes limited to the four plan artifacts may continue with an explicit Harness warning and a fresh preflight instead of another plan-approval loop; the current diff must still pass independent merge code/functional review. Contract, policy, decision-context, remote-target, or remote-action drift remains blocking and requires renewed plan approval; L4 remote work still requires independent release approval.
 
 Use `python scripts/harness.py task-transition ...` for every state change and
 `python scripts/harness.py task-approval ...` for plan, merge, or release decisions.

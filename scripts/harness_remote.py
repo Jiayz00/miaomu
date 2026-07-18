@@ -30,6 +30,7 @@ import shlex
 import stat
 import subprocess
 import sys
+import tarfile
 import tempfile
 import threading
 import time
@@ -49,6 +50,10 @@ MAX_KNOWN_HOSTS_BYTES = 1024 * 1024
 MAX_CONTROL_JSON_BYTES = 4 * 1024 * 1024
 LOCAL_GIT_OUTPUT_BYTES = 64 * 1024
 MAX_TRACKED_HARNESS_BYTES = 4 * 1024 * 1024
+MAX_RELEASE_ENV_BYTES = 8 * 1024
+MAX_RELEASE_TAR_BYTES = 512 * 1024 * 1024
+MAX_RELEASE_TAR_MEMBERS = 200000
+MAX_RELEASE_TAR_CONTENT_BYTES = 4 * 1024 * 1024 * 1024
 
 _RELEASE_CHECK_LAUNCHER = (
     "import sys,types;"
@@ -323,6 +328,11 @@ DOCKER_IMAGE_LIST_FORMATS = frozenset(
         "{{.Digest}}",
         "{{.Size}}",
         "{{.ID}}|{{.Repository}}|{{.Tag}}|{{.Digest}}|{{.Size}}",
+    }
+)
+DOCKER_VOLUME_LIST_FORMATS = frozenset(
+    {
+        "{{.Name}}",
     }
 )
 DOCKER_CONTAINER_TARGET_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
@@ -851,6 +861,16 @@ def _validate_read_only_docker_compose(
     project_seen = False
     while index < len(arguments):
         item = arguments[index]
+        if item == "--env-file":
+            if index + 1 >= len(arguments) or arguments[index + 1].startswith("-"):
+                raise RemoteBrokerError(
+                    "mode_mismatch", f"{label} Compose env-file value is invalid"
+                )
+            index += 2
+            continue
+        if item.startswith("--env-file=") and item.split("=", 1)[1]:
+            index += 1
+            continue
         if item in {"-f", "--file"}:
             if index + 1 >= len(arguments) or arguments[index + 1].startswith("-"):
                 raise RemoteBrokerError(
@@ -899,10 +919,16 @@ def _validate_read_only_docker_compose(
             )
         quiet_count = sum(item in {"-q", "--quiet"} for item in remainder)
         all_count = sum(item in {"-a", "--all"} for item in remainder)
+        service_names = [
+            item
+            for item in remainder
+            if item not in {"-q", "--quiet", "-a", "--all"}
+        ]
         if (
             quiet_count == 1
             and all_count <= 1
-            and all(item in {"-q", "--quiet", "-a", "--all"} for item in remainder)
+            and len(service_names) <= 16
+            and all(DOCKER_CONTAINER_TARGET_RE.fullmatch(item) for item in service_names)
         ):
             return
         raise RemoteBrokerError(
@@ -1255,6 +1281,18 @@ def _validate_read_only_command(argv: Sequence[str], *, label: str) -> None:
         _validate_read_only_curl(arguments, label=label)
         return
 
+    if executable in {"python", "python3"}:
+        # The only interpreter-backed read-only probe is the fixed loopback
+        # exposure check shipped with this repository.  Remote path validation
+        # still constrains the script to the managed deployment root.
+        if len(arguments) == 1 and re.fullmatch(
+            r"/root/jia/miaomu/deploy/probe_public_88\.py", arguments[0]
+        ):
+            return
+        raise RemoteBrokerError(
+            "mode_mismatch", f"{label} interpreter action is outside the fixed probe"
+        )
+
     if executable == "docker":
         if not arguments:
             raise RemoteBrokerError("mode_mismatch", f"{label} docker action is incomplete")
@@ -1314,6 +1352,15 @@ def _validate_read_only_command(argv: Sequence[str], *, label: str) -> None:
                     allowed_flags=frozenset(
                         {"-a", "--all", "--digests", "--no-trunc"}
                     ),
+                    label=label,
+                )
+                return
+        if command == "volume" and len(arguments) >= 2:
+            if arguments[1] in {"ls", "list"}:
+                _validate_docker_list(
+                    arguments[2:],
+                    allowed_formats=DOCKER_VOLUME_LIST_FORMATS,
+                    allowed_flags=frozenset({"-a", "--all"}),
                     label=label,
                 )
                 return
@@ -1615,6 +1662,123 @@ def _sha256_regular_file(path: Path, *, label: str) -> tuple[int, str]:
             "artifact_drift", f"{label} changed while its release hash was computed"
         )
     return before.st_size, digest.hexdigest()
+
+
+def _validate_release_env_file(
+    path: Path, *, label: str, expected_commit: str | None = None
+) -> None:
+    """Accept only the one non-sensitive Compose release pin."""
+
+    payload = _read_stable_regular_bytes(
+        path, label=label, maximum_bytes=MAX_RELEASE_ENV_BYTES
+    )
+    if b"\x00" in payload or b"\r" in payload.replace(b"\r\n", b""):
+        raise RemoteBrokerError(
+            "release_artifact_invalid", f"{label} contains invalid control bytes"
+        )
+    payload = payload.replace(b"\r\n", b"\n")
+    try:
+        text = payload.decode("ascii", errors="strict")
+    except UnicodeError as exc:
+        raise RemoteBrokerError(
+            "release_artifact_invalid", f"{label} must be ASCII"
+        ) from exc
+    if text.endswith("\n"):
+        text = text[:-1]
+    if "\n" in text or "=" not in text:
+        raise RemoteBrokerError(
+            "release_artifact_invalid", f"{label} must contain one assignment"
+        )
+    key, value = text.split("=", 1)
+    if key != "MIAOMU_RELEASE_SHA" or not re.fullmatch(r"[0-9a-f]{40}", value):
+        raise RemoteBrokerError(
+            "release_artifact_invalid", f"{label} has an invalid release pin"
+        )
+    if expected_commit is not None and value != expected_commit.casefold():
+        raise RemoteBrokerError(
+            "release_artifact_invalid", f"{label} does not match the sealed Git release"
+        )
+
+
+def _validate_release_tar_file(path: Path, *, label: str) -> None:
+    """Reject traversal/link members before the remote tar extraction action."""
+
+    try:
+        before = path.lstat()
+    except OSError as exc:
+        raise RemoteBrokerError("release_artifact_invalid", f"{label} is unavailable") from exc
+    if (
+        stat.S_ISLNK(before.st_mode)
+        or _is_reparse_point(before)
+        or not stat.S_ISREG(before.st_mode)
+        or before.st_size <= 0
+        or before.st_size > MAX_RELEASE_TAR_BYTES
+    ):
+        raise RemoteBrokerError("release_artifact_invalid", f"{label} has invalid size or type")
+    names: set[str] = set()
+    content_bytes = 0
+    member_count = 0
+    try:
+        with tarfile.open(path, mode="r:*") as archive:
+            for member in archive:
+                member_count += 1
+                if member_count > MAX_RELEASE_TAR_MEMBERS:
+                    raise RemoteBrokerError(
+                        "release_artifact_invalid", f"{label} has too many members"
+                    )
+                name = member.name
+                pure = PurePosixPath(name)
+                normalized = pure.as_posix()
+                if (
+                    not name
+                    or "\\" in name
+                    or pure.is_absolute()
+                    or ".." in pure.parts
+                    or normalized != name.rstrip("/")
+                    or normalized in names
+                    or normalized in {"release.tar", "release.env"}
+                    or (pure.parts and pure.parts[0] in {".git", ".harness"})
+                ):
+                    raise RemoteBrokerError(
+                        "release_artifact_invalid", f"{label} contains an unsafe member path"
+                    )
+                names.add(normalized)
+                if member.issym() or member.islnk() or member.isdev():
+                    raise RemoteBrokerError(
+                        "release_artifact_invalid", f"{label} contains a link or device member"
+                    )
+                if member.isfile():
+                    if member.size < 0:
+                        raise RemoteBrokerError(
+                            "release_artifact_invalid", f"{label} contains an invalid member size"
+                        )
+                    content_bytes += member.size
+                    if content_bytes > MAX_RELEASE_TAR_CONTENT_BYTES:
+                        raise RemoteBrokerError(
+                            "release_artifact_invalid", f"{label} expands beyond the fixed limit"
+                        )
+    except RemoteBrokerError:
+        raise
+    except (OSError, tarfile.TarError, ValueError) as exc:
+        raise RemoteBrokerError(
+            "release_artifact_invalid", f"{label} is not a valid tar archive"
+        ) from exc
+    try:
+        after = path.lstat()
+    except OSError as exc:
+        raise RemoteBrokerError("artifact_drift", f"{label} changed during validation") from exc
+    if (
+        before.st_dev,
+        before.st_ino,
+        before.st_size,
+        before.st_mtime_ns,
+    ) != (
+        after.st_dev,
+        after.st_ino,
+        after.st_size,
+        after.st_mtime_ns,
+    ):
+        raise RemoteBrokerError("artifact_drift", f"{label} changed during validation")
 
 
 def _read_stable_regular_bytes(
@@ -2181,6 +2345,18 @@ class RemoteExecutionBroker:
             size, sha256 = _sha256_regular_file(
                 local_path, label=f"upload action {action_id}"
             )
+            if action_id == "upload_release_env" or str(action.get("source", "")).endswith(
+                "/release.env"
+            ):
+                _validate_release_env_file(
+                    local_path, label=f"upload action {action_id} release.env"
+                )
+            if action_id == "upload_release" or str(action.get("source", "")).endswith(
+                "/release.tar"
+            ):
+                _validate_release_tar_file(
+                    local_path, label=f"upload action {action_id} release.tar"
+                )
             facts.append(
                 {
                     "action_id": action_id,
@@ -2806,6 +2982,15 @@ class RemoteExecutionBroker:
         label: str,
     ) -> None:
         executable = _basename_token(argv[0])
+        # The deployment-root preflight needs to inspect the fixed parent
+        # directory before the root itself exists. Keep this one parent probe
+        # explicit instead of widening managed_roots to /root/jia.
+        if (
+            mode == "read_only"
+            and executable == "ls"
+            and tuple(argv[1:]) == ("-la", "--", "/root/jia")
+        ):
+            return
         if executable == "docker":
             self._validate_docker_host_paths(argv, cwd=cwd, label=label)
         else:
@@ -2844,7 +3029,7 @@ class RemoteExecutionBroker:
             and action.mode == "mutating"
             and action.cwd == self._deployment_root
             and action.argv
-            == ("mkdir", "-p", "--", self._deployment_root)
+            == ("mkdir", "--", self._deployment_root)
         )
 
     @staticmethod
@@ -3558,6 +3743,18 @@ class RemoteExecutionBroker:
                 "artifact_drift",
                 "release upload artifacts differ from their sealed size or SHA-256",
             )
+        for action in self._actions.values():
+            if action.transport != "scp" or action.direction != "upload":
+                continue
+            local_path = self._validate_local_runtime_path(action)
+            if action.action_id == "upload_release_env":
+                _validate_release_env_file(
+                    local_path,
+                    label="sealed release.env",
+                    expected_commit=release_commit,
+                )
+            elif action.action_id == "upload_release":
+                _validate_release_tar_file(local_path, label="sealed release.tar")
         self._sealed_upload_artifacts = {
             item["action_id"]: copy.deepcopy(item) for item in actual_artifacts
         }

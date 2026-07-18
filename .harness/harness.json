@@ -145,6 +145,7 @@
       "L3",
       "L4"
     ],
+    "post_implementation_plan_changes": "warn_plan_artifacts_and_require_merge_review",
     "status_transitions": {
       "draft": ["ready_for_analysis", "cancelled"],
       "ready_for_analysis": ["awaiting_plan_approval", "blocked", "cancelled"],

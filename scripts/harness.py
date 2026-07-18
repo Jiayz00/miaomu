@@ -105,6 +105,9 @@ WORKFLOW_LOCK_WAIT_SECONDS = 15.0
 WORKFLOW_LOCK_STALE_SECONDS = 600.0
 HARD_MAX_TEST_TIMEOUT_SECONDS = 3600
 HARD_MAX_CAPTURED_OUTPUT_BYTES = 1024 * 1024
+POST_IMPLEMENTATION_PLAN_CHANGE_MODE = (
+    "warn_plan_artifacts_and_require_merge_review"
+)
 ROOT = Path(os.path.abspath(__file__)).parents[1]
 HARNESS_DIR = ROOT / ".harness"
 TASKS_DIR = HARNESS_DIR / "tasks"
@@ -3512,6 +3515,7 @@ class Harness:
             return result
         derived_status = "draft"
         latest_approvals: dict[str, dict[str, Any]] = {}
+        implementation_started = False
         approval_statuses = {
             "plan": {"awaiting_plan_approval"},
             "merge": {"awaiting_review"},
@@ -3574,6 +3578,8 @@ class Harness:
                             result.errors.append(
                                 f"workflow-history events[{index}] 进入 approved_for_merge 前缺少已批准 release 事件"
                             )
+                if target == "implementing":
+                    implementation_started = True
                 derived_status = target
                 for stage in self.approval_resets_for_transition(target):
                     latest_approvals.pop(stage, None)
@@ -3609,15 +3615,38 @@ class Harness:
             result.errors.append(
                 f"workflow-history 派生状态 {derived_status} 与 task.json.status={task.get('status')} 不一致"
             )
+        workflow = self.config.get("workflow", {})
         latest_plan_event = latest_approvals.get("plan")
+        post_implementation_plan_artifact_warning = bool(
+            implementation_started
+            and isinstance(latest_plan_event, dict)
+            and latest_plan_event.get("status") == "approved"
+            and isinstance(workflow, dict)
+            and workflow.get("post_implementation_plan_changes")
+            == POST_IMPLEMENTATION_PLAN_CHANGE_MODE
+        )
+        plan_artifact_drift = False
         if (
             isinstance(latest_plan_event, dict)
             and latest_plan_event.get("status") == "approved"
         ):
-            def plan_context_problem(message: str) -> None:
-                if allow_stale_plan_context:
+            def plan_context_problem(
+                message: str,
+                *,
+                allow_post_implementation_plan_artifact_drift: bool = False,
+            ) -> None:
+                if allow_stale_plan_context or (
+                    allow_post_implementation_plan_artifact_drift
+                    and post_implementation_plan_artifact_warning
+                ):
+                    suffix = (
+                        "；任务已开始实现，更新后的计划制品必须由 merge 审查重新核验"
+                        if allow_post_implementation_plan_artifact_drift
+                        and post_implementation_plan_artifact_warning
+                        else "；当前仅允许退回计划阶段或重新记录 plan 审批"
+                    )
                     result.warnings.append(
-                        message + "；当前仅允许退回计划阶段或重新记录 plan 审批"
+                        message + suffix
                     )
                 else:
                     result.errors.append(message)
@@ -3634,7 +3663,11 @@ class Harness:
                     plan_context_problem(str(exc))
                 else:
                     if recorded_plan_hash != current_plan_hash:
-                        plan_context_problem("计划制品在 plan 批准后发生变化，旧审批已失效")
+                        plan_artifact_drift = True
+                        plan_context_problem(
+                            "计划制品在 plan 批准后发生变化，旧审批已失效",
+                            allow_post_implementation_plan_artifact_drift=True,
+                        )
             recorded_decision_hash = latest_plan_event.get("decision_context_sha256")
             if not isinstance(recorded_decision_hash, str) or not re.fullmatch(
                 r"[0-9a-f]{64}", recorded_decision_hash
@@ -3685,10 +3718,28 @@ class Harness:
                 )
             binding = self.codex_role_binding(task, stage)
             if isinstance(binding, dict):
-                def approval_binding_problem(message: str) -> None:
-                    if stage == "plan" and allow_stale_plan_context:
+                def approval_binding_problem(
+                    message: str,
+                    *,
+                    plan_artifact_context_only: bool = False,
+                ) -> None:
+                    if stage == "plan" and (
+                        allow_stale_plan_context
+                        or (
+                            plan_artifact_context_only
+                            and plan_artifact_drift
+                            and post_implementation_plan_artifact_warning
+                        )
+                    ):
+                        suffix = (
+                            "；任务已开始实现，更新后的计划制品必须由 merge 审查重新核验"
+                            if plan_artifact_context_only
+                            and plan_artifact_drift
+                            and post_implementation_plan_artifact_warning
+                            else "；当前仅允许重新记录 plan 审批"
+                        )
                         result.warnings.append(
-                            message + "；当前仅允许重新记录 plan 审批"
+                            message + suffix
                         )
                     else:
                         result.errors.append(message)
@@ -3740,8 +3791,31 @@ class Harness:
                         )
                     )
                 except (HarnessError, OSError, UnicodeError) as exc:
+                    plan_context_mismatch_only = bool(
+                        stage == "plan"
+                        and ".approval_context_sha256 必须等于" in str(exc)
+                    )
+                    if plan_context_mismatch_only:
+                        try:
+                            stale_artifact, stale_artifact_hash = (
+                                canonical_json_file_sha256(
+                                    self.approval_artifact_path(task_id, stage),
+                                    label=f"{stage} 审查制品",
+                                )
+                            )
+                        except (HarnessError, OSError, UnicodeError):
+                            plan_context_mismatch_only = False
+                        else:
+                            plan_context_mismatch_only = bool(
+                                isinstance(stale_artifact, dict)
+                                and stale_artifact_hash
+                                == latest.get("review_artifact_sha256")
+                                and stale_artifact.get("approval_context_sha256")
+                                == latest.get("approval_context_sha256")
+                            )
                     approval_binding_problem(
-                        f"workflow-history 最新 {stage} 审查制品失效：{exc}"
+                        f"workflow-history 最新 {stage} 审查制品失效：{exc}",
+                        plan_artifact_context_only=plan_context_mismatch_only,
                     )
                 else:
                     if latest.get("review_artifact_path") != display_path(artifact_path):
@@ -4325,6 +4399,15 @@ class Harness:
             "approved_for_implementation"
         ]:
             result.errors.append("workflow.preflight_statuses 必须固定为 approved_for_implementation")
+        if (
+            not isinstance(workflow, dict)
+            or workflow.get("post_implementation_plan_changes")
+            != POST_IMPLEMENTATION_PLAN_CHANGE_MODE
+        ):
+            result.errors.append(
+                "workflow.post_implementation_plan_changes 必须固定为 "
+                + POST_IMPLEMENTATION_PLAN_CHANGE_MODE
+            )
         if not isinstance(workflow, dict) or workflow.get("release_statuses") != [
             "approved_for_merge",
             "closed",

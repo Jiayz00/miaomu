@@ -364,12 +364,16 @@ class HarnessCoreTests(unittest.TestCase):
         )
         self.harness.config["execution"]["max_test_timeout_seconds"] = 10**9
         self.harness.config["execution"]["max_captured_output_bytes"] = 10**12
+        self.harness.config["workflow"]["post_implementation_plan_changes"] = "ignore"
         gate = self.harness.project_check()
         self.assertFalse(gate.ok)
         self.assertTrue(any("bootstrap_allowed" in item for item in gate.errors))
         self.assertTrue(any("task_runtime_allowed" in item for item in gate.errors))
         self.assertTrue(any("max_test_timeout_seconds" in item for item in gate.errors))
         self.assertTrue(any("max_captured_output_bytes" in item for item in gate.errors))
+        self.assertTrue(
+            any("post_implementation_plan_changes" in item for item in gate.errors)
+        )
 
     def test_remote_execution_requires_explicit_l4_operations_contract(self) -> None:
         task = self.task_value("NUR-OPS-990")
@@ -1478,6 +1482,120 @@ class HarnessCoreTests(unittest.TestCase):
         self.assertEqual(
             reopened_task["manual_approvals"]["plan"]["status"], "pending"
         )
+
+    def test_post_implementation_plan_drift_is_deferred_to_merge_review(self) -> None:
+        task_id = "NUR-FEAT-984"
+        task = self.task_value(task_id, status="awaiting_plan_approval")
+        self.enable_codex_bindings(task)
+        self.write_task(task_id, task)
+        self.write_valid_plan_artifacts(task_id)
+        self.write_history(
+            task_id,
+            [
+                {
+                    "type": "transition",
+                    "from": "draft",
+                    "to": "ready_for_analysis",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:00Z",
+                },
+                {
+                    "type": "transition",
+                    "from": "ready_for_analysis",
+                    "to": "awaiting_plan_approval",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2026-07-12T00:00:01Z",
+                },
+            ],
+        )
+        approval = self.approve_bound_stage(
+            task_id,
+            stage="plan",
+            actor="Reviewer",
+            reason="initial plan reviewed",
+        )
+        self.assertTrue(approval.ok, approval.errors)
+
+        current = self.harness.load_task(task_id)
+        current["status"] = "blocked"
+        current["updated_at"] = "2099-07-12T00:00:05Z"
+        (self.root / ".harness/tasks" / task_id / "task.json").write_text(
+            json_text(current), encoding="utf-8"
+        )
+        history = self.harness.workflow_history_value(task_id)
+        history["events"].extend(
+            [
+                {
+                    "type": "transition",
+                    "from": "awaiting_plan_approval",
+                    "to": "approved_for_implementation",
+                    "by": "Reviewer",
+                    "reason": "",
+                    "at": "2099-07-12T00:00:03Z",
+                },
+                {
+                    "type": "transition",
+                    "from": "approved_for_implementation",
+                    "to": "implementing",
+                    "by": "Owner",
+                    "reason": "",
+                    "at": "2099-07-12T00:00:04Z",
+                },
+                {
+                    "type": "transition",
+                    "from": "implementing",
+                    "to": "blocked",
+                    "by": "Owner",
+                    "reason": "implementation correction requires an updated plan",
+                    "at": "2099-07-12T00:00:05Z",
+                },
+            ]
+        )
+        (self.root / ".harness/tasks" / task_id / "workflow-history.json").write_text(
+            json_text(history), encoding="utf-8"
+        )
+        plan_path = self.root / ".harness/tasks" / task_id / "implementation-plan.md"
+        plan_path.write_text(
+            plan_path.read_text(encoding="utf-8") + "\n实施中发现的修订会交由合并审查复核。\n",
+            encoding="utf-8",
+        )
+
+        gate = self.harness.task_check(task_id)
+        self.assertTrue(gate.ok, gate.errors)
+        self.assertTrue(any("merge 审查重新核验" in item for item in gate.warnings))
+
+        approval_path = self.root / ".harness/tasks" / task_id / "approval-plan.json"
+        approval_bytes = approval_path.read_bytes()
+        tampered_approval = json.loads(approval_bytes.decode("utf-8"))
+        tampered_approval["summary"] = "审批制品被篡改"
+        approval_path.write_text(json_text(tampered_approval), encoding="utf-8")
+        tampered_gate = self.harness.task_check(task_id)
+        self.assertFalse(tampered_gate.ok)
+        self.assertTrue(any("审查制品" in item for item in tampered_gate.errors))
+        approval_path.write_bytes(approval_bytes)
+
+        original = self.harness.load_task(task_id)
+        contract_changed = copy.deepcopy(original)
+        contract_changed["allowed_paths"] = ["other/**"]
+        (self.root / ".harness/tasks" / task_id / "task.json").write_text(
+            json_text(contract_changed), encoding="utf-8"
+        )
+        contract_gate = self.harness.task_check(task_id)
+        self.assertFalse(contract_gate.ok)
+        self.assertTrue(any("任务授权合同" in item for item in contract_gate.errors))
+
+        policy_changed = copy.deepcopy(original)
+        policy_changed["new_dependency_allowed"] = not bool(
+            policy_changed["new_dependency_allowed"]
+        )
+        (self.root / ".harness/tasks" / task_id / "task.json").write_text(
+            json_text(policy_changed), encoding="utf-8"
+        )
+        policy_gate = self.harness.task_check(task_id)
+        self.assertFalse(policy_gate.ok)
+        self.assertTrue(any("任务执行策略" in item for item in policy_gate.errors))
 
     def test_plan_approval_hash_invalidates_after_contract_change(self) -> None:
         task_id = "NUR-OPS-972"
