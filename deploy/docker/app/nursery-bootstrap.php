@@ -2,6 +2,9 @@
 <?php
 declare(strict_types=1);
 
+// NUR-OPS-001 invokes this fixed entry; migration logic remains owned by
+// the approved NUR-FEAT-002/003/004 tasks.
+
 namespace think;
 
 use app\plugins\nursery\service\CatalogMigration;

@@ -62,6 +62,7 @@ if($manifestPath !== '')
     if(
         !is_array($manifest)
         || intval($manifest['schema_version'] ?? 0) !== 1
+        || ($manifest['source'] ?? '') !== 'config/shopxo.sql'
         || intval($manifest['table_count'] ?? 0) !== count($createdTables)
         || !is_array($expectedTables)
         || count($expectedTables) !== count($createdTables)

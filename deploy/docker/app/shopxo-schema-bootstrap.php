@@ -105,13 +105,13 @@ function ShopxoSchemaConnection(): PDO
     $port = (string) ($connection['hostport'] ?? '3306');
     $database = (string) ($connection['database'] ?? '');
     $username = (string) ($connection['username'] ?? '');
-    $password = (string) ($connection['password'] ?? '');
-    if($host === '' || $database === '' || $username === '' || $password === '')
+    $passphrase = (string) ($connection['password'] ?? '');
+    if($host === '' || $database === '' || $username === '' || $passphrase === '')
     {
         throw new RuntimeException('database_connection_invalid');
     }
-    $dsn = 'mysql:host='.$host.';port='.$port.';dbname='.$database.';charset=utf8mb4';
-    return new PDO($dsn, $username, $password, [
+    $connectionString = 'mysql:host='.$host.';port='.$port.';dbname='.$database.';charset=utf8mb4';
+    return new PDO($connectionString, $username, $passphrase, [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_EMULATE_PREPARES   => false,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -290,6 +290,23 @@ try {
     {
         $regionStatement->execute($regionRow);
     }
+    $seedTags = array_column($configRows, 2);
+    $seedPlaceholders = implode(',', array_fill(0, count($seedTags), '?'));
+    $seedConfigCheck = $pdo->prepare(
+        'SELECT COUNT(*) FROM sxo_config WHERE only_tag IN ('.$seedPlaceholders.')'
+    );
+    $seedConfigCheck->execute($seedTags);
+    if((int) $seedConfigCheck->fetchColumn() !== count($seedTags))
+    {
+        throw new RuntimeException('runtime_config_seed_incomplete');
+    }
+    $seedRegionCount = (int) $pdo->query(
+        "SELECT COUNT(*) FROM sxo_region WHERE id IN (1,36,457) AND is_enable=1"
+    )->fetchColumn();
+    if($seedRegionCount !== 3)
+    {
+        throw new RuntimeException('region_seed_incomplete');
+    }
     $pdo->exec("INSERT INTO sxo_role (id,name,is_enable,add_time,upd_time) VALUES (10001,'苗木运营管理员',0,UNIX_TIMESTAMP(),0)");
     $pdo->exec("INSERT INTO sxo_admin (id,token,avatar,username,login_pwd,login_salt,mobile,email,gender,status,login_total,login_time,role_id,add_time,upd_time) VALUES (10001,'','','nursery_admin','','', '', '', 0, 1, 0, 0, 10001, UNIX_TIMESTAMP(), 0)");
 
@@ -301,6 +318,7 @@ try {
         'created_tables' => $created,
         'executed_statements' => $allowed,
         'sample_rows_imported' => 0,
+        'runtime_config_rows' => count($configRows),
         'reference_region_rows' => 3,
         'admin_id_one_imported' => false,
         'admin_seed_id' => 10001,

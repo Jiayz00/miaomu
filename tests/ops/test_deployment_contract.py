@@ -1969,6 +1969,19 @@ class AppRuntimeContractTests(unittest.TestCase):
         ):
             self.assertIn(fragment, source)
 
+    def test_caddy_candidate_publish_is_exclusive_and_durable(self) -> None:
+        source = (DEPLOY / "prepare_caddy_candidate.py").read_text(encoding="utf-8")
+        for fragment in (
+            "tempfile.mkstemp",
+            "os.fchmod(descriptor, 0o440)",
+            "os.fsync(handle.fileno())",
+            "os.link(temporary, output, follow_symlinks=False)",
+            "Caddy candidate output already exists",
+        ):
+            self.assertIn(fragment, source)
+        self.assertNotIn("temporary.write_text", source)
+        self.assertNotIn("os.replace(temporary, output)", source)
+
     def test_schema_extractor_never_keeps_insert_records(self) -> None:
         source = (self.app_dir / "extract-schema.php").read_text(encoding="utf-8")
         self.assertIn("CREATE\\s+TABLE", source)
@@ -1977,6 +1990,7 @@ class AppRuntimeContractTests(unittest.TestCase):
         self.assertIn("$created < 80", source)
         self.assertIn("schema manifest mismatch", source)
         self.assertIn("array_unique(array_map('strval', $expectedTables))", source)
+        self.assertIn("($manifest['source'] ?? '') !== 'config/shopxo.sql'", source)
 
     def test_runtime_secret_preparation_is_create_once_and_metadata_only(self) -> None:
         source = (DEPLOY / "prepare_runtime_secrets.py").read_text(encoding="utf-8")

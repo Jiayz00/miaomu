@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import stat
 import sys
+import tempfile
 
 
 MARKER = "# BEGIN MIAOMU NURsery CONTRACT"
@@ -36,11 +37,41 @@ def build(source: Path, fragment: Path, output: Path) -> None:
     parent.mkdir(mode=0o750, parents=True, exist_ok=True)
     if parent.is_symlink():
         raise RuntimeError("candidate output directory must not be a symlink")
-    temporary = output.with_name(output.name + ".tmp")
     payload = source_text.rstrip() + "\n\n" + MARKER + "\n" + fragment_text.lstrip()
-    temporary.write_text(payload, encoding="utf-8", newline="\n")
-    os.replace(temporary, output)
-    os.chmod(output, 0o440)
+    descriptor: int | None = None
+    temporary: Path | None = None
+    try:
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{output.name}.", dir=str(parent)
+        )
+        temporary = Path(temporary_name)
+        os.fchmod(descriptor, 0o440)
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            descriptor = None
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(temporary, output, follow_symlinks=False)
+        metadata = output.lstat()
+        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+            raise RuntimeError("published Caddy candidate is not a regular file")
+        if stat.S_IMODE(metadata.st_mode) != 0o440:
+            raise RuntimeError("published Caddy candidate mode is unsafe")
+    except FileExistsError as exc:
+        raise RuntimeError("Caddy candidate output already exists") from exc
+    finally:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError:
+                pass
 
 
 def main(argv: list[str] | None = None) -> int:

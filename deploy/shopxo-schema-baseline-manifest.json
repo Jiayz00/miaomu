@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "source": "config/shopxo.sql",
+  "baseline_commit": "d1825c5404054b535255d8fcad675a5dae0ab633",
   "mode": "schema_only_fresh_database",
   "table_count": 83,
   "tables": [
