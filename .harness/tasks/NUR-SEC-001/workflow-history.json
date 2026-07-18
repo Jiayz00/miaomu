@@ -63,6 +63,90 @@
       "by": "Codex-Implementer",
       "reason": "实现提交已完成，开始真实合同验证",
       "at": "2026-07-18T21:15:50Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "串行验证、证据和审查包已完成，提交独立代码与功能审查",
+      "at": "2026-07-18T21:48:39Z"
+    },
+    {
+      "type": "approval",
+      "stage": "merge",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/business_review",
+      "codex_thread_id": "019f76d2-6299-7f73-9709-e64433ddc6e3",
+      "expected_agent_task": "/root/business_review",
+      "observed_agent_task": "/root/business_review",
+      "observed_codex_thread_id": "019f76d2-6299-7f73-9709-e64433ddc6e3",
+      "reason": "",
+      "at": "2026-07-18T21:59:04Z",
+      "review_artifact_path": ".harness/tasks/NUR-SEC-001/approval-merge.json",
+      "review_artifact_sha256": "266a3eb183f4487340d65435b6553cc8f90bde3e86d53f42419d7e34d35fec3c",
+      "approval_context_sha256": "3a49088e17eec8e2b48ea59da8e5499658d9c88d95ff03ca8fad974417ca576b",
+      "reviewed_at": "2026-07-18T21:57:51Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "reset merge context for latest review pack; business evidence unchanged",
+      "at": "2026-07-18T22:04:33Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "approval reset only; reuse valid verify and evidence",
+      "at": "2026-07-18T22:04:42Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "reuse valid verify/evidence; latest review pack awaits independent merge re-review",
+      "at": "2026-07-18T22:04:47Z"
+    },
+    {
+      "type": "approval",
+      "stage": "merge",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/business_review",
+      "codex_thread_id": "019f76d2-6299-7f73-9709-e64433ddc6e3",
+      "expected_agent_task": "/root/business_review",
+      "observed_agent_task": "/root/business_review",
+      "observed_codex_thread_id": "019f76d2-6299-7f73-9709-e64433ddc6e3",
+      "reason": "",
+      "at": "2026-07-18T22:04:57Z",
+      "review_artifact_path": ".harness/tasks/NUR-SEC-001/approval-merge.json",
+      "review_artifact_sha256": "266a3eb183f4487340d65435b6553cc8f90bde3e86d53f42419d7e34d35fec3c",
+      "approval_context_sha256": "3a49088e17eec8e2b48ea59da8e5499658d9c88d95ff03ca8fad974417ca576b",
+      "reviewed_at": "2026-07-18T21:57:51Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "approved_for_merge",
+      "by": "Codex-Implementer",
+      "reason": "独立代码与功能审查已通过，发布说明与回滚边界已补齐",
+      "at": "2026-07-18T22:06:56Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_merge",
+      "to": "closed",
+      "by": "Codex-Implementer",
+      "reason": "安全加固实现、串行验证和独立审查全部完成，交付部署任务集成",
+      "at": "2026-07-18T22:07:26Z"
     }
   ]
 }

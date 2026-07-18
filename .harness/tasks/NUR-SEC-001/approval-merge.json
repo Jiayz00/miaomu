@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-SEC-001",
+  "stage": "merge",
+  "decision": "approved",
+  "actor": "Codex-Review",
+  "agent_task": "/root/business_review",
+  "codex_thread_id": "019f76d2-6299-7f73-9709-e64433ddc6e3",
+  "result_marker": "APPROVED",
+  "approval_context_sha256": "3a49088e17eec8e2b48ea59da8e5499658d9c88d95ff03ca8fad974417ca576b",
+  "reviewed_at": "2026-07-18T21:57:51Z",
+  "findings": [],
+  "summary": "基于当前 HEAD de86f2f04 与最新 verify/review-pack 的独立合并审查未发现剩余 P0-P2 缺陷；规格身份摘要已规范化并对异常数量失败关闭，收藏限流、用户隔离、下架询价、事务审计、迁移和核心边界均符合合同。PHP、MySQL、HTTP、浏览器、并发和远端部署仍保留为后续运行时门禁。"
+}
