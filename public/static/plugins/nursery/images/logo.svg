@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="Nursery">
+  <circle cx="48" cy="48" r="44" fill="#1f5136"/>
+  <path d="M48 72V36" fill="none" stroke="#f5f0dc" stroke-linecap="round" stroke-width="6"/>
+  <path d="M47 39C31 38 23 29 24 17c13 1 23 7 23 22Z" fill="#d6e6b9"/>
+  <path d="M50 49c3-15 13-23 27-24 1 14-8 25-27 28Z" fill="#b9d58c"/>
+  <path d="M32 72h32" fill="none" stroke="#f5f0dc" stroke-linecap="round" stroke-width="6"/>
+</svg>

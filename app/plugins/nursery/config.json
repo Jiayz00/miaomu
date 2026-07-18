@@ -2,7 +2,7 @@
   "base": {
     "plugins": "nursery",
     "name": "苗木站",
-    "logo": "",
+    "logo": "/static/plugins/nursery/images/logo.svg",
     "author": "Jiayz00",
     "author_url": "https://github.com/Jiayz00/miaomu",
     "version": "1.2.0",

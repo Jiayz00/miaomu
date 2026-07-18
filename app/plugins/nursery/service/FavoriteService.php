@@ -112,6 +112,7 @@ class FavoriteService
                 $row['availability_text'] = self::AvailabilityText($state);
                 $row['can_view'] = ($state === 'active');
                 $row['goods_url'] = $row['can_view'] ? MyUrl('index/goods/index', ['id'=>$row['goods_id']]) : '';
+                $row['inquiry_url'] = $row['can_view'] ? PluginsHomeUrl('nursery', 'inquiry', 'form', ['goods_id'=>$row['goods_id']]) : '';
                 unset($row['goods_exists'], $row['price'], $row['min_price'], $row['max_price'], $row['inventory_unit'], $row['is_shelves'], $row['is_delete_time']);
             }
             unset($row);

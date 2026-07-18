@@ -1,0 +1,69 @@
+{{:ModuleInclude('public/header')}}
+<link rel="stylesheet" href="{{:StaticAttachmentUrl('inquiry.css', 'css', 'nursery', 'index')}}?v=1.0.0" />
+
+{{:ModuleInclude('public/nav')}}
+{{:ModuleInclude('public/header_top_nav')}}
+{{:ModuleInclude('public/nav_search')}}
+{{:ModuleInclude('public/header_nav')}}
+
+{{php}}
+    $listing = isset($inquiry_list) && is_array($inquiry_list) ? $inquiry_list : [];
+    $items = isset($listing['items']) && is_array($listing['items']) ? $listing['items'] : [];
+{{/php}}
+<main class="am-container nursery-inquiry-page nursery-inquiry-list-page">
+    <header class="nursery-inquiry-heading nursery-inquiry-heading-row">
+        <div>
+            <p class="nursery-inquiry-kicker">个人中心</p>
+            <h1>我的询价</h1>
+            <p>查看提交的苗木需求和最新回复。</p>
+        </div>
+        <a class="am-btn am-btn-primary am-radius" href="{{:MyUrl('index/search/index')}}"><i class="am-icon-leaf"></i><span>继续选苗</span></a>
+    </header>
+
+    {{if !empty($items)}}
+        <div class="nursery-inquiry-list" data-inquiry-list>
+            {{foreach $items as $item}}
+                <article class="nursery-inquiry-list-item">
+                    <div class="nursery-inquiry-list-media">
+                        {{if !empty($item['goods_images'])}}<img src="{{$item.goods_images}}" alt="{{$item.goods_title}}" />{{else /}}<span aria-hidden="true"><i class="am-icon-leaf"></i></span>{{/if}}
+                    </div>
+                    <div class="nursery-inquiry-list-main">
+                        <div class="nursery-inquiry-list-title-row">
+                            <div>
+                                <p class="nursery-inquiry-eyebrow">询价 {{$item.inquiry_no|default=''}} </p>
+                                <h2>{{$item.goods_title|default='苗木商品'}}</h2>
+                            </div>
+                            <span class="nursery-inquiry-status is-{{$item.status|default='pending'}}">{{$item.status_text|default='待处理'}}</span>
+                        </div>
+                        <dl class="nursery-inquiry-meta">
+                            <div><dt>提交时间</dt><dd>{{$item.created_at_text|default=$item.created_at|default=''}}</dd></div>
+                            <div><dt>采购数量</dt><dd>{{$item.quantity|default=''}} {{$item.quantity_unit|default=''}}</dd></div>
+                            <div><dt>地区</dt><dd>{{$item.region_text|default='待补充'}}</dd></div>
+                        </dl>
+                        {{if !empty($item['latest_reply_note'])}}
+                            <p class="nursery-inquiry-preview"><span>最新回复：</span>{{$item.latest_reply_note}}</p>
+                            <p class="nursery-inquiry-reply-meta"><span>回复时间 {{$item.latest_reply_at_text|default=$item.latest_reply_at|default='-'}}</span>{{if !empty($item['latest_reply_valid_until'])}}<span>报价有效期至 {{$item.latest_reply_valid_until}}</span>{{/if}}</p>
+                        {{/if}}
+                        <a class="nursery-inquiry-list-link" href="{{:PluginsHomeUrl('nursery', 'inquiry', 'detail', ['id'=>$item['id']])}}">查看询价详情 <i class="am-icon-angle-right"></i></a>
+                    </div>
+                </article>
+            {{/foreach}}
+        </div>
+        {{if !empty($listing['page_total']) and $listing.page_total gt 1}}
+            <nav class="nursery-inquiry-pagination" aria-label="询价分页">
+                {{if !empty($listing['has_previous'])}}<a class="am-btn am-btn-default am-btn-sm" href="{{:PluginsHomeUrl('nursery', 'inquiry', 'index', ['page'=>$listing['page']-1])}}"><i class="am-icon-angle-left"></i><span>上一页</span></a>{{/if}}
+                <span>第 {{$listing.page|default=1}} / {{$listing.page_total}} 页</span>
+                {{if !empty($listing['has_next'])}}<a class="am-btn am-btn-default am-btn-sm" href="{{:PluginsHomeUrl('nursery', 'inquiry', 'index', ['page'=>$listing['page']+1])}}"><span>下一页</span><i class="am-icon-angle-right"></i></a>{{/if}}
+            </nav>
+        {{/if}}
+    {{else /}}
+        <section class="nursery-inquiry-empty">
+            <i class="am-icon-comment-o" aria-hidden="true"></i>
+            <h2>还没有询价记录</h2>
+            <p>从任意在架苗木详情页提交需求即可开始。</p>
+            <a class="am-btn am-btn-primary am-radius" href="{{:MyUrl('index/search/index')}}"><i class="am-icon-leaf"></i><span>浏览苗木</span></a>
+        </section>
+    {{/if}}
+</main>
+<script src="{{:StaticAttachmentUrl('inquiry.js', 'js', 'nursery', 'index')}}?v=1.0.0"></script>
+{{:ModuleInclude('public/footer')}}

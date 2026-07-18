@@ -1,0 +1,120 @@
+{{:ModuleInclude('public/header')}}
+<link rel="stylesheet" href="{{:StaticAttachmentUrl('inquiry.css', 'css', 'nursery', 'index')}}?v=1.0.0" />
+
+{{:ModuleInclude('public/nav')}}
+{{:ModuleInclude('public/header_top_nav')}}
+{{:ModuleInclude('public/nav_search')}}
+{{:ModuleInclude('public/header_nav')}}
+
+{{php}}
+    $form = isset($inquiry_form) && is_array($inquiry_form) ? $inquiry_form : (isset($form_data) && is_array($form_data) ? $form_data : []);
+    $goods = isset($form['goods']) && is_array($form['goods']) ? $form['goods'] : [];
+    $specifications = isset($form['spec_options']) && is_array($form['spec_options']) ? $form['spec_options'] : (isset($form['specifications']) && is_array($form['specifications']) ? $form['specifications'] : []);
+    $region_options = isset($form['region_options']) && is_array($form['region_options']) ? $form['region_options'] : (isset($form['regions']) && is_array($form['regions']) ? $form['regions'] : []);
+    $province_options = isset($region_options['province']) && is_array($region_options['province']) ? $region_options['province'] : [];
+    $city_options = isset($region_options['city']) && is_array($region_options['city']) ? $region_options['city'] : [];
+    $county_options = isset($region_options['county']) && is_array($region_options['county']) ? $region_options['county'] : [];
+    $defaults = isset($form['defaults']) && is_array($form['defaults']) ? $form['defaults'] : [];
+{{/php}}
+
+<main class="am-container nursery-inquiry-page">
+    <header class="nursery-inquiry-heading">
+        <p class="nursery-inquiry-kicker">苗木采购服务</p>
+        <h1>提交询价</h1>
+        <p>留下规格和到货要求，我们会按实际供应情况回复。</p>
+    </header>
+
+    {{if !empty($inquiry_error)}}
+        <div class="am-alert am-alert-danger" role="alert">{{$inquiry_error}}</div>
+    {{/if}}
+
+    <form class="am-form nursery-inquiry-form" method="post" action="{{if !empty($nursery_inquiry_create_url)}}{{$nursery_inquiry_create_url}}{{else /}}{{:PluginsHomeUrl('nursery', 'inquiry', 'create')}}{{/if}}" data-inquiry-form>
+        <input type="hidden" name="request_nonce" value="{{$nursery_inquiry_nonce|default=''}}" />
+        <input type="hidden" name="goods_id" value="{{if isset($goods['id'])}}{{$goods.id}}{{else /}}{{if isset($form['goods_id'])}}{{$form.goods_id}}{{/if}}{{/if}}" />
+
+        <section class="nursery-inquiry-summary" aria-labelledby="inquiry-goods-heading">
+            <div class="nursery-inquiry-summary-media">
+                {{if !empty($goods['images'])}}<img src="{{$goods.images}}" alt="{{$goods.title|default='苗木商品'}}" />{{else /}}<span aria-hidden="true"><i class="am-icon-leaf"></i></span>{{/if}}
+            </div>
+            <div>
+                <p class="nursery-inquiry-eyebrow">询价商品</p>
+                <h2 id="inquiry-goods-heading">{{if !empty($goods['title'])}}{{$goods.title}}{{else /}}请先选择苗木{{/if}}</h2>
+                {{if !empty($goods['reference_price'])}}
+                    <p class="nursery-inquiry-reference"><span>当前公开参考价</span><strong>{{$goods.reference_price.text|default=$goods.price|default='待核验'}}</strong></p>
+                {{elseif !empty($goods['price'])}}
+                    <p class="nursery-inquiry-reference"><span>当前公开参考价</span><strong>{{$goods.price}}</strong></p>
+                {{/if}}
+                <p class="nursery-inquiry-note">提交时系统会重新核验商品、规格和公开参考价，并保存不可变快照。</p>
+            </div>
+        </section>
+
+        <div class="nursery-inquiry-form-grid">
+            <div class="nursery-inquiry-field nursery-inquiry-field-wide">
+                <label for="inquiry-spec">所选规格</label>
+                {{if !empty($specifications)}}
+                    <select id="inquiry-spec" name="spec_base_id" required>
+                        <option value="">请选择规格</option>
+                        {{foreach $specifications as $spec}}
+                            <option value="{{$spec.id}}" {{if isset($form['spec_base_id']) and $form.spec_base_id eq $spec.id}}selected{{/if}}>{{$spec.label|default=$spec.text|default=$spec.value|default='规格'}}{{if !empty($spec.price)}} · {{$spec.price}}{{/if}}</option>
+                        {{/foreach}}
+                    </select>
+                {{else /}}
+                    <p class="nursery-inquiry-unavailable" role="status">当前商品没有可用规格，暂时无法提交询价。</p>
+                {{/if}}
+            </div>
+            <div class="nursery-inquiry-field">
+                <label for="inquiry-quantity">采购数量 <span>*</span></label>
+                <input id="inquiry-quantity" type="text" name="quantity" inputmode="decimal" required maxlength="14" placeholder="例如：100" />
+            </div>
+            <div class="nursery-inquiry-field">
+                <label for="inquiry-quantity-unit">数量单位 <span>*</span></label>
+                <input id="inquiry-quantity-unit" type="text" name="quantity_unit" required maxlength="32" value="{{if !empty($goods['inventory_unit'])}}{{$goods.inventory_unit}}{{/if}}" placeholder="株 / 盆 / 丛" />
+            </div>
+            <div class="nursery-inquiry-field">
+                <label for="inquiry-contact-name">联系人 <span>*</span></label>
+                <input id="inquiry-contact-name" type="text" name="contact_name" required maxlength="80" autocomplete="name" value="{{$defaults.contact_name|default=''}}" />
+            </div>
+            <div class="nursery-inquiry-field">
+                <label for="inquiry-contact-phone">联系电话 <span>*</span></label>
+                <input id="inquiry-contact-phone" type="tel" name="contact_phone" required maxlength="20" inputmode="tel" autocomplete="tel" value="{{$defaults.contact_phone|default=''}}" />
+            </div>
+            <div class="nursery-inquiry-field nursery-inquiry-field-wide">
+                <label>所在地区 <span>*</span></label>
+                <div class="nursery-inquiry-region-grid">
+                    <select name="region_province_id" required aria-label="省份"><option value="">省/自治区</option>{{foreach $province_options as $region}}<option value="{{$region.id}}">{{$region.name}}</option>{{/foreach}}</select>
+                    <select name="region_city_id" required aria-label="城市"><option value="">城市</option>{{foreach $city_options as $region}}<option value="{{$region.id}}" data-parent="{{$region.pid}}">{{$region.name}}</option>{{/foreach}}</select>
+                    <select name="region_county_id" required aria-label="区县"><option value="">区/县</option>{{foreach $county_options as $region}}<option value="{{$region.id}}" data-parent="{{$region.pid}}">{{$region.name}}</option>{{/foreach}}</select>
+                </div>
+            </div>
+            <div class="nursery-inquiry-field nursery-inquiry-field-wide">
+                <label for="inquiry-address">详细地址 <span>*</span></label>
+                <input id="inquiry-address" type="text" name="address" required maxlength="255" autocomplete="street-address" placeholder="请输入收货或栽植地址" />
+            </div>
+            <div class="nursery-inquiry-field">
+                <label for="inquiry-expected-date">预计采购时间 <span>*</span></label>
+                <input id="inquiry-expected-date" type="date" name="expected_date" required />
+            </div>
+        </div>
+
+        <fieldset class="nursery-inquiry-fieldset">
+            <legend>服务需求</legend>
+            <label class="nursery-inquiry-check"><input type="checkbox" name="need_transport" value="1" /><span>需要运输</span></label>
+            <label class="nursery-inquiry-check"><input type="checkbox" name="need_loading" value="1" /><span>需要装卸</span></label>
+            <label class="nursery-inquiry-check"><input type="checkbox" name="need_planting" value="1" /><span>需要栽植</span></label>
+        </fieldset>
+
+        <div class="nursery-inquiry-field">
+            <label for="inquiry-note">用户说明</label>
+            <textarea id="inquiry-note" name="user_note" maxlength="2000" rows="5" placeholder="补充苗木用途、到货安排或其他要求"></textarea>
+        </div>
+
+        <footer class="nursery-inquiry-form-footer">
+            <p>我们会以当前公开参考价为基础回复，最终条件以双方确认结果为准。</p>
+            <button type="submit" class="am-btn am-btn-primary am-radius" data-inquiry-submit {{if empty($specifications)}}disabled aria-disabled="true"{{/if}}><i class="am-icon-paper-plane"></i><span>提交询价</span></button>
+        </footer>
+        <div class="nursery-inquiry-feedback" data-inquiry-feedback role="status" aria-live="polite"></div>
+    </form>
+</main>
+
+<script src="{{:StaticAttachmentUrl('inquiry.js', 'js', 'nursery', 'index')}}?v=1.0.0"></script>
+{{:ModuleInclude('public/footer')}}

@@ -40,6 +40,9 @@
                         <div class="nursery-favorite-actions">
                             {{if !empty($item['goods_url'])}}
                                 <a class="am-btn am-btn-default am-btn-sm" href="{{$item.goods_url}}"><i class="iconfont icon-eye"></i><span>查看苗木</span></a>
+                                {{if !empty($item['inquiry_url'])}}
+                                    <a class="am-btn am-btn-primary am-btn-sm" href="{{$item.inquiry_url}}"><i class="am-icon-comment-o"></i><span>立即询价</span></a>
+                                {{/if}}
                             {{else /}}
                                 <span class="nursery-favorite-view-disabled"><i class="iconfont icon-eye-slash"></i><span>暂不可查看</span></span>
                             {{/if}}

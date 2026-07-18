@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-FEAT-004",
+  "stage": "merge",
+  "decision": "approved",
+  "actor": "Codex-Review",
+  "agent_task": "/root/inq004_merge_review",
+  "codex_thread_id": "019f75d3-359b-74a0-9ec0-22ad58acca25",
+  "result_marker": "APPROVED",
+  "approval_context_sha256": "d617b65443d468a9097b29c11e58dc7c7c1427fb5025fb5714ac8066c9d49d15",
+  "reviewed_at": "2026-07-18T16:02:00Z",
+  "findings": [],
+  "summary": "独立复核关闭迁移索引安全与手机号明文响应 P1；最新 review-pack/evidence-check 通过，未发现剩余 P0-P2 缺陷。PHP、MySQL、HTTP、浏览器和并发验证仍保留为后续 L4 运行时门禁。"
+}

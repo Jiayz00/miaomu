@@ -185,6 +185,21 @@
     white-space: nowrap;
 }
 
+.nursery-inquiry-detail-entry {
+    color: #245c3a;
+    margin-left: 14px;
+    text-decoration: none;
+}
+
+.nursery-inquiry-detail-entry:hover,
+.nursery-inquiry-detail-entry:focus {
+    color: #b6403b;
+}
+
+.nursery-inquiry-detail-entry i {
+    margin-right: 5px;
+}
+
 .nursery-favorite-view-disabled {
     color: #8a918b;
     font-size: 13px;
@@ -251,5 +266,15 @@
 
     .nursery-favorite-content h2 {
         min-height: 0;
+    }
+
+    .nursery-favorite-actions {
+        align-items: stretch;
+        flex-wrap: wrap;
+    }
+
+    .nursery-favorite-actions .am-btn,
+    .nursery-favorite-view-disabled {
+        flex: 1 1 45%;
     }
 }

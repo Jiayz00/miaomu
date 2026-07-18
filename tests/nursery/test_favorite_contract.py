@@ -233,21 +233,23 @@ class FavoriteServiceContractTests(unittest.TestCase):
         for forbidden in ("$params['user_id']", "$params['user']=", "system_user", "favorite_id"):
             self.assertNotIn(forbidden, source)
 
-    def test_favorite_code_has_no_inquiry_or_event_side_effects(self) -> None:
+    def test_favorite_code_has_real_inquiry_link_but_no_side_effects(self) -> None:
         sources = "\n".join(
             read_utf8(path).lower()
             for path in (SERVICE_FILE, WEB_CONTROLLER_FILE, API_CONTROLLER_FILE, JS_FILE)
         )
         for forbidden in (
-            "inquiry",
-            "inquire",
-            "询价",
             "myeventtrigger",
             "eventservice",
             "behavior",
             "analytics",
         ):
             self.assertNotIn(forbidden, sources)
+        listing = method(SERVICE_FILE, "Listing")
+        self.assertIn("inquiry_url", listing)
+        self.assertIn("pluginshomeurl('nursery','inquiry','form'", listing)
+        self.assertIn("$row['can_view']", listing)
+        self.assertNotIn("inquiryservice::", sources)
 
 
 class FavoriteRoutePolicyTests(unittest.TestCase):
@@ -325,7 +327,7 @@ class FavoriteUiContractTests(unittest.TestCase):
             self.assertNotIn("common-goods-favor-submit-event", source)
             self.assertNotIn("__goods_favor_url__", source)
 
-    def test_my_favorites_shows_required_basic_fields_and_no_fake_inquiry(self) -> None:
+    def test_my_favorites_shows_required_basic_fields_and_real_inquiry(self) -> None:
         source = read_utf8(FAVORITE_VIEW_FILE)
         for token in (
             "我的收藏",
@@ -336,11 +338,14 @@ class FavoriteUiContractTests(unittest.TestCase):
             "$item.availability_text",
             "查看苗木",
             "取消收藏",
+            "立即询价",
+            "inquiry_url",
         ):
             self.assertIn(token, source)
         lowered = source.lower()
-        for forbidden in ("询价", "inquiry", "购物车", "cart", "订单", "order"):
+        for forbidden in ("购物车", "cart", "订单", "order"):
             self.assertNotIn(forbidden, lowered)
+        self.assertIn('href="{{$item.inquiry_url}}"', lowered)
 
     def test_missing_or_unavailable_goods_do_not_get_a_detail_link_or_fake_price(self) -> None:
         source = read_utf8(FAVORITE_VIEW_FILE)
@@ -379,11 +384,12 @@ class FavoriteScopeContractTests(unittest.TestCase):
             paths.update(line.strip().replace("\\", "/") for line in result.stdout.splitlines() if line.strip())
         allowed_prefixes = (
             ".harness/tasks/NUR-FEAT-003/",
+            ".harness/tasks/NUR-FEAT-004/",
             "app/plugins/nursery/",
             "public/static/plugins/nursery/",
             "tests/nursery/",
         )
-        allowed_files = {"scripts/nursery_favorite.php"}
+        allowed_files = {"scripts/nursery_favorite.php", "scripts/nursery_inquiry.php", ".harness/requirements-decisions.json"}
         unexpected = sorted(
             path
             for path in paths

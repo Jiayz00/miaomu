@@ -1,0 +1,71 @@
+{{:ModuleInclude('public/header')}}
+<link rel="stylesheet" href="{{:StaticAttachmentUrl('inquiry-admin.css', 'css', 'nursery', 'admin')}}?v=1.0.0" />
+{{:ModuleInclude('public/nav')}}
+{{php}}
+    $detail_data = isset($inquiry_detail) && is_array($inquiry_detail) ? $inquiry_detail : [];
+    $inquiry = isset($detail_data['inquiry']) && is_array($detail_data['inquiry']) ? $detail_data['inquiry'] : [];
+    $replies = isset($detail_data['replies']) && is_array($detail_data['replies']) ? $detail_data['replies'] : [];
+    $history = isset($detail_data['history']) && is_array($detail_data['history']) ? $detail_data['history'] : [];
+    $actions = isset($inquiry_actions) && is_array($inquiry_actions) ? $inquiry_actions : [];
+    $status_map = isset($status_options) && is_array($status_options) ? $status_options : [];
+{{/php}}
+<div class="am-padding admin-nursery-inquiry-page">
+    {{:ModuleInclude('public/plugins_admin_nav', [
+        'plugins' => 'nursery',
+        'title' => '苗木询价详情',
+        'back_url' => PluginsAdminUrl('nursery', 'inquiry', 'index'),
+        'nav_data' => [
+            ['name'=>'询价列表', 'control'=>'inquiry', 'action'=>'index'],
+            ['name'=>'详情', 'control'=>'inquiry', 'action'=>'detail'],
+        ],
+    ])}}
+    {{if !empty($admin_inquiry_error)}}<div class="am-alert am-alert-danger">{{$admin_inquiry_error}}</div>{{/if}}
+    <div class="admin-nursery-inquiry-detail-grid">
+        <section class="admin-nursery-inquiry-panel">
+            <header class="admin-nursery-inquiry-panel-heading"><div><p>询价 {{$inquiry.inquiry_no|default=''}}</p><h1>{{$inquiry.goods_title|default='苗木询价'}}</h1></div><span class="admin-nursery-inquiry-status is-{{$inquiry.status|default='pending'}}">{{$inquiry.status_text|default='待处理'}}</span></header>
+            <dl class="admin-nursery-inquiry-detail-meta">
+                <div><dt>用户</dt><dd>{{$inquiry.user_name|default=$inquiry.user_id|default=''}}</dd></div>
+                <div><dt>联系电话</dt><dd><span data-phone-masked>{{$inquiry.contact_phone_masked|default='已脱敏'}}</span>{{if !empty($actions['contactreveal'])}}<button type="button" class="am-btn am-btn-link am-btn-xs" data-phone-reveal data-url="{{:PluginsAdminUrl('nursery', 'inquiry', 'contactreveal')}}" data-id="{{$inquiry.id}}" data-nonce="{{$request_nonce|default=''}}"><i class="am-icon-eye"></i><span>查看完整号码</span></button>{{/if}}</dd></div>
+                <div><dt>提交时间</dt><dd>{{$inquiry.created_at_text|default=$inquiry.created_at|default=''}}</dd></div>
+                <div><dt>采购数量</dt><dd>{{$inquiry.quantity|default=''}} {{$inquiry.quantity_unit|default=''}}</dd></div>
+                <div><dt>地区</dt><dd>{{$inquiry.region_text|default='-'}}</dd></div>
+                <div><dt>预计采购时间</dt><dd>{{$inquiry.expected_date|default='-'}}</dd></div>
+                <div><dt>公开参考价快照</dt><dd class="admin-nursery-inquiry-reference">{{$inquiry.reference_price|default='-'}}{{if !empty($inquiry.reference_unit)}} / {{$inquiry.reference_unit}}{{/if}}</dd></div>
+                <div><dt>规格快照</dt><dd>{{$inquiry.spec_snapshot_text|default='未指定'}}</dd></div>
+                <div><dt>服务需求</dt><dd>{{$inquiry.service_text|default='无'}}</dd></div>
+                <div class="is-wide"><dt>详细地址</dt><dd>{{$inquiry.address|default='-'}}</dd></div>
+            </dl>
+            {{if !empty($inquiry['user_note'])}}<div class="admin-nursery-inquiry-note"><strong>用户说明</strong><p>{{$inquiry.user_note}}</p></div>{{/if}}
+        </section>
+
+        <aside class="admin-nursery-inquiry-actions">
+            {{if !empty($actions['reply'])}}
+                <section class="admin-nursery-inquiry-panel">
+                    <h2>追加回复</h2>
+                    <form class="am-form admin-nursery-inquiry-form" method="post" action="{{:PluginsAdminUrl('nursery', 'inquiry', 'reply')}}" data-admin-inquiry-form>
+                        <input type="hidden" name="id" value="{{$inquiry.id|default=''}}" /><input type="hidden" name="request_nonce" value="{{$request_nonce|default=''}}" />
+                        <label>库存说明<textarea name="stock_note" maxlength="2000" rows="2" required></textarea></label>
+                        <label>可供应规格<textarea name="available_spec" maxlength="2000" rows="2" required></textarea></label>
+                        <div class="admin-nursery-inquiry-cost-grid"><label>本次参考单价<input type="text" name="unit_price" inputmode="decimal" required /></label><label>商品总金额<input type="text" name="total_amount" inputmode="decimal" /></label><label>运输费<input type="text" name="transport_fee" inputmode="decimal" /></label><label>装卸费<input type="text" name="loading_fee" inputmode="decimal" /></label><label>栽植费<input type="text" name="planting_fee" inputmode="decimal" /></label><label>其他费用<input type="text" name="other_fee" inputmode="decimal" /></label></div>
+                        <div class="admin-nursery-inquiry-cost-grid"><label>预计供应时间<input type="date" name="supply_date" /></label><label>报价有效期<input type="date" name="valid_until" required /></label></div>
+                        <label>回复说明<textarea name="reply_note" maxlength="4000" rows="4" required></textarea></label>
+                        <button type="submit" class="am-btn am-btn-primary am-radius"><i class="am-icon-reply"></i><span>保存回复</span></button>
+                    </form>
+                </section>
+            {{/if}}
+            {{if !empty($actions['statusupdate'])}}
+                <section class="admin-nursery-inquiry-panel"><h2>更新状态</h2><form class="am-form admin-nursery-inquiry-form" method="post" action="{{:PluginsAdminUrl('nursery', 'inquiry', 'statusupdate')}}" data-admin-inquiry-form><input type="hidden" name="id" value="{{$inquiry.id|default=''}}" /><input type="hidden" name="request_nonce" value="{{$request_nonce|default=''}}" /><select name="status" required>{{foreach $status_map as $key=>$label}}<option value="{{$key}}" {{if isset($inquiry['status']) and $inquiry.status eq $key}}selected{{/if}}>{{$label}}</option>{{/foreach}}</select><textarea name="reason" maxlength="1000" rows="2" placeholder="操作原因（可选）"></textarea><button type="submit" class="am-btn am-btn-secondary am-radius"><i class="am-icon-refresh"></i><span>更新状态</span></button></form></section>
+            {{/if}}
+            {{if !empty($actions['reopen'])}}
+                <section class="admin-nursery-inquiry-panel"><h2>重开终态询价</h2><form class="am-form admin-nursery-inquiry-form" method="post" action="{{:PluginsAdminUrl('nursery', 'inquiry', 'reopen')}}" data-admin-inquiry-form><input type="hidden" name="id" value="{{$inquiry.id|default=''}}" /><input type="hidden" name="request_nonce" value="{{$request_nonce|default=''}}" /><textarea name="reason" maxlength="1000" rows="2" required placeholder="请填写重开原因"></textarea><button type="submit" class="am-btn am-btn-warning am-radius"><i class="am-icon-unlock"></i><span>重开为沟通中</span></button></form></section>
+            {{/if}}
+        </aside>
+    </div>
+
+    <div class="admin-nursery-inquiry-detail-grid admin-nursery-inquiry-detail-grid-bottom">
+        <section class="admin-nursery-inquiry-panel"><h2>回复历史</h2>{{if !empty($replies)}}<div class="admin-nursery-inquiry-replies">{{foreach $replies as $reply}}<article><header><strong>{{$reply.admin_name|default='管理员'}}</strong><time>{{$reply.created_at_text|default=$reply.created_at|default=''}}</time></header>{{if !empty($reply.stock_note)}}<p>库存：{{$reply.stock_note}}</p>{{/if}}{{if !empty($reply.available_spec)}}<p>规格：{{$reply.available_spec}}</p>{{/if}}{{if isset($reply['unit_price']) and $reply.unit_price neq ''}}<p>本次参考单价：{{$reply.unit_price}}</p>{{/if}}{{if isset($reply['total_amount']) and $reply.total_amount neq ''}}<p>商品总金额：{{$reply.total_amount}}</p>{{/if}}{{if isset($reply['transport_fee']) and $reply.transport_fee neq ''}}<p>运输费：{{$reply.transport_fee}}</p>{{/if}}{{if isset($reply['loading_fee']) and $reply.loading_fee neq ''}}<p>装卸费：{{$reply.loading_fee}}</p>{{/if}}{{if isset($reply['planting_fee']) and $reply.planting_fee neq ''}}<p>栽植费：{{$reply.planting_fee}}</p>{{/if}}{{if isset($reply['other_fee']) and $reply.other_fee neq ''}}<p>其他费用：{{$reply.other_fee}}</p>{{/if}}{{if !empty($reply.supply_date)}}<p>预计供应时间：{{$reply.supply_date}}</p>{{/if}}{{if !empty($reply.valid_until)}}<p>报价有效期：{{$reply.valid_until}}</p>{{/if}}{{if !empty($reply.reply_note)}}<p>{{$reply.reply_note}}</p>{{/if}}</article>{{/foreach}}</div>{{else /}}<div class="admin-nursery-inquiry-empty">暂无回复</div>{{/if}}</section>
+        <section class="admin-nursery-inquiry-panel"><h2>操作历史</h2>{{if !empty($history)}}<ol class="admin-nursery-inquiry-history">{{foreach $history as $event}}<li><strong>{{$event.event_text|default=$event.to_status_text|default='状态更新'}}</strong><time>{{$event.created_at_text|default=$event.created_at|default=''}}</time>{{if !empty($event.actor_name)}}<span>{{$event.actor_name}}</span>{{/if}}{{if !empty($event.reason)}}<p>{{$event.reason}}</p>{{/if}}</li>{{/foreach}}</ol>{{else /}}<div class="admin-nursery-inquiry-empty">暂无历史</div>{{/if}}</section>
+    </div>
+</div>
+<script src="{{:StaticAttachmentUrl('inquiry-admin.js', 'js', 'nursery', 'admin')}}?v=1.0.0"></script>
+{{:ModuleInclude('public/footer')}}

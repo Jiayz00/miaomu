@@ -47,6 +47,56 @@
       "by": "Codex-Review",
       "reason": "Independent plan approval completed by /root/inq004_plan_review; hand off to implementation.",
       "at": "2026-07-18T14:40:49Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_implementation",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-18T14:41:40Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "",
+      "at": "2026-07-18T15:24:18Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "离线验证、证据检查和 review-pack 已通过，交由独立 reviewer 收尾",
+      "at": "2026-07-18T16:00:48Z"
+    },
+    {
+      "type": "approval",
+      "stage": "merge",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/inq004_merge_review",
+      "codex_thread_id": "019f75d3-359b-74a0-9ec0-22ad58acca25",
+      "expected_agent_task": "/root/inq004_merge_review",
+      "observed_agent_task": "/root/inq004_merge_review",
+      "observed_codex_thread_id": "019f75d3-359b-74a0-9ec0-22ad58acca25",
+      "reason": "",
+      "at": "2026-07-18T16:01:23Z",
+      "review_artifact_path": ".harness/tasks/NUR-FEAT-004/approval-merge.json",
+      "review_artifact_sha256": "7788add81549c102f7a4446858b515511d3a17f6366e299fb5dfb950fd970af1",
+      "approval_context_sha256": "d617b65443d468a9097b29c11e58dc7c7c1427fb5025fb5714ac8066c9d49d15",
+      "reviewed_at": "2026-07-18T16:02:00Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "approved_for_merge",
+      "by": "Codex-Implementer",
+      "reason": "独立 reviewer 已批准合并，最新证据与审查包通过",
+      "at": "2026-07-18T16:01:45Z"
     }
   ]
 }

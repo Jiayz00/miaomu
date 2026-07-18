@@ -3,6 +3,10 @@
         <i class="iconfont {{if isset($module_data['goods']['user_is_favor']) and $module_data['goods']['user_is_favor'] eq 1}}icon-heart{{else /}}icon-heart-o{{/if}}" aria-hidden="true"></i>
         <em class="nursery-favorite-text">{{if isset($module_data['goods']['user_is_favor']) and $module_data['goods']['user_is_favor'] eq 1}}已收藏{{else /}}收藏{{/if}}</em>
     </span>
+    <a class="nav-icon nursery-inquiry-detail-entry am-hide-sm-only" href="{{:PluginsHomeUrl('nursery', 'inquiry', 'form', ['goods_id'=>$module_data['goods']['id']])}}">
+        <i class="am-icon-comment-o" aria-hidden="true"></i>
+        <em>立即询价</em>
+    </a>
     <link rel="stylesheet" href="{{:StaticAttachmentUrl('favorite.css', 'css', 'nursery', 'index')}}?v=1.2.0" />
     <script src="{{:StaticAttachmentUrl('favorite.js', 'js', 'nursery', 'index')}}?v=1.2.0"></script>
 {{/if}}

@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "inquiry_schema_version": 1,
+  "tables": {
+    "inquiry": {
+      "logical_name": "PluginsNurseryInquiry",
+      "name": "sxo_plugins_nursery_inquiry",
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "columns": [
+        {"name": "id", "type": "bigint unsigned", "nullable": false, "default": null, "extra": "auto_increment"},
+        {"name": "inquiry_no", "type": "char(32)", "nullable": false, "default": "", "extra": ""},
+        {"name": "user_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "goods_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "goods_title", "type": "varchar(255)", "nullable": false, "default": "", "extra": ""},
+        {"name": "goods_images", "type": "varchar(1024)", "nullable": false, "default": "", "extra": ""},
+        {"name": "goods_status", "type": "tinyint unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "reference_price", "type": "varchar(60)", "nullable": false, "default": "", "extra": ""},
+        {"name": "reference_min", "type": "decimal(10,2)", "nullable": false, "default": "0.00", "extra": ""},
+        {"name": "reference_max", "type": "decimal(10,2)", "nullable": false, "default": "0.00", "extra": ""},
+        {"name": "reference_unit", "type": "char(80)", "nullable": false, "default": "", "extra": ""},
+        {"name": "spec_base_id", "type": "int unsigned", "nullable": true, "default": null, "extra": ""},
+        {"name": "spec_snapshot", "type": "json", "nullable": false, "default": null, "extra": ""},
+        {"name": "quantity", "type": "decimal(14,3)", "nullable": false, "default": "0.000", "extra": ""},
+        {"name": "quantity_unit", "type": "char(32)", "nullable": false, "default": "", "extra": ""},
+        {"name": "contact_name", "type": "varchar(80)", "nullable": false, "default": "", "extra": ""},
+        {"name": "contact_phone", "type": "varbinary(255)", "nullable": false, "default": null, "extra": ""},
+        {"name": "contact_phone_hash", "type": "char(64)", "nullable": false, "default": "", "extra": ""},
+        {"name": "region_province_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "region_city_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "region_county_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "region_province_name", "type": "varchar(80)", "nullable": false, "default": "", "extra": ""},
+        {"name": "region_city_name", "type": "varchar(80)", "nullable": false, "default": "", "extra": ""},
+        {"name": "region_county_name", "type": "varchar(80)", "nullable": false, "default": "", "extra": ""},
+        {"name": "region_province_code", "type": "char(32)", "nullable": false, "default": "", "extra": ""},
+        {"name": "region_city_code", "type": "char(32)", "nullable": false, "default": "", "extra": ""},
+        {"name": "region_county_code", "type": "char(32)", "nullable": false, "default": "", "extra": ""},
+        {"name": "address", "type": "varchar(255)", "nullable": false, "default": "", "extra": ""},
+        {"name": "expected_date", "type": "date", "nullable": true, "default": null, "extra": ""},
+        {"name": "need_transport", "type": "tinyint unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "need_loading", "type": "tinyint unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "need_planting", "type": "tinyint unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "user_note", "type": "text", "nullable": false, "default": null, "extra": ""},
+        {"name": "status", "type": "char(24)", "nullable": false, "default": "pending", "extra": ""},
+        {"name": "first_replied_at", "type": "datetime", "nullable": true, "default": null, "extra": ""},
+        {"name": "created_at", "type": "datetime", "nullable": false, "default": null, "extra": ""},
+        {"name": "updated_at", "type": "datetime", "nullable": false, "default": null, "extra": ""}
+      ],
+      "indexes": [
+        {"name": "PRIMARY", "unique": true, "columns": ["id"]},
+        {"name": "uniq_nursery_inquiry_no", "unique": true, "columns": ["inquiry_no"]},
+        {"name": "idx_nursery_inquiry_user_created", "unique": false, "columns": ["user_id", "created_at"]},
+        {"name": "idx_nursery_inquiry_goods_created", "unique": false, "columns": ["goods_id", "created_at"]},
+        {"name": "idx_nursery_inquiry_status_created", "unique": false, "columns": ["status", "created_at"]},
+        {"name": "idx_nursery_inquiry_created", "unique": false, "columns": ["created_at"]},
+        {"name": "idx_nursery_inquiry_phone_hash", "unique": false, "columns": ["contact_phone_hash"]},
+        {"name": "idx_nursery_inquiry_region", "unique": false, "columns": ["region_province_id", "region_city_id", "region_county_id"]}
+      ]
+    },
+    "reply": {
+      "logical_name": "PluginsNurseryInquiryReply",
+      "name": "sxo_plugins_nursery_inquiry_reply",
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "columns": [
+        {"name": "id", "type": "bigint unsigned", "nullable": false, "default": null, "extra": "auto_increment"},
+        {"name": "inquiry_id", "type": "bigint unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "admin_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "admin_name", "type": "varchar(80)", "nullable": false, "default": "", "extra": ""},
+        {"name": "stock_note", "type": "text", "nullable": false, "default": null, "extra": ""},
+        {"name": "available_spec", "type": "text", "nullable": false, "default": null, "extra": ""},
+        {"name": "unit_price", "type": "decimal(12,2)", "nullable": true, "default": null, "extra": ""},
+        {"name": "total_amount", "type": "decimal(12,2)", "nullable": true, "default": null, "extra": ""},
+        {"name": "transport_fee", "type": "decimal(12,2)", "nullable": true, "default": null, "extra": ""},
+        {"name": "loading_fee", "type": "decimal(12,2)", "nullable": true, "default": null, "extra": ""},
+        {"name": "planting_fee", "type": "decimal(12,2)", "nullable": true, "default": null, "extra": ""},
+        {"name": "other_fee", "type": "decimal(12,2)", "nullable": true, "default": null, "extra": ""},
+        {"name": "supply_date", "type": "date", "nullable": true, "default": null, "extra": ""},
+        {"name": "valid_until", "type": "date", "nullable": true, "default": null, "extra": ""},
+        {"name": "reply_note", "type": "text", "nullable": false, "default": null, "extra": ""},
+        {"name": "created_at", "type": "datetime", "nullable": false, "default": null, "extra": ""}
+      ],
+      "indexes": [
+        {"name": "PRIMARY", "unique": true, "columns": ["id"]},
+        {"name": "idx_nursery_inquiry_reply_inquiry_created", "unique": false, "columns": ["inquiry_id", "created_at"]}
+      ]
+    },
+    "history": {
+      "logical_name": "PluginsNurseryInquiryHistory",
+      "name": "sxo_plugins_nursery_inquiry_history",
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "columns": [
+        {"name": "id", "type": "bigint unsigned", "nullable": false, "default": null, "extra": "auto_increment"},
+        {"name": "inquiry_id", "type": "bigint unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "from_status", "type": "char(24)", "nullable": false, "default": "", "extra": ""},
+        {"name": "to_status", "type": "char(24)", "nullable": false, "default": "", "extra": ""},
+        {"name": "actor_type", "type": "char(16)", "nullable": false, "default": "", "extra": ""},
+        {"name": "actor_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "actor_name", "type": "varchar(80)", "nullable": false, "default": "", "extra": ""},
+        {"name": "event_type", "type": "char(32)", "nullable": false, "default": "", "extra": ""},
+        {"name": "reason", "type": "text", "nullable": false, "default": null, "extra": ""},
+        {"name": "reply_id", "type": "bigint unsigned", "nullable": true, "default": null, "extra": ""},
+        {"name": "created_at", "type": "datetime", "nullable": false, "default": null, "extra": ""}
+      ],
+      "indexes": [
+        {"name": "PRIMARY", "unique": true, "columns": ["id"]},
+        {"name": "idx_nursery_inquiry_history_inquiry_created", "unique": false, "columns": ["inquiry_id", "created_at"]},
+        {"name": "idx_nursery_inquiry_history_event_created", "unique": false, "columns": ["event_type", "created_at"]}
+      ]
+    },
+    "duplicate_guard": {
+      "logical_name": "PluginsNurseryInquiryDuplicateGuard",
+      "name": "sxo_plugins_nursery_inquiry_duplicate_guard",
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "columns": [
+        {"name": "id", "type": "bigint unsigned", "nullable": false, "default": null, "extra": "auto_increment"},
+        {"name": "user_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "goods_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "fingerprint_version", "type": "char(16)", "nullable": false, "default": "dup-v1", "extra": ""},
+        {"name": "fingerprint_digest", "type": "char(64)", "nullable": false, "default": "", "extra": ""},
+        {"name": "last_accepted_at", "type": "datetime", "nullable": false, "default": null, "extra": ""},
+        {"name": "inquiry_id", "type": "bigint unsigned", "nullable": false, "default": 0, "extra": ""}
+      ],
+      "indexes": [
+        {"name": "PRIMARY", "unique": true, "columns": ["id"]},
+        {"name": "uniq_nursery_inquiry_duplicate_guard", "unique": true, "columns": ["user_id", "goods_id", "fingerprint_version", "fingerprint_digest"]},
+        {"name": "idx_nursery_inquiry_duplicate_last", "unique": false, "columns": ["last_accepted_at"]}
+      ]
+    },
+    "rate_limit": {
+      "logical_name": "PluginsNurseryInquiryRateLimit",
+      "name": "sxo_plugins_nursery_inquiry_rate_limit",
+      "engine": "InnoDB",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "columns": [
+        {"name": "user_id", "type": "int unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "window_started_at", "type": "datetime", "nullable": false, "default": null, "extra": ""},
+        {"name": "attempt_count", "type": "tinyint unsigned", "nullable": false, "default": 0, "extra": ""},
+        {"name": "updated_at", "type": "datetime", "nullable": false, "default": null, "extra": ""}
+      ],
+      "indexes": [
+        {"name": "PRIMARY", "unique": true, "columns": ["user_id"]},
+        {"name": "idx_nursery_inquiry_rate_updated", "unique": false, "columns": ["updated_at"]}
+      ]
+    }
+  },
+  "ledger": {
+    "only_tag": "plugins_nursery_inquiry_schema_v1",
+    "name": "苗木询价结构迁移台账"
+  }
+}

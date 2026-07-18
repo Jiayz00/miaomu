@@ -3,6 +3,7 @@ namespace app\plugins\nursery;
 
 use app\plugins\nursery\service\CatalogMigration;
 use app\plugins\nursery\service\FavoriteMigration;
+use app\plugins\nursery\service\InquiryMigration;
 
 class Event
 {
@@ -58,9 +59,15 @@ class Event
         {
             return $favorite;
         }
+        $inquiry = InquiryMigration::Preflight();
+        if($inquiry['code'] !== 0)
+        {
+            return $inquiry;
+        }
         return DataReturn('苗木插件只读预检通过', 0, [
             'catalog'  => $catalog['data'],
             'favorite' => $favorite['data'],
+            'inquiry'  => $inquiry['data'],
         ]);
     }
 }

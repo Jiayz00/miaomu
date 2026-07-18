@@ -1,0 +1,70 @@
+{{:ModuleInclude('public/header')}}
+<link rel="stylesheet" href="{{:StaticAttachmentUrl('inquiry-admin.css', 'css', 'nursery', 'admin')}}?v=1.0.0" />
+{{:ModuleInclude('public/nav')}}
+
+{{php}}
+    $listing = isset($inquiry_list) && is_array($inquiry_list) ? $inquiry_list : [];
+    $items = isset($listing['items']) && is_array($listing['items']) ? $listing['items'] : [];
+    $filters = isset($inquiry_filters) && is_array($inquiry_filters) ? $inquiry_filters : [];
+    $status_map = isset($status_options) && is_array($status_options) ? $status_options : [];
+    $regions = isset($region_options) && is_array($region_options) ? $region_options : [];
+    $province_regions = isset($regions['province']) && is_array($regions['province']) ? $regions['province'] : [];
+    $city_regions = isset($regions['city']) && is_array($regions['city']) ? $regions['city'] : [];
+    $county_regions = isset($regions['county']) && is_array($regions['county']) ? $regions['county'] : [];
+{{/php}}
+<div class="am-padding admin-nursery-inquiry-page">
+    {{:ModuleInclude('public/plugins_admin_nav', [
+        'plugins' => 'nursery',
+        'title' => '苗木询价',
+        'nav_data' => [
+            ['name'=>'询价列表', 'control'=>'inquiry', 'action'=>'index'],
+        ],
+    ])}}
+    <div class="admin-nursery-inquiry-toolbar">
+        <form class="am-form am-form-inline" method="get" action="{{:PluginsAdminUrl('nursery', 'inquiry', 'index')}}">
+            <input type="hidden" name="pluginsname" value="nursery" />
+            <input type="hidden" name="pluginscontrol" value="inquiry" />
+            <input type="hidden" name="pluginsaction" value="index" />
+            <input type="text" name="inquiry_no" value="{{$filters.inquiry_no|default=''}}" placeholder="询价编号" />
+            <input type="text" name="goods_keyword" value="{{$filters.goods_keyword|default=''}}" placeholder="商品" />
+            <input type="text" name="user_keyword" value="{{$filters.user_keyword|default=''}}" placeholder="用户" />
+            <input type="text" name="phone" value="{{$filters.phone|default=''}}" placeholder="手机号" />
+            <input type="date" name="created_start" value="{{$filters.created_start|default=''}}" aria-label="提交开始日期" />
+            <input type="date" name="created_end" value="{{$filters.created_end|default=''}}" aria-label="提交结束日期" />
+            <select name="region_province_id" aria-label="省份"><option value="">省份</option>{{foreach $province_regions as $region}}<option value="{{$region.id}}" {{if isset($filters['region_province_id']) and $filters.region_province_id eq $region.id}}selected{{/if}}>{{$region.name}}</option>{{/foreach}}</select>
+            <select name="region_city_id" aria-label="城市"><option value="">城市</option>{{foreach $city_regions as $region}}<option value="{{$region.id}}" {{if isset($filters['region_city_id']) and $filters.region_city_id eq $region.id}}selected{{/if}}>{{$region.name}}</option>{{/foreach}}</select>
+            <select name="region_county_id" aria-label="区县"><option value="">区县</option>{{foreach $county_regions as $region}}<option value="{{$region.id}}" {{if isset($filters['region_county_id']) and $filters.region_county_id eq $region.id}}selected{{/if}}>{{$region.name}}</option>{{/foreach}}</select>
+            <select name="status"><option value="">全部状态</option>{{foreach $status_map as $key=>$label}}<option value="{{$key}}" {{if isset($filters['status']) and $filters.status eq $key}}selected{{/if}}>{{$label}}</option>{{/foreach}}</select>
+            <select name="is_timeout"><option value="">是否超时</option><option value="1" {{if isset($filters['is_timeout']) and $filters.is_timeout eq 1}}selected{{/if}}>已超时</option><option value="0" {{if isset($filters['is_timeout']) and $filters.is_timeout eq '0'}}selected{{/if}}>未超时</option></select>
+            <button type="submit" class="am-btn am-btn-primary am-radius"><i class="am-icon-search"></i><span>筛选</span></button>
+        </form>
+    </div>
+    <div class="admin-nursery-inquiry-count">共 {{$listing.total|default=0}} 条询价</div>
+    {{if !empty($items)}}
+        <div class="am-scrollable-horizontal admin-nursery-inquiry-table-wrap">
+            <table class="am-table am-table-hover admin-nursery-inquiry-table">
+                <thead><tr><th>编号</th><th>商品</th><th>用户</th><th>电话</th><th>地区</th><th>状态</th><th>提交时间</th><th>操作</th></tr></thead>
+                <tbody>
+                {{foreach $items as $item}}
+                    <tr>
+                        <td><code>{{$item.inquiry_no|default=''}}</code></td>
+                        <td><strong>{{$item.goods_title|default='已下架商品'}}</strong><small>{{$item.quantity|default=''}} {{$item.quantity_unit|default=''}}</small></td>
+                        <td>{{$item.user_name|default=$item.user_id|default=''}}</td>
+                        <td>{{$item.contact_phone_masked|default='已脱敏'}}</td>
+                        <td>{{$item.region_text|default='-'}}</td>
+                        <td><span class="admin-nursery-inquiry-status is-{{$item.status|default='pending'}}">{{$item.status_text|default='待处理'}}</span></td>
+                        <td>{{$item.created_at_text|default=$item.created_at|default=''}}</td>
+                        <td><a class="am-btn am-btn-default am-btn-xs am-radius" href="{{:PluginsAdminUrl('nursery', 'inquiry', 'detail', ['id'=>$item.id])}}"><i class="am-icon-eye"></i><span>查看</span></a></td>
+                    </tr>
+                {{/foreach}}
+                </tbody>
+            </table>
+        </div>
+        {{if !empty($listing['page_total']) and $listing.page_total gt 1}}
+            <div class="admin-nursery-inquiry-pagination">{{if !empty($listing['has_previous'])}}<a class="am-btn am-btn-default am-btn-xs" href="{{:PluginsAdminUrl('nursery', 'inquiry', 'index', array_merge($filters, ['page'=>$listing['page']-1]))}}">上一页</a>{{/if}}<span>第 {{$listing.page|default=1}} / {{$listing.page_total}} 页</span>{{if !empty($listing['has_next'])}}<a class="am-btn am-btn-default am-btn-xs" href="{{:PluginsAdminUrl('nursery', 'inquiry', 'index', array_merge($filters, ['page'=>$listing['page']+1]))}}">下一页</a>{{/if}}</div>
+        {{/if}}
+    {{else /}}
+        <div class="admin-nursery-inquiry-empty"><i class="am-icon-inbox"></i><p>当前筛选条件下暂无询价。</p></div>
+    {{/if}}
+</div>
+{{:ModuleInclude('public/footer')}}

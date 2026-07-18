@@ -4,6 +4,7 @@ namespace app\plugins\nursery;
 use app\plugins\nursery\service\ScopePolicy;
 use app\plugins\nursery\service\ReferencePriceService;
 use app\plugins\nursery\service\FavoriteService;
+use app\plugins\nursery\service\InquiryService;
 
 class Hook
 {
@@ -34,6 +35,10 @@ class Hook
         } elseif(in_array($hook_name, self::NAVIGATION_HOOKS, true)) {
             if(isset($params['data']) && is_array($params['data']))
             {
+                if($hook_name === 'plugins_service_users_center_left_menu_handle')
+                {
+                    $this->InjectUserInquiryMenu($params['data']);
+                }
                 $params['data'] = ScopePolicy::FilterNavigation($params['data']);
             }
         } elseif($hook_name === 'plugins_service_admin_menu_data') {
@@ -43,6 +48,7 @@ class Hook
             {
                 $had_buttons = !empty($params['data']);
                 $params['data'] = ScopePolicy::FilterGoodsButtons($params['data']);
+                $this->AppendInquiryButton($params);
                 if($had_buttons && empty($params['data']) && isset($params['error']) && empty($params['error']))
                 {
                     $params['error'] = MyLang('goods_only_show_title');
@@ -81,6 +87,7 @@ class Hook
         } elseif($hook_name === 'plugins_view_assign_data') {
             $this->FilterAssignedViewData($params);
             $this->AssignFavoriteViewData($params);
+            $this->AssignInquiryViewData($params);
         } elseif($hook_name === 'plugins_view_fetch_begin') {
             $this->ReplaceRestrictedView($params);
         }
@@ -108,6 +115,10 @@ class Hook
         if(isset($params['admin_left_menu']) && is_array($params['admin_left_menu']))
         {
             $params['admin_left_menu'] = ScopePolicy::FilterAdminMenu($params['admin_left_menu']);
+            if($this->CanViewInquiryMenu($params))
+            {
+                $this->InjectAdminInquiryMenu($params['admin_left_menu']);
+            }
         }
         if(isset($params['admin_power']) && is_array($params['admin_power']))
         {
@@ -121,6 +132,22 @@ class Hook
         {
             $params['admin_all_plugins'] = ScopePolicy::FilterPluginMap($params['admin_all_plugins']);
         }
+    }
+
+    private function CanViewInquiryMenu($params)
+    {
+        $admin = isset($params['admin']) && is_array($params['admin']) ? $params['admin'] : [];
+        if(in_array(intval($admin['id'] ?? 0), [1], true) || in_array(intval($admin['role_id'] ?? 0), [1], true))
+        {
+            return true;
+        }
+        $plugins = isset($params['admin_plugins']) && is_array($params['admin_plugins']) ? $params['admin_plugins'] : [];
+        if(empty($plugins['nursery']) || !is_array($plugins['nursery']))
+        {
+            return false;
+        }
+        $power = $plugins['nursery']['power'] ?? [];
+        return empty($power) || (is_array($power) && in_array('inquiry-index', $power, true));
     }
 
     private function FilterAssignedViewData($params)
@@ -151,6 +178,79 @@ class Hook
         $params['data']['nursery_favorite_add_url'] = PluginsHomeUrl('nursery', 'favorite', 'add');
         $params['data']['nursery_favorite_cancel_url'] = PluginsHomeUrl('nursery', 'favorite', 'cancel');
         $params['data']['nursery_favorite_list_url'] = PluginsHomeUrl('nursery', 'favorite', 'index');
+    }
+
+    private function AssignInquiryViewData($params)
+    {
+        if(RequestModule() !== 'index' || !isset($params['data']) || !is_array($params['data']))
+        {
+            return;
+        }
+        $params['data']['nursery_inquiry_nonce'] = InquiryService::WebRequestNonce();
+        $params['data']['nursery_inquiry_form_url'] = PluginsHomeUrl('nursery', 'inquiry', 'form');
+        $params['data']['nursery_inquiry_create_url'] = PluginsHomeUrl('nursery', 'inquiry', 'create');
+        $params['data']['nursery_inquiry_list_url'] = PluginsHomeUrl('nursery', 'inquiry', 'index');
+    }
+
+    private function AppendInquiryButton($params)
+    {
+        if(RequestModule() !== 'index' || !isset($params['goods']['id']) || intval($params['goods']['id']) <= 0 || intval($params['goods']['is_shelves'] ?? 0) !== 1)
+        {
+            return;
+        }
+        $goods_id = intval($params['goods']['id']);
+        $params['data'][] = [
+            'color' => 'second',
+            'type'  => 'url',
+            'name'  => '立即询价',
+            'title' => '提交苗木采购需求',
+            'value' => PluginsHomeUrl('nursery', 'inquiry', 'form', ['goods_id'=>$goods_id]),
+            'icon'  => 'am-icon-comment-o',
+            'class' => 'nursery-inquiry-entry',
+        ];
+    }
+
+    private function InjectUserInquiryMenu(&$data)
+    {
+        if(isset($data['business']['item']) && is_array($data['business']['item']))
+        {
+            foreach($data['business']['item'] as $item)
+            {
+                if(is_array($item) && in_array('nurseryinquiryindex', $item['contains'] ?? [], true))
+                {
+                    return;
+                }
+            }
+            $data['business']['item'][] = [
+                'name'      => '我的询价',
+                'url'       => PluginsHomeUrl('nursery', 'inquiry', 'index'),
+                'contains'  => ['nurseryinquiryindex', 'nurseryinquirydetail'],
+                'is_show'   => 1,
+                'icon'      => 'iconfont icon-comment',
+                'is_system' => 0,
+            ];
+        }
+    }
+
+    private function InjectAdminInquiryMenu(&$data)
+    {
+        foreach($data as $item)
+        {
+            if(is_array($item) && ($item['nursery_inquiry_menu'] ?? false) === true)
+            {
+                return;
+            }
+        }
+        $data['nursery_inquiry'] = [
+            'name'               => '苗木询价',
+            'url'                => PluginsAdminUrl('nursery', 'inquiry', 'index'),
+            'control'            => 'plugins',
+            'action'             => 'index',
+            'is_show'            => 1,
+            'icon'               => 'iconfont icon-comment',
+            'is_system'          => 0,
+            'nursery_inquiry_menu' => true,
+        ];
     }
 
     private function ReplaceFavoriteBuyLeftNav($params)
