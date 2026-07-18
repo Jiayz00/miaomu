@@ -24,11 +24,12 @@ deploy/**
 !deploy/docker/
 !deploy/docker/app/
 !deploy/docker/app/**
+!deploy/shopxo-schema-baseline-manifest.json
 tests/**
 !tests/ops/
 !tests/ops/environment_check.php
 config/database.php
-config/shopxo.sql
+!config/shopxo.sql
 .env
 .env.*
 *.pem
