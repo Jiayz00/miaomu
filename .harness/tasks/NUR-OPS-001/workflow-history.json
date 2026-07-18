@@ -343,6 +343,14 @@
       "decision_context_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
       "contract_sha256": "0ad1a62a15530cad416803da033aa761458591ca79190f10b3b21df13d92dd81",
       "policy_sha256": "08a260d356a88a4ddd3592cfd6f2d784cca9022f3e39a94201ee84d42b5efb45"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "approved_for_implementation",
+      "by": "Codex-Review",
+      "reason": "独立计划代理确认 corrected contract baseline，业务实现将在 preflight 后合入。",
+      "at": "2026-07-18T19:38:15Z"
     }
   ]
 }
