@@ -2242,6 +2242,48 @@ class RemoteBrokerTests(unittest.TestCase):
                 with self.assertRaisesRegex(remote.RemoteBrokerError, "unmanaged_remote_path|mode_mismatch"):
                     self._broker(task=task)
 
+    def test_caddy_container_config_path_is_narrowly_scoped(self) -> None:
+        task = copy.deepcopy(self.task)
+        task["remote_execution"]["allowed_actions"].append(
+            {
+                "id": "validate_caddy_container",
+                "transport": "ssh",
+                "mode": "mutating",
+                "timeout_seconds": 180,
+                "cwd": "/root/jia/caddy",
+                "argv": [
+                    "docker",
+                    "compose",
+                    "-f",
+                    "/root/jia/caddy/docker-compose.yml",
+                    "-f",
+                    "/root/jia/miaomu/deploy/caddy.compose.override.yaml",
+                    "run",
+                    "--rm",
+                    "--no-deps",
+                    "--entrypoint",
+                    "caddy",
+                    "jia-caddy",
+                    "validate",
+                    "--config",
+                    "/etc/caddy/Caddyfile",
+                ],
+            }
+        )
+        self._broker(task=task)
+
+        for replacement in ("/etc/caddy/other", "/etc/caddy/Caddyfile/child"):
+            with self.subTest(replacement=replacement):
+                denied = copy.deepcopy(task)
+                denied["remote_execution"]["allowed_actions"][-1]["argv"][-1] = replacement
+                with self.assertRaisesRegex(remote.RemoteBrokerError, "unmanaged_remote_path"):
+                    self._broker(task=denied)
+
+        denied = copy.deepcopy(task)
+        denied["remote_execution"]["allowed_actions"][-1]["argv"][11] = "other-caddy"
+        with self.assertRaisesRegex(remote.RemoteBrokerError, "unmanaged_remote_path"):
+            self._broker(task=denied)
+
     def test_relative_path_operands_and_find_output_actions_fail_closed(self) -> None:
         task = copy.deepcopy(self.task)
         task["remote_execution"]["allowed_actions"][0]["argv"] = [

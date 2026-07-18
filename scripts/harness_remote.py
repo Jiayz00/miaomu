@@ -2860,6 +2860,14 @@ class RemoteExecutionBroker:
                     raise RemoteBrokerError(
                         "invalid_contract", f"{label} path option is missing its value"
                     )
+                # ``docker compose run`` passes this fixed path to the Caddy
+                # process inside the ephemeral container.  It is not a host
+                # path and must only be accepted for the exact, contracted
+                # validation action below; all other path options remain
+                # constrained to managed_roots.
+                if self._is_fixed_caddy_container_config(argv, index):
+                    index += 2
+                    continue
                 self._validate_path_option_value(
                     argv[index + 1], cwd=cwd, label=f"{label}[{index + 1}]"
                 )
@@ -2921,6 +2929,38 @@ class RemoteExecutionBroker:
                 self._validate_path_option_value(
                     context, cwd=cwd, label=f"{label}[{len(argv) - 1}] build context"
                 )
+
+    @staticmethod
+    def _is_fixed_caddy_container_config(
+        argv: Sequence[str], index: int
+    ) -> bool:
+        """Recognize only the declared in-container Caddy config argument."""
+
+        if (
+            index < 1
+            or index + 1 >= len(argv)
+            or argv[index] != "--config"
+            or argv[index + 1] != "/etc/caddy/Caddyfile"
+        ):
+            return False
+        try:
+            compose_index = tuple(argv[:2])
+            run_index = tuple(argv).index("run", 2)
+        except ValueError:
+            return False
+        if compose_index != ("docker", "compose"):
+            return False
+        return tuple(argv[run_index:]) == (
+            "run",
+            "--rm",
+            "--no-deps",
+            "--entrypoint",
+            "caddy",
+            "jia-caddy",
+            "validate",
+            "--config",
+            "/etc/caddy/Caddyfile",
+        ) and index == run_index + 7
 
     def _validate_docker_mount_source(
         self, value: str, *, cwd: str, label: str
