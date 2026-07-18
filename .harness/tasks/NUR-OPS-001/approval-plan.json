@@ -7,8 +7,10 @@
   "agent_task": "/root/ops001_plan_review",
   "codex_thread_id": "019f760c-9c0b-76b0-8d9c-94d6e38118a7",
   "result_marker": "APPROVED",
-  "approval_context_sha256": "d604973b335ca9dd3bc1c8a62b86c8f86d044e47dee2e26e87e66b18867193b7",
-  "reviewed_at": "2026-07-19T00:40:00+08:00",
-  "findings": [],
-  "summary": "独立计划审查确认部署入口会执行 catalog、favorite、inquiry v1 前向迁移，已将 database_change.required 设为 true，列出受影响表并锁定 bootstrap 编排入口；迁移实现仍由已批准的 NUR-FEAT-002/003/004 拥有，fresh baseline 例外未启用。备份、schema/台账、幂等、回滚和未执行服务器证据均已明确为后续 L4 门禁。"
+  "approval_context_sha256": "66e28f699f982f40048e54c63aa1ea364b724dbb3c75d1fbf7bdc1e6fd03ce1c",
+  "reviewed_at": "2026-07-19T02:25:14+08:00",
+  "findings": [
+    "修复 schema bootstrap 失败重试的 fail-closed 缺陷：未知表、marker 非单行或 run_id/status 不匹配时均在任何 DROP 前停止；清理集合仅限固定 schema manifest。"
+  ],
+  "summary": "独立计划审查确认部署入口会执行 catalog、favorite、inquiry v1 前向迁移，已将 database_change.required 设为 true，列出受影响表并锁定 bootstrap 编排入口；迁移实现仍由已批准的 NUR-FEAT-002/003/004 拥有，fresh baseline 例外未启用。针对失败重试路径的未知表删除风险已修复并由部署合同 41/41 测试覆盖。备份、schema/台账、幂等、回滚和未执行服务器证据均已明确为后续 L4 门禁。"
 }

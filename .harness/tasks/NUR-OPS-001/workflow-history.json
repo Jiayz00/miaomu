@@ -63,6 +63,76 @@
       "by": "Codex-Implementer",
       "reason": "四项本地合同测试真实执行并全部通过，开始收集证据与独立审查。",
       "at": "2026-07-18T16:47:05Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "本地验证、证据检查和 review-pack 均通过，交由独立代码/功能审查。",
+      "at": "2026-07-18T16:54:09Z"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "独立审查发现部署合同可执行缺口，开始受控修订并重新验证。",
+      "at": "2026-07-18T17:07:27Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "blocked",
+      "by": "Codex-Implementer",
+      "reason": "部署合同需要补充基础 ShopXO schema 初始化、Compose env-file 解析和可验证健康/公网拒绝动作，当前 release 不可安全执行。",
+      "at": "2026-07-18T17:07:55Z"
+    },
+    {
+      "type": "transition",
+      "from": "blocked",
+      "to": "ready_for_analysis",
+      "by": "/root",
+      "reason": "已补齐站点运行配置、地区参考链、回环内容探针和 83 表基线 manifest，恢复计划核验。",
+      "at": "2026-07-18T18:22:34Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "/root",
+      "reason": "最终部署合同和功能 readiness 已更新，交由独立代理自动审批。",
+      "at": "2026-07-18T18:22:35Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/ops001_plan_review",
+      "codex_thread_id": "019f760c-9c0b-76b0-8d9c-94d6e38118a7",
+      "expected_agent_task": "/root/ops001_plan_review",
+      "observed_agent_task": "/root/ops001_plan_review",
+      "observed_codex_thread_id": "019f760c-9c0b-76b0-8d9c-94d6e38118a7",
+      "reason": "",
+      "at": "2026-07-18T18:25:37Z",
+      "review_artifact_path": ".harness/tasks/NUR-OPS-001/approval-plan.json",
+      "review_artifact_sha256": "4b46d6c460e9fad95605d26d90a6a892ba242bacd48ea9aaa2cba343471fa38e",
+      "approval_context_sha256": "66e28f699f982f40048e54c63aa1ea364b724dbb3c75d1fbf7bdc1e6fd03ce1c",
+      "reviewed_at": "2026-07-19T02:25:14+08:00",
+      "plan_artifacts_sha256": "9a51674df70e7b03c72ef1c1d365f2d1175cc8fa153288bd31e60f1df468853b",
+      "decision_context_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "contract_sha256": "0ad1a62a15530cad416803da033aa761458591ca79190f10b3b21df13d92dd81",
+      "policy_sha256": "4b919a1b65d9051cabf6bd5bbc48b1cd19c22f0b90ec251d7aa92d0386c60ee1"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "approved_for_implementation",
+      "by": "Codex-Review",
+      "reason": "独立计划代理已核验最新合同、schema/config/region readiness、manifest 与 fail-closed 重试路径。",
+      "at": "2026-07-18T18:26:05Z"
     }
   ]
 }

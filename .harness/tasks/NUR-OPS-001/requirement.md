@@ -16,7 +16,7 @@
 
 ## 业务目标
 
-将已审查的 ShopXO 苗木站提交部署到用户指定的个人服务器 `root@38.12.21.18:22` 的 `/root/jia/miaomu`，复用服务器现有 `jia-caddy`，只让 Caddy 在 `127.0.0.1:88` 提供回环验收入口。应用栈固定为两个长期服务 `app` 与 `db`，PHP 包含 `intl`/`Normalizer`，询价 HMAC 密钥只从仓库外 secret 注入。部署必须留下主机、镜像、配置、备份、回滚、HTTP 和性能基线证据；未执行的检查明确记为 `blocked` 或 `not_run`。
+将已审查的 ShopXO 苗木站提交部署到用户指定的个人服务器 `root@38.12.21.18:22` 的 `/root/jia/miaomu`，复用服务器现有 `jia-caddy`，只让 Caddy 在 `127.0.0.1:88` 提供回环验收入口。应用栈固定为两个长期服务 `app` 与 `db`，PHP 包含 `intl`/`Normalizer`，询价 HMAC 密钥只从仓库外 secret 注入。空测试库先由镜像内 schema-only bootstrap 建立 ShopXO 表结构（拒绝非空库，不导入上游演示账号、用户、商品、附件和交易），再执行 nursery v1 forward migrations。部署必须留下主机、镜像、配置、Caddy 快照、回滚、HTTP 和性能基线证据；未执行的检查明确记为 `blocked` 或 `not_run`。
 
 `NFR-SEC-006` 通过外部 SSH 文件引用、仓库外运行时配置、secret 元数据检查、输出脱敏和 Git 扫描落实。`NFR-PERF-005` 通过固定 Caddy/PHP/MySQL/数据集指纹、预热规则、并发、样本数、P50/P95 和错误率记录落实；收藏、询价、行为上报、趋势和导出等尚未具备数据或页面前置条件的场景不得填造结果。
 
@@ -28,6 +28,7 @@
 - 不使用原始 `ssh`、`scp`、`curl`，不在服务器现场编辑文件；所有远程动作只能由项目 broker 按本合同结构化 argv 执行。
 - 不修改用户级/全局 Codex 配置，不读取或输出 `id_ed25519`、`known_hosts` 或任何应用 secret 内容。
 - 不修改 `config/shopxo.sql`，也不新增或改写 nursery 迁移实现。固定上游安装基线之后，部署必须执行并验收已批准的 NUR-FEAT-002/003/004 catalog、favorite、inquiry v1 前向迁移；本任务只负责隔离测试库中的编排、备份、验证和失败回滚，不触碰生产或未知既有数据。
+- 不把上游 `config/shopxo.sql` 的 INSERT 记录导入运行库；镜像构建时只保留受控 schema-only 产物。基础管理员仅创建禁用的非 1 号占位，登录凭据设置不在本次自动部署范围内，后台认证验收如未设置凭据必须记录为 `blocked`。
 
 ## 开放决策
 

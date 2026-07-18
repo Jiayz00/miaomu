@@ -16,6 +16,7 @@ import secrets
 import shutil
 import stat
 import sys
+import tempfile
 
 
 SECRET_NAME = "nursery_inquiry_hmac_key"
@@ -74,12 +75,19 @@ def _validate_existing(path: Path) -> None:
         raise SecretContractError(f"secret size is outside the contract: {path}")
 
 
-def _validate_external_file(path: Path, *, mode: int, label: str) -> None:
+def _validate_external_file(
+    path: Path,
+    *,
+    mode: int,
+    label: str,
+    expected_uid: int = 0,
+    expected_gid: int = 10001,
+) -> None:
     """Validate metadata only; never read an external runtime file."""
     metadata = _lstat(path)
     if metadata is None or stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
         raise SecretContractError(f"{label} must be a regular file: {path}")
-    if metadata.st_uid != 0 or metadata.st_gid != 10001:
+    if metadata.st_uid != expected_uid or metadata.st_gid != expected_gid:
         raise SecretContractError(f"{label} ownership is unsafe: {path}")
     if stat.S_IMODE(metadata.st_mode) != mode or metadata.st_size <= 0:
         raise SecretContractError(f"{label} metadata is unsafe: {path}")
@@ -106,18 +114,55 @@ def _copy_config_if_missing(scope: str, root: Path) -> str:
     ):
         raise SecretContractError(f"database template is unavailable: {template}")
     _ensure_file_parent(target)
-    temporary = target.with_name(target.name + ".tmp")
+    # Build the file in an exclusive, same-directory inode and publish it with
+    # a hard-link.  ``os.replace`` would overwrite a target that appeared
+    # after the initial lstat (and a fixed ``.tmp`` name could be a symlink),
+    # so the final link must fail closed when another process wins the race.
+    descriptor: int | None = None
+    temporary: Path | None = None
     try:
-        shutil.copyfile(template, temporary)
-        os.chown(temporary, 0, 10001)
-        os.chmod(temporary, 0o440)
-        os.replace(temporary, target)
-    except OSError as exc:
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=".database.php.", dir=str(target.parent)
+        )
+        temporary = Path(temporary_name)
+        os.fchown(descriptor, 0, 10001)
+        os.fchmod(descriptor, 0o440)
+        with template.open("rb") as source, os.fdopen(descriptor, "wb") as destination:
+            descriptor = None
+            shutil.copyfileobj(source, destination)
+            destination.flush()
+            os.fsync(destination.fileno())
+        temporary_stat = _lstat(temporary)
+        if (
+            temporary_stat is None
+            or stat.S_ISLNK(temporary_stat.st_mode)
+            or not stat.S_ISREG(temporary_stat.st_mode)
+            or temporary_stat.st_uid != 0
+            or temporary_stat.st_gid != 10001
+            or stat.S_IMODE(temporary_stat.st_mode) != 0o440
+            or temporary_stat.st_size <= 0
+        ):
+            raise SecretContractError("database config temporary file metadata is unsafe")
         try:
-            temporary.unlink()
-        except OSError:
-            pass
+            os.link(temporary, target, follow_symlinks=False)
+        except FileExistsError:
+            _validate_external_file(target, mode=0o440, label="database config")
+            return "preserved"
+    except OSError as exc:
         raise SecretContractError(f"cannot create database config: {target}") from exc
+    finally:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError:
+                pass
     _validate_external_file(target, mode=0o440, label="database config")
     return "created"
 
@@ -234,6 +279,20 @@ def prepare(
     secret_dir = root / "secrets"
     _ensure_directory(secret_dir)
     action = _create_if_missing(secret_dir / SECRET_NAME)
+    # Database credentials are provisioned outside the repository.  Check
+    # their metadata here without opening either file, so a bad owner/mode is
+    # rejected before Compose can create or reuse a database volume.
+    _validate_external_file(
+        secret_dir / "mysql_app_password",
+        mode=SECRET_MODE,
+        label="application database secret",
+    )
+    _validate_external_file(
+        secret_dir / "mysql_root_password",
+        mode=0o400,
+        label="root database secret",
+        expected_gid=0,
+    )
     result: dict[str, str] = {
         "status": "pass",
         "scope": scope,

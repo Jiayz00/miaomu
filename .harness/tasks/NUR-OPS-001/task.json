@@ -6,16 +6,16 @@
   "priority": "P0",
   "phase": 1,
   "risk_level": "L4",
-  "status": "verifying",
+  "status": "approved_for_implementation",
   "requirement_ids": [
     "NFR-SEC-006",
     "NFR-PERF-005"
   ],
   "decision_ids": [],
-  "business_goal": "在不把密钥或生产配置写入 Git 的前提下，将获批 ShopXO 苗木站提交部署到用户指定的个人服务器 /root/jia/miaomu，复用现有 jia-caddy，仅以回环 127.0.0.1:88 提供验证入口，并留下可复现的备份、回滚、环境和性能基线证据。",
+  "business_goal": "在不把密钥或生产配置写入 Git 的前提下，将获批 ShopXO 苗木站提交部署到用户指定的个人服务器 /root/jia/miaomu，复用现有 jia-caddy，仅以回环 127.0.0.1:88 提供验证入口，并留下可复现的 Caddy 快照、回滚、环境和性能基线证据；空测试库 schema-only 初始化与未覆盖深备份如实记录。",
   "in_scope": [
     "只读核验 38.12.21.18:22 的主机、Docker、Compose、jia-caddy、Beszel、80/443 和 88 端口基线。",
-    "在 deploy/** 中维护不含凭据的 Compose、PHP intl、FPM Unix socket、外部 secret 注入、Caddy 候选配置、备份、部署、回滚和冒烟入口。",
+    "在 deploy/** 中维护不含凭据的 Compose、PHP intl、FPM Unix socket、外部 secret 注入、schema-only 基线、最小运行配置/地区参考数据、Caddy 候选配置、备份、部署、回滚和冒烟入口。",
     "在 tests/ops/** 中提供可离线审查且可在目标服务器真实执行的环境、secret、Caddy 和部署合同检查。",
     "在锁定的 remote_execution 动作内上传获批提交、启动隔离 miaomu app/db、初始化空测试库、执行已批准的 nursery catalog/favorite/inquiry v1 前向迁移、接入现有 jia-caddy 并验证回环 88。",
     "记录商品列表、详情、收藏、询价、行为上报、后台趋势和导出性能基线的真实执行入口；未具备前置条件的场景保持 blocked/not_run。"
@@ -42,7 +42,7 @@
     "写操作前必须用锁定的只读动作复核目标主机仍为用户授权的个人/测试服务器，且 caddy、beszel、80/443/8090 和现有路由不受影响。",
     "用户 .ssh 外部文件必须存在且分别引用 id_ed25519 与 known_hosts；主机指纹固定为 SHA256:LS9YRVGrU78RNKZ38nYa1p8zxP3oP0LmiO75sF38aa0。",
     "Git release seal 必须锁定干净、已合并并通过独立审查的提交；mutating remote action 只能在 release approval 后执行。",
-    "release_approver 必须不同于 owner、reviewer 和实现代理，并引用真实备份、回滚与验证证据。",
+    "release_approver 必须不同于 owner、reviewer 和实现代理，并引用真实 Caddy 快照、回滚与验证证据；数据库/上传深备份若无合同动作必须标记 blocked。",
     "NUR-FEAT-002/003/004 的已批准 v1 migration manifests/services 必须存在于 release SHA；本任务不得修改其实现，只能由 nursery-bootstrap 的固定编排入口执行。"
   ],
   "allowed_paths": [
@@ -77,17 +77,21 @@
       "sxo_plugins_nursery_inquiry_reply",
       "sxo_plugins_nursery_inquiry_history",
       "sxo_plugins_nursery_inquiry_duplicate_guard",
-      "sxo_plugins_nursery_inquiry_rate_limit"
+      "sxo_plugins_nursery_inquiry_rate_limit",
+      "sxo_* (83 张固定 ShopXO 基线表，完整清单见 deploy/shopxo-schema-baseline-manifest.json)"
     ],
     "migration_paths": [
-      "deploy/docker/app/nursery-bootstrap.php"
+      "deploy/docker/app/extract-schema.php",
+      "deploy/docker/app/shopxo-schema-bootstrap.php",
+      "deploy/docker/app/nursery-bootstrap.php",
+      "deploy/shopxo-schema-baseline-manifest.json"
     ],
     "fresh_install_baseline_exception": {
       "requested": false,
       "reason": "不适用：固定上游 config/shopxo.sql 只是空测试库安装基线，随后仍必须执行版本化 nursery v1 前向迁移。"
     },
-    "rollback_plan": "迁移实现为 NUR-FEAT-002/003/004 已批准的 forward-only v1 入口；本任务不执行 DROP/DELETE 回退。执行前备份数据库、上传和配置，空/可丢弃测试库失败时停止 app/db 并从固定基线重建后重跑迁移；若发现既有数据则保持原库和备份，改走前向修复或阻塞，不触碰未知数据。",
-    "verification": "以 deploy/docker/app/nursery-bootstrap.php 为发布迁移编排入口，确认其按固定 run-id 依次成功执行 CatalogMigration existing、FavoriteMigration schema-v1、InquiryMigration schema-v1；在 information_schema 与 sxo_config 台账核验表、索引、版本和幂等重跑结果，并记录备份/恢复退出码。"
+    "rollback_plan": "迁移实现为 NUR-FEAT-002/003/004 已批准的 forward-only v1 入口；本任务不执行 DROP/DELETE 回退。schema-only bootstrap 只允许空/可丢弃测试库，发现既有表即停止并保留原状态；失败时停止 app/db，从固定 release 重新创建测试卷并重跑迁移。Caddyfile/Compose 快照是强制回滚边界，数据库/上传深备份未由合同动作覆盖时必须记录 blocked，不触碰未知数据。",
+    "verification": "以 deploy/docker/app/extract-schema.php、shopxo-schema-bootstrap.php 和 nursery-bootstrap.php 为发布编排入口，按 deploy/shopxo-schema-baseline-manifest.json 核对 83 张空库表结构，并核验站点启用/默认主题/用户名登录注册配置、三层地区参考链、CatalogMigration existing、FavoriteMigration schema-v1、InquiryMigration schema-v1 按固定 run-id 成功；在 information_schema 与 sxo_config 台账核验表、索引、版本和幂等重跑结果，并记录 Caddy 快照/回滚退出码。"
   },
   "new_dependency_allowed": true,
   "network_access_required": true,
@@ -177,6 +181,33 @@
           "ls",
           "-la",
           "/root/jia/caddy"
+        ]
+      },
+      {
+        "id": "inventory_miaomu_root",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 30,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "ls",
+          "-la",
+          "--",
+          "/root/jia"
+        ]
+      },
+      {
+        "id": "inventory_miaomu_volumes",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "docker",
+          "volume",
+          "ls",
+          "--format",
+          "{{.Name}}"
         ]
       },
       {
@@ -349,7 +380,6 @@
         "cwd": "/root/jia/miaomu",
         "argv": [
           "mkdir",
-          "-p",
           "--",
           "/root/jia/miaomu"
         ]
@@ -460,7 +490,38 @@
           "/root/jia/miaomu/deploy/compose.bootstrap.yaml",
           "up",
           "-d",
+          "--wait",
+          "--wait-timeout",
+          "120",
           "db"
+        ]
+      },
+      {
+        "id": "bootstrap_shopxo_schema",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 600,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "docker",
+          "compose",
+          "--env-file",
+          "/root/jia/miaomu/release.env",
+          "-p",
+          "miaomu",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.yaml",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.init.yaml",
+          "run",
+          "--rm",
+          "--no-deps",
+          "app",
+          "php",
+          "/usr/local/lib/miaomu/shopxo-schema-bootstrap.php",
+          "initialize",
+          "NUR-OPS-001",
+          "--run-id=NUR-OPS-001-20260719-base"
         ]
       },
       {
@@ -527,6 +588,9 @@
           "up",
           "-d",
           "--force-recreate",
+          "--wait",
+          "--wait-timeout",
+          "120",
           "db"
         ]
       },
@@ -590,6 +654,9 @@
           "/root/jia/miaomu/deploy/compose.yaml",
           "up",
           "-d",
+          "--wait",
+          "--wait-timeout",
+          "120",
           "app"
         ]
       },
@@ -648,7 +715,7 @@
         ]
       },
       {
-        "id": "backup_caddy_dir",
+        "id": "prepare_backup_root",
         "transport": "ssh",
         "mode": "mutating",
         "timeout_seconds": 60,
@@ -656,6 +723,18 @@
         "argv": [
           "mkdir",
           "-p",
+          "--",
+          "/root/jia/miaomu/backups"
+        ]
+      },
+      {
+        "id": "backup_caddy_dir",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "mkdir",
           "--",
           "/root/jia/miaomu/backups/NUR-OPS-001"
         ]
@@ -835,19 +914,12 @@
       {
         "id": "probe_public_88",
         "transport": "ssh",
-        "mode": "mutating",
+        "mode": "read_only",
         "timeout_seconds": 60,
         "cwd": "/root/jia/caddy",
         "argv": [
-          "curl",
-          "-q",
-          "--connect-timeout",
-          "5",
-          "--max-time",
-          "10",
-          "--noproxy",
-          "*",
-          "http://38.12.21.18:88/"
+          "python3",
+          "/root/jia/miaomu/deploy/probe_public_88.py"
         ]
       },
       {
@@ -939,7 +1011,7 @@
     },
     {
       "id": "deploy_contract",
-      "description": "校验 Compose、PHP intl/Normalizer、FPM HMAC 注入、Caddy 挂载、路径、端口、备份和回滚合同。",
+      "description": "校验 Compose、PHP intl/Normalizer、schema-only bootstrap、FPM HMAC 注入、Caddy 挂载、路径、端口、快照和回滚合同。",
       "command": [
         "python",
         "tests/ops/test_deployment_contract.py"
@@ -961,15 +1033,15 @@
   ],
   "rollback": {
     "required": true,
-    "plan": "任一 build、数据库、FPM、Caddy、共享服务或 HTTP 门禁失败，立即停止后续动作；恢复备份的完整 Caddyfile/Compose 与原 mounts/groups，只用原 Compose recreate jia-caddy，复核 supervise/Beszel/80/443，再停止 miaomu app/db。不得删除未知卷、数据库或上传资源。",
-    "verification": "记录 rollback action 的真实 argv、退出码和时间；确认 jia-caddy service/image/network/mount/config 哈希回到发布前快照，127.0.0.1:88 不再指向失败版本，supervise、Beszel、80/443 与数据库/上传备份校验通过。"
+    "plan": "任一 build、schema、迁移、FPM、Caddy、共享服务或 HTTP 门禁失败，立即停止后续动作；恢复备份的完整 Caddyfile/Compose 与原 mounts/groups，只用原 Compose recreate jia-caddy，复核 supervise/Beszel/80/443，再停止 miaomu app/db。不得删除未知卷、数据库或上传资源；未覆盖的数据库/上传深备份保持 blocked。",
+    "verification": "记录 rollback action 的真实 argv、退出码和时间；确认 jia-caddy service/image/network/mount/config 哈希回到发布前快照，127.0.0.1:88 不再指向失败版本，supervise、Beszel、80/443 健康；数据库/上传恢复能力若未执行明确记录 blocked。"
   },
   "manual_approvals": {
     "plan": {
       "required": true,
       "status": "approved",
       "approved_by": "Codex-Review",
-      "approved_at": "2026-07-18T16:40:00Z"
+      "approved_at": "2026-07-18T18:25:37Z"
     },
     "merge": {
       "required": true,
@@ -1003,5 +1075,5 @@
   "reviewer": "Codex-Review",
   "release_approver": "Codex-Release",
   "created_at": "2026-07-13T02:39:55Z",
-  "updated_at": "2026-07-18T16:47:05Z"
+  "updated_at": "2026-07-18T18:26:05Z"
 }

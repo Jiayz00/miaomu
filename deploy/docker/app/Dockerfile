@@ -71,6 +71,7 @@ RUN [ "${#MIAOMU_RELEASE_SHA}" -eq 40 ] \
     && composer check-platform-reqs --no-dev \
     && install -D -m 0444 tests/ops/environment_check.php /opt/miaomu/environment_check.php \
     && php /opt/miaomu/environment_check.php --build \
+    && php deploy/docker/app/extract-schema.php config/shopxo.sql /opt/miaomu/shopxo-schema.sql deploy/shopxo-schema-baseline-manifest.json \
     && printf '%s\n' "$MIAOMU_RELEASE_SHA" > /opt/miaomu/release-sha \
     && chmod 0444 /opt/miaomu/release-sha \
     && rm -rf \
@@ -98,10 +99,12 @@ WORKDIR /var/www/html
 
 COPY --from=build --chown=0:0 /var/www/html /var/www/html
 COPY --from=build --chown=0:0 /opt/miaomu/environment_check.php /usr/local/lib/miaomu/environment_check.php
+COPY --from=build --chown=0:0 /opt/miaomu/shopxo-schema.sql /usr/local/share/miaomu/shopxo-schema.sql
 COPY --from=build --chown=0:0 /opt/miaomu/release-sha /usr/local/share/miaomu/release-sha
 COPY --chown=0:0 deploy/docker/app/php.ini /usr/local/etc/php/php.ini
 COPY --chown=0:0 deploy/docker/app/www.conf /usr/local/etc/php-fpm.d/zz-miaomu.conf
 COPY --chown=0:0 deploy/docker/app/fpm-entry-guard.php /usr/local/lib/miaomu/fpm-entry-guard.php
+COPY --chown=0:0 deploy/docker/app/shopxo-schema-bootstrap.php /usr/local/lib/miaomu/shopxo-schema-bootstrap.php
 COPY --chown=0:0 deploy/docker/app/nursery-bootstrap.php /usr/local/lib/miaomu/nursery-bootstrap.php
 COPY --chown=0:0 deploy/docker/app/docker-entrypoint.sh /usr/local/bin/miaomu-entrypoint
 COPY --chown=0:0 deploy/docker/app/runtime-sanitize.sh /usr/local/bin/miaomu-runtime-sanitize
@@ -148,7 +151,9 @@ RUN rm -f \
         /usr/local/etc/php-fpm.d/zz-miaomu.conf \
         /usr/local/lib/miaomu/environment_check.php \
         /usr/local/lib/miaomu/fpm-entry-guard.php \
+        /usr/local/lib/miaomu/shopxo-schema-bootstrap.php \
         /usr/local/lib/miaomu/nursery-bootstrap.php \
+        /usr/local/share/miaomu/shopxo-schema.sql \
         /usr/local/share/miaomu/release-sha
 
 USER 10001:10001

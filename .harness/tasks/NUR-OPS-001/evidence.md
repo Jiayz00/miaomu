@@ -5,7 +5,7 @@
 | 验收标准 | 当前结论 | 证据要求 |
 | --- | --- | --- |
 | `AC-TASK-001` 密钥与配置边界 | 本地合同与 broker 自检通过；服务器未执行 | Git 敏感扫描、外部文件元数据、脱敏 release manifest 和远程退出码 |
-| `AC-TASK-002` 固定 release、两服务、intl/Caddy/88、v1 迁移与性能入口 | 本地四项验证通过；服务器未执行 | Docker/Compose/PHP/Caddy/HTTP、`initialize_nursery` 三组迁移的 schema/台账/幂等证据和性能真实结果；缺失场景标记 blocked/not_run |
+| `AC-TASK-002` 固定 release、两服务、intl/Caddy/88、v1 迁移与性能入口 | 本地合同验证通过；服务器未执行 | Docker/Compose/PHP/Caddy/HTTP、schema-only 基线、`initialize_nursery` 三组迁移的 schema/台账/幂等证据和性能真实结果；后台凭据、深备份及缺失场景标记 blocked/not_run |
 
 ## 自动测试证据
 
@@ -30,7 +30,7 @@ TEST_RESULT: release_inputs_contract exit_code=0
 
 ## 手工与页面证据
 
-当前没有服务器、浏览器、数据库或 Caddy 真实证据。预留证据必须包含：主机指纹匹配（不含密钥内容）、Caddy/Beszel/80/443 快照、Docker/Compose/镜像摘要、secret owner/group/mode/size、数据库与上传备份校验、固定 baseline 后三组 v1 迁移的实际表/索引、`sxo_config` 台账和幂等重跑结果、FPM socket 权限、回环 88 响应、拒绝旁路和性能原始结果路径。输出需脱敏。
+当前没有服务器、浏览器、数据库或 Caddy 真实证据。预留证据必须包含：主机指纹匹配（不含密钥内容）、Caddy/Beszel/80/443 快照、Docker/Compose/镜像摘要、secret owner/group/mode/size、空库/schema-only bootstrap 结果、固定 baseline 后三组 v1 迁移的实际表/索引、`sxo_config` 台账和幂等重跑结果、FPM socket 权限、回环 88 响应、拒绝旁路和性能原始结果路径。数据库/上传深备份与后台登录凭据若未执行必须显式标记 blocked/not_run。输出需脱敏。
 
 ## 已知限制
 
@@ -41,4 +41,4 @@ TEST_RESULT: release_inputs_contract exit_code=0
 
 ## 回滚证据
 
-尚未执行远程写操作，因此没有回滚结果。实际发布必须先保存 Caddyfile/Compose、数据库、上传、配置和插件备份，再在失败时执行合同 rollback actions，并记录每个动作的退出码、恢复哈希和共享服务健康结果。
+尚未执行远程写操作，因此没有回滚结果。实际发布必须先保存 Caddyfile/Compose 快照；本次空测试库的数据库/上传/插件深备份若未具备动作支持必须记录 blocked，再在失败时执行合同 rollback actions，并记录每个动作的退出码、恢复哈希和共享服务健康结果。

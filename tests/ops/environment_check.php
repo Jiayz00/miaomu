@@ -414,6 +414,47 @@ function runReadinessChecks(string $mode, array &$checks): void
             $checks,
             'enabled_plugin_set_invalid'
         );
+
+        $requiredConfig = [
+            'home_site_name' => static fn(string $value): bool => trim($value) !== '',
+            'home_site_web_state' => static fn(string $value): bool => $value === '1',
+            'home_site_web_home_state' => static fn(string $value): bool => $value === '1',
+            'home_site_web_pc_state' => static fn(string $value): bool => $value === '1',
+            'common_default_theme' => static fn(string $value): bool => $value === 'default',
+            'home_user_reg_type' => static fn(string $value): bool => in_array('username', array_filter(array_map('trim', explode(',', $value))), true),
+            'home_user_login_type' => static fn(string $value): bool => in_array('username', array_filter(array_map('trim', explode(',', $value))), true),
+        ];
+        $configCheck = $pdo->prepare(
+            'SELECT value FROM '.$table.' WHERE only_tag = ? LIMIT 1'
+        );
+        foreach($requiredConfig as $tag => $predicate)
+        {
+            $configCheck->execute([$tag]);
+            $value = $configCheck->fetchColumn();
+            requireCheck(
+                is_string($value) && $predicate($value),
+                'site_config_'.$tag,
+                $mode,
+                $checks,
+                'site_runtime_config_invalid'
+            );
+        }
+
+        $regionTable = $prefix.'region';
+        $regionChain = $pdo->query(
+            'SELECT p.id FROM '.$regionTable.' p '
+            .'INNER JOIN '.$regionTable.' c ON c.pid = p.id '
+            .'INNER JOIN '.$regionTable.' d ON d.pid = c.id '
+            .'WHERE p.level = 1 AND c.level = 2 AND d.level = 3 '
+            .'AND p.is_enable = 1 AND c.is_enable = 1 AND d.is_enable = 1 LIMIT 1'
+        );
+        requireCheck(
+            $regionChain->fetchColumn() !== false,
+            'region_reference_data',
+            $mode,
+            $checks,
+            'region_reference_data_invalid'
+        );
     }
     catch(Throwable)
     {

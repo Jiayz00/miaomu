@@ -12,7 +12,7 @@
 
 本地唯一工作区产生已审查提交，broker 通过仓库外 SSH 文件完成主机指纹校验，然后在 `/root/jia/miaomu` 解包同一 release。`miaomu` Compose 只运行 `app` 和 `db`，两者使用 internal backend 网络；FPM 通过命名 Unix socket 与现有 Caddy 连接，MySQL 不发布宿主机端口。Caddy 的候选配置只增加 `127.0.0.1:88`、public/uploads/socket 只读挂载和必要组权限，不创建 Web 服务。
 
-运行时配置、数据库口令和 `PHP_NURSERY_INQUIRY_HMAC_KEY` 来自 `/etc/miaomu` 下仓库外受限文件；恢复合同使用 `/etc/miaomu-restore`。HMAC 文件只允许首次创建，之后只检查 owner/group/mode/size 元数据，绝不读取或输出值。数据库初始化是可丢弃的非生产测试库，商品/询价历史等真实业务数据不在本任务范围。
+运行时配置、数据库口令和 `PHP_NURSERY_INQUIRY_HMAC_KEY` 来自 `/etc/miaomu` 下仓库外受限文件；恢复合同使用 `/etc/miaomu-restore`。HMAC 文件只允许首次创建，之后只检查 owner/group/mode/size 元数据，绝不读取或输出值。数据库初始化是可丢弃的非生产测试库，商品/询价历史等真实业务数据不在本任务范围。镜像构建阶段从固定上游 dump 提取 schema-only 文件；运行时 bootstrap 先检查 information_schema 表数必须为 0，只执行 SET/DROP/CREATE 结构语句，然后写入最小系统配置和非 1 号禁用管理员占位，不导入任何上游 INSERT 记录。
 
 ## 影响范围
 
@@ -37,7 +37,7 @@
 - **误触生产**：远程写入前必须由只读动作确认个人/测试环境；发现生产标记、真实业务数据或目标指纹变化立即停止。
 - **共享网关回归**：候选 Caddyfile 必须先在现有镜像中 validate；只允许受管的 `jia-caddy` recreate，任何 80/443/Beszel 异常立即回滚。
 - **密钥不可逆性**：HMAC 值改变会使历史手机号无法解密；脚本只创建一次并保留既有文件，仓库不保存值。
-- **初始化数据损失**：只允许空/可丢弃测试库；发布前下载 Caddy 快照并备份数据库、上传和配置，未完成备份不得继续。
+- **初始化数据损失**：只允许空/可丢弃测试库；schema bootstrap 在发现任意既有表时 fail-closed。共享 Caddy 配置仍需快照；数据库/上传深备份在当前个人测试主机上不作为自动门禁，若盘点发现非空或生产标记则停止并记录 blocked。
 - **动作越界**：受管根固定为 `/root/jia/miaomu`、`/root/jia/caddy`、`/etc/miaomu`、`/etc/miaomu-restore`；禁止 shell、嵌套传输、未合同主机、敏感 CLI 参数和系统破坏动作。
 - **工具缺口**：本地没有 PHP/Composer/Docker 时不把本地缺口转成通过；对应检查必须在目标应用容器/服务器真实执行并保留退出码。
 

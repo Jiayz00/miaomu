@@ -542,6 +542,14 @@ def readiness_errors(source: str) -> list[str]:
         "inquiry_hmac_secret_metadata",
         "nursery_event_bindings",
         "enabled_plugin_set",
+        "home_site_web_state",
+        "home_site_web_home_state",
+        "home_site_web_pc_state",
+        "common_default_theme",
+        "home_user_reg_type",
+        "home_user_login_type",
+        "region_reference_data",
+        "site_runtime_config_invalid",
         "$connectionString = sprintf(",
         "new PDO(",
         "$connectionString,",
@@ -564,11 +572,18 @@ def runtime_sanitize_errors(entrypoint: str, sanitizer: str, dockerfile: str) ->
         '    && [ "${3:-}" = "initialize" ]; then\n'
         '    managed_start=true'
     )
+    schema_branch = (
+        'elif [ "${1:-}" = "php" ] \\\n'
+        '    && [ "${2:-}" = "/usr/local/lib/miaomu/shopxo-schema-bootstrap.php" ] \\\n'
+        '    && [ "${3:-}" = "initialize" ]; then\n'
+        '    managed_start=true'
+    )
     managed_guard = 'if [ "$managed_start" = "true" ]; then'
     readiness = "php /usr/local/lib/miaomu/environment_check.php --startup"
     for fragment, label in (
         ("managed_start=false", "default unmanaged state"),
         (php_fpm_branch, "php-fpm managed entry"),
+        (schema_branch, "exact schema initializer entry"),
         (initializer_branch, "exact nursery initializer entry"),
         (managed_guard, "managed-entry guard"),
         (sanitizer_call, "runtime sanitizer invocation"),
@@ -577,8 +592,8 @@ def runtime_sanitize_errors(entrypoint: str, sanitizer: str, dockerfile: str) ->
             errors.append(f"entrypoint is missing {label}")
     if entrypoint.count(sanitizer_call) != 1:
         errors.append("entrypoint must invoke the runtime sanitizer exactly once")
-    if entrypoint.count("managed_start=true") != 2 or entrypoint.count("managed_start=false") != 1:
-        errors.append("entrypoint must authorize exactly php-fpm and nursery initialize")
+    if entrypoint.count("managed_start=true") != 3 or entrypoint.count("managed_start=false") != 1:
+        errors.append("entrypoint must authorize exactly php-fpm, schema and nursery initialize")
     sanitizer_index = entrypoint.find(sanitizer_call)
     guard_index = entrypoint.find(managed_guard)
     readiness_index = entrypoint.find(readiness)
@@ -1846,6 +1861,10 @@ class AppRuntimeContractTests(unittest.TestCase):
         self.assertIn("libicu72", source)
         self.assertRegex(source, r"for extension in .*\bintl\b")
         self.assertIn("environment_check.php", source)
+        self.assertIn("extract-schema.php", source)
+        self.assertIn("deploy/shopxo-schema-baseline-manifest.json", source)
+        self.assertIn("/usr/local/share/miaomu/shopxo-schema.sql", source)
+        self.assertIn("shopxo-schema-bootstrap.php", source)
         self.assertIn("nursery-bootstrap.php", source)
         self.assertIn("/usr/local/lib/miaomu/nursery-bootstrap.php", source)
         self.assertIn("install -o 0 -g 0 -m 0444 /dev/null /var/www/html/app/event.php", source)
@@ -1869,6 +1888,96 @@ class AppRuntimeContractTests(unittest.TestCase):
         self.assertNotIn("cat /run/secrets/nursery_inquiry_hmac_key", entrypoint)
         self.assertNotIn("set -x", entrypoint)
 
+    def test_base_schema_bootstrap_is_empty_only_and_schema_only(self) -> None:
+        source = (self.app_dir / "shopxo-schema-bootstrap.php").read_text(encoding="utf-8")
+        for fragment in (
+            "database_not_empty",
+            "information_schema.tables",
+            "/usr/local/share/miaomu/shopxo-schema.sql",
+            "CREATE\\s+TABLE",
+            "sample_rows_imported",
+            "admin_id_one_imported",
+        ):
+            self.assertIn(fragment, source)
+        self.assertIn("INSERT INTO sxo_role (id,name,is_enable", source)
+        self.assertIn("VALUES (10001,'苗木运营管理员',0", source)
+        self.assertIn("INSERT INTO sxo_admin (id,token", source)
+        self.assertIn(
+            "VALUES (10001,'','','nursery_admin','','', '', '', 0, 1, 0, 0, 10001,",
+            source,
+        )
+        self.assertIn("'admin_login' => 'blocked_until_credentials_are_set'", source)
+        self.assertEqual(source.count("INSERT INTO sxo_admin"), 1)
+        self.assertNotRegex(
+            source,
+            r"INSERT\s+INTO\s+sxo_(?:admin|user)\s*[^;]*VALUES\s*\(\s*1\s*,",
+        )
+        self.assertIn("$created < 80", source)
+
+    def test_schema_bootstrap_retry_fails_closed_before_cleanup(self) -> None:
+        source = (self.app_dir / "shopxo-schema-bootstrap.php").read_text(encoding="utf-8")
+        for fragment in (
+            "count($markerRows) !== 1",
+            "(string) ($markerRows[0]['status'] ?? '') !== 'failed'",
+            "(string) ($markerRows[0]['run_id'] ?? '') !== $runId",
+            "bootstrap_marker_not_retryable",
+            "if(!isset($schemaNames[$tableName]))",
+            "bootstrap_unknown_table",
+            "foreach(array_reverse(array_keys($schemaNames)) as $tableName)",
+        ):
+            self.assertIn(fragment, source)
+
+        marker_validation = source.index("count($markerRows) !== 1")
+        unknown_table_check = source.index("if(!isset($schemaNames[$tableName]))")
+        first_drop = source.index("$pdo->exec('DROP TABLE IF EXISTS `'.$tableName.'`')")
+        marker_drop = source.index("$pdo->exec('DROP TABLE `'.$markerName.'`')")
+        self.assertLess(marker_validation, first_drop)
+        self.assertLess(unknown_table_check, first_drop)
+        self.assertLess(first_drop, marker_drop)
+        self.assertNotIn("foreach(array_reverse($tableRows) as $tableName)", source)
+
+    def test_schema_bootstrap_seeds_runtime_config_and_reference_region(self) -> None:
+        source = (self.app_dir / "shopxo-schema-bootstrap.php").read_text(encoding="utf-8")
+        for fragment in (
+            "home_site_name",
+            "home_site_web_state",
+            "home_site_web_home_state",
+            "home_site_web_pc_state",
+            "common_default_theme",
+            "home_user_reg_type",
+            "home_user_login_type",
+            "common_register_is_enable_audit",
+            "common_img_verify_state",
+            "INSERT INTO sxo_region",
+            "[1, 0, '北京市', 1",
+            "[36, 1, '北京市', 2",
+            "[457, 36, '东城区', 3",
+        ):
+            self.assertIn(fragment, source)
+        self.assertNotIn("sxo_goods (", source)
+        self.assertNotIn("sxo_user (", source)
+
+    def test_public_probe_checks_loopback_content_and_public_denial(self) -> None:
+        source = (DEPLOY / "probe_public_88.py").read_text(encoding="utf-8")
+        for fragment in (
+            "probe_loopback_home",
+            "http://127.0.0.1:88/",
+            "\\u82d7\\u6728",
+            "\\u5347\\u7ea7\\u4e2d",
+            '"loopback_home"',
+            '"expected_denied"',
+        ):
+            self.assertIn(fragment, source)
+
+    def test_schema_extractor_never_keeps_insert_records(self) -> None:
+        source = (self.app_dir / "extract-schema.php").read_text(encoding="utf-8")
+        self.assertIn("CREATE\\s+TABLE", source)
+        self.assertIn("INSERT records", source)
+        self.assertNotRegex(source, r"INSERT\s+INTO")
+        self.assertIn("$created < 80", source)
+        self.assertIn("schema manifest mismatch", source)
+        self.assertIn("array_unique(array_map('strval', $expectedTables))", source)
+
     def test_runtime_secret_preparation_is_create_once_and_metadata_only(self) -> None:
         source = (DEPLOY / "prepare_runtime_secrets.py").read_text(encoding="utf-8")
         for fragment in (
@@ -1885,8 +1994,14 @@ class AppRuntimeContractTests(unittest.TestCase):
             "database.restore.php.example",
             'root / "generated" / "event.php"',
             "event_finalize",
+            "tempfile.mkstemp",
+            "os.link(temporary, target, follow_symlinks=False)",
+            'secret_dir / "mysql_app_password"',
+            'secret_dir / "mysql_root_password"',
+            "expected_gid=0",
         ):
             self.assertIn(fragment, source)
+        self.assertNotIn("os.replace(temporary, target)", source)
         self.assertNotIn("read_bytes", source)
         self.assertNotIn("open(path, \"r\")", source)
         self.assertNotIn("print(payload", source)
