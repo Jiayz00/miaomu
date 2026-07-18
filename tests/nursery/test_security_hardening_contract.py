@@ -78,6 +78,9 @@ class FavoriteRateLimitContractTests(unittest.TestCase):
         self.assertIn("Db::rollback()", self.rate)
         self.assertIn("UNIX_TIMESTAMP", self.rate)
         self.assertIn("SecurityMigration::AssertReady()", self.rate)
+        self.assertIn("$count < 1 || $count > self::MAX_ATTEMPTS", self.rate)
+        self.assertIn("$now < $started_at", self.rate)
+        self.assertIn("收藏频率限制状态无效", self.rate)
         self.assertIn("FavoriteRateLimit::Consume($user_id, 'add')", self.favorite)
         self.assertIn("FavoriteRateLimit::Consume($user_id, 'cancel')", self.favorite)
 
@@ -113,6 +116,8 @@ class ProductAuditContractTests(unittest.TestCase):
         self.assertIn("GoodsAuditService::RecordStatus", self.hook)
         self.assertIn("previous_goods", self.core)
         self.assertIn("->lock(true)", self.core)
+        self.assertIn("SecurityMigration::AssertReady()", self.audit)
+        self.assertIn("self::$pending_save = []", self.audit)
         self.assertNotRegex(self.audit, r"->(?:delete|update)\(", re.I)
 
     def test_manifest_registers_all_audit_hooks(self) -> None:

@@ -55,6 +55,14 @@
       "by": "Codex-Implementer",
       "reason": "",
       "at": "2026-07-18T20:49:52Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "实现提交已完成，开始真实合同验证",
+      "at": "2026-07-18T21:15:50Z"
     }
   ]
 }

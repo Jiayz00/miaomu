@@ -69,7 +69,11 @@ class FavoriteRateLimit
 
                 $started_at = intval($row['window_started_at'] ?? 0);
                 $count = intval($row['attempt_count'] ?? 0);
-                if($started_at <= 0 || $now < $started_at || ($now - $started_at) >= self::WINDOW_SECONDS)
+                if($started_at <= 0 || $now < $started_at || $count < 1 || $count > self::MAX_ATTEMPTS)
+                {
+                    throw new \RuntimeException('收藏频率限制状态无效');
+                }
+                if(($now - $started_at) >= self::WINDOW_SECONDS)
                 {
                     $started_at = $now;
                     $count = 0;

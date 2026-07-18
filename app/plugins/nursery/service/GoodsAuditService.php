@@ -156,6 +156,9 @@ class GoodsAuditService
 
     private static function Append($goods_id, $admin_id, $action, $old_value, $new_value, $reason, $request_id)
     {
+        // Audit is a write gate: a missing or drifted security schema must
+        // abort the enclosing goods transaction rather than silently commit.
+        SecurityMigration::AssertReady();
         $data = [
             'goods_id'  => intval($goods_id),
             'admin_id'  => intval($admin_id),
