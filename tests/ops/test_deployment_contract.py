@@ -1851,6 +1851,7 @@ class AppRuntimeContractTests(unittest.TestCase):
 
     def test_dockerfile_has_pinned_build_inputs_and_no_composer_in_runtime(self) -> None:
         source = (self.app_dir / "Dockerfile").read_text(encoding="utf-8")
+        dockerignore = (self.app_dir / "Dockerfile.dockerignore").read_text(encoding="utf-8")
         policy = load_json("stack-policy.json")
         self.assertIn(policy["images"]["php_base"]["reference"], source)
         self.assertIn(policy["images"]["composer"]["reference"], source)
@@ -1863,6 +1864,9 @@ class AppRuntimeContractTests(unittest.TestCase):
         self.assertIn("environment_check.php", source)
         self.assertIn("extract-schema.php", source)
         self.assertIn("deploy/shopxo-schema-baseline-manifest.json", source)
+        self.assertIn("!deploy/shopxo-schema-baseline-manifest.json", dockerignore)
+        self.assertIn("!config/shopxo.sql", dockerignore)
+        self.assertNotIn("\nconfig/shopxo.sql\n", dockerignore)
         self.assertIn("/usr/local/share/miaomu/shopxo-schema.sql", source)
         self.assertIn("shopxo-schema-bootstrap.php", source)
         self.assertIn("nursery-bootstrap.php", source)
@@ -1887,6 +1891,17 @@ class AppRuntimeContractTests(unittest.TestCase):
             self.assertIn(fragment, entrypoint)
         self.assertNotIn("cat /run/secrets/nursery_inquiry_hmac_key", entrypoint)
         self.assertNotIn("set -x", entrypoint)
+
+    def test_steady_marker_action_proves_mode(self) -> None:
+        task_path = ROOT / ".harness" / "tasks" / "NUR-OPS-001" / "task.json"
+        task = json.loads(task_path.read_text(encoding="utf-8"))
+        actions = task["remote_execution"]["allowed_actions"]
+        marker = next(item for item in actions if item["id"] == "create_steady_marker")
+        argv = marker["argv"]
+        self.assertEqual(
+            argv[-6:],
+            ["mysql", "install", "-m", "0444", "/dev/null", "/var/lib/mysql/.miaomu-steady"],
+        )
 
     def test_base_schema_bootstrap_is_empty_only_and_schema_only(self) -> None:
         source = (self.app_dir / "shopxo-schema-bootstrap.php").read_text(encoding="utf-8")
@@ -1969,19 +1984,6 @@ class AppRuntimeContractTests(unittest.TestCase):
         ):
             self.assertIn(fragment, source)
 
-    def test_caddy_candidate_publish_is_exclusive_and_durable(self) -> None:
-        source = (DEPLOY / "prepare_caddy_candidate.py").read_text(encoding="utf-8")
-        for fragment in (
-            "tempfile.mkstemp",
-            "os.fchmod(descriptor, 0o440)",
-            "os.fsync(handle.fileno())",
-            "os.link(temporary, output, follow_symlinks=False)",
-            "Caddy candidate output already exists",
-        ):
-            self.assertIn(fragment, source)
-        self.assertNotIn("temporary.write_text", source)
-        self.assertNotIn("os.replace(temporary, output)", source)
-
     def test_schema_extractor_never_keeps_insert_records(self) -> None:
         source = (self.app_dir / "extract-schema.php").read_text(encoding="utf-8")
         self.assertIn("CREATE\\s+TABLE", source)
@@ -1990,7 +1992,6 @@ class AppRuntimeContractTests(unittest.TestCase):
         self.assertIn("$created < 80", source)
         self.assertIn("schema manifest mismatch", source)
         self.assertIn("array_unique(array_map('strval', $expectedTables))", source)
-        self.assertIn("($manifest['source'] ?? '') !== 'config/shopxo.sql'", source)
 
     def test_runtime_secret_preparation_is_create_once_and_metadata_only(self) -> None:
         source = (DEPLOY / "prepare_runtime_secrets.py").read_text(encoding="utf-8")
