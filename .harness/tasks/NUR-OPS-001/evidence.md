@@ -4,19 +4,29 @@
 
 | 验收标准 | 当前结论 | 证据要求 |
 | --- | --- | --- |
-| `AC-TASK-001` 密钥与配置边界 | 本地合同已声明；服务器未执行 | Git 敏感扫描、外部文件元数据、脱敏 release manifest 和远程退出码 |
-| `AC-TASK-002` 固定 release、两服务、intl/Caddy/88、v1 迁移与性能入口 | 本地制品已声明；远程未执行 | Docker/Compose/PHP/Caddy/HTTP、`initialize_nursery` 三组迁移的 schema/台账/幂等证据和性能真实结果；缺失场景标记 blocked/not_run |
+| `AC-TASK-001` 密钥与配置边界 | 本地合同与 broker 自检通过；服务器未执行 | Git 敏感扫描、外部文件元数据、脱敏 release manifest 和远程退出码 |
+| `AC-TASK-002` 固定 release、两服务、intl/Caddy/88、v1 迁移与性能入口 | 本地四项验证通过；服务器未执行 | Docker/Compose/PHP/Caddy/HTTP、`initialize_nursery` 三组迁移的 schema/台账/幂等证据和性能真实结果；缺失场景标记 blocked/not_run |
 
 ## 自动测试证据
 
-本轮仅完成合同制品审阅，未进入远程执行阶段。已实际运行：
+VERIFY_CONTRACT_SHA256: c2e7593bc267907653252f2eed93923d3a3373a337dabb2bcba71ff1b0899fd7
 
-- `TEST_COMMAND: task_check ["python","scripts/harness.py","task-check","NUR-OPS-001"]`
-- `TEST_RESULT: task_check exit_code=0`
-- `TEST_COMMAND: plan_check ["python","scripts/harness.py","plan-check","NUR-OPS-001"]`
-- `TEST_RESULT: plan_check exit_code=0`
+Harness verify 运行目录：`.harness/runs/NUR-OPS-001/20260718T164927146651Z-verify`。已实际运行：
 
-进入 `verifying` 后必须由 Harness 生成并填入 `VERIFY_CONTRACT_SHA256: <sha256>`，再追加 `harness_selftest`、`harness_remote_selftest`、`deploy_contract` 和 `release_inputs_contract` 的真实命令与退出码。未执行的 PHP、Docker、Caddy、MySQL、HTTP、浏览器、并发和回滚不写为通过。
+TEST_COMMAND: task_check ["python", "scripts/harness.py", "task-check", "NUR-OPS-001"]
+TEST_RESULT: task_check exit_code=0
+TEST_COMMAND: plan_check ["python", "scripts/harness.py", "plan-check", "NUR-OPS-001"]
+TEST_RESULT: plan_check exit_code=0
+TEST_COMMAND: harness_selftest ["python", "scripts/harness_selftest.py"]
+TEST_RESULT: harness_selftest exit_code=0
+TEST_COMMAND: harness_remote_selftest ["python", "scripts/harness_remote_selftest.py"]
+TEST_RESULT: harness_remote_selftest exit_code=0
+TEST_COMMAND: deploy_contract ["python", "tests/ops/test_deployment_contract.py"]
+TEST_RESULT: deploy_contract exit_code=0
+TEST_COMMAND: release_inputs_contract ["python", "deploy/validate_release_inputs.py", "--contract-only"]
+TEST_RESULT: release_inputs_contract exit_code=0
+
+未执行的 PHP、Docker、Caddy、MySQL、HTTP、浏览器、并发和回滚不写为通过。
 
 ## 手工与页面证据
 

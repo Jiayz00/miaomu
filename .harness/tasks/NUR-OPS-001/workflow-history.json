@@ -47,6 +47,22 @@
       "by": "Codex-Review",
       "reason": "独立计划审查已通过，数据库迁移执行边界与实际 bootstrap 一致，进入实施。",
       "at": "2026-07-18T16:40:32Z"
+    },
+    {
+      "type": "transition",
+      "from": "approved_for_implementation",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "本地部署制品已提交，开始执行合同声明的验证与服务器发布。",
+      "at": "2026-07-18T16:42:12Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "四项本地合同测试真实执行并全部通过，开始收集证据与独立审查。",
+      "at": "2026-07-18T16:47:05Z"
     }
   ]
 }

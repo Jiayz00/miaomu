@@ -51,6 +51,19 @@ function NurseryBootstrapEventMatches(string $root): bool
         && $events['listen'] === $config['hook'];
 }
 
+function NurseryBootstrapMigrationMatches(array $result, string $migration): bool
+{
+    if(intval($result['code'] ?? -1) !== 0 || !isset($result['data']) || !is_array($result['data']))
+    {
+        return false;
+    }
+    if($migration === 'catalog')
+    {
+        return intval($result['data']['catalog_version'] ?? 0) >= 1;
+    }
+    return intval($result['data']['schema_version'] ?? 0) === 1;
+}
+
 if(PHP_SAPI !== 'cli' || count($argv) !== 5 || ($argv[1] ?? '') !== 'initialize')
 {
     NurseryBootstrapFinish(false, 'invalid_arguments');
@@ -148,7 +161,7 @@ try {
     }
 
     $catalog = CatalogMigration::Run('existing', $actor, $runId);
-    if(!is_array($catalog) || intval($catalog['code'] ?? -1) !== 0)
+    if(!is_array($catalog) || !NurseryBootstrapMigrationMatches($catalog, 'catalog'))
     {
         NurseryBootstrapFinish(false, 'nursery_catalog_failed');
     }
@@ -158,14 +171,14 @@ try {
     // deterministic child run IDs so retries remain idempotent and auditable.
     $favoriteRunId = $runId.'-favorite-v1';
     $favorite = FavoriteMigration::Run($actor, $favoriteRunId);
-    if(!is_array($favorite) || intval($favorite['code'] ?? -1) !== 0)
+    if(!is_array($favorite) || !NurseryBootstrapMigrationMatches($favorite, 'favorite'))
     {
         NurseryBootstrapFinish(false, 'nursery_favorite_failed');
     }
 
     $inquiryRunId = $runId.'-inquiry-v1';
     $inquiry = InquiryMigration::Run($actor, $inquiryRunId);
-    if(!is_array($inquiry) || intval($inquiry['code'] ?? -1) !== 0)
+    if(!is_array($inquiry) || !NurseryBootstrapMigrationMatches($inquiry, 'inquiry'))
     {
         NurseryBootstrapFinish(false, 'nursery_inquiry_failed');
     }
