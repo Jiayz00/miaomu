@@ -17,6 +17,36 @@
       "by": "Codex-Implementer",
       "reason": "需求摘录、影响分析、实施计划、测试计划与回滚说明已完整并通过 plan-check",
       "at": "2026-07-13T23:22:11Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/inq004_plan_review",
+      "codex_thread_id": "019f75a8-3232-7633-bb33-95d603bf7691",
+      "expected_agent_task": "/root/inq004_plan_review",
+      "observed_agent_task": "/root/inq004_plan_review",
+      "observed_codex_thread_id": "019f75a8-3232-7633-bb33-95d603bf7691",
+      "reason": "Independent L3 plan review passed source, task, plan, requirement, decision, data, permission, privacy, rollback, and truthful-evidence checks.",
+      "at": "2026-07-18T14:40:26Z",
+      "review_artifact_path": ".harness/tasks/NUR-FEAT-004/approval-plan.json",
+      "review_artifact_sha256": "0c9ef817ba34559a938ea4f557743b1a56e4ee06119339437cb52203be07a7ec",
+      "approval_context_sha256": "01800ae3ba8dde02a8c14a7c4ce63261eeef258b9a1bef31d72ed231ccc58b0c",
+      "reviewed_at": "2026-07-18T14:40:05Z",
+      "plan_artifacts_sha256": "fc63f8a1c38cd129b40d5b041d490150fbfed3840f742594cb564e88b9821306",
+      "decision_context_sha256": "cae41ae5e0a8954a5ee01587d6e0afa837f73e3ca6a9fb8517de6b5c831d9c7f",
+      "contract_sha256": "a3bd46dc097e4a2b0aaaa702bba65df76b6c824999ae5ea8050c5059b39e5add",
+      "policy_sha256": "cad2e32aa2e39f1bae2ecb4df8e189919d8235b7a082475201445adccddf521f"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "approved_for_implementation",
+      "by": "Codex-Review",
+      "reason": "Independent plan approval completed by /root/inq004_plan_review; hand off to implementation.",
+      "at": "2026-07-18T14:40:49Z"
     }
   ]
 }
