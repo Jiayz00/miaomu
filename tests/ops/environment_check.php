@@ -6,6 +6,7 @@ error_reporting(E_ALL);
 
 const MIAOMU_ROOT = '/var/www/html';
 const MIAOMU_SECRET = '/run/secrets/mysql_app_password';
+const MIAOMU_INQUIRY_SECRET = '/run/secrets/nursery_inquiry_hmac_key';
 const MIAOMU_SOCKET = '/run/miaomu-fpm/php-fpm.sock';
 const MIAOMU_RELEASE_FILE = '/usr/local/share/miaomu/release-sha';
 
@@ -73,6 +74,7 @@ function runBuildChecks(string $mode, array &$checks): void
         'gd',
         'hash',
         'iconv',
+        'intl',
         'json',
         'libxml',
         'mbstring',
@@ -96,6 +98,14 @@ function runBuildChecks(string $mode, array &$checks): void
             'php_extension_missing'
         );
     }
+
+    requireCheck(
+        class_exists('Normalizer'),
+        'normalizer_available',
+        $mode,
+        $checks,
+        'normalizer_missing'
+    );
 
     requireCheck(
         function_exists('fsockopen'),
@@ -303,6 +313,22 @@ function runRuntimeChecks(string $mode, array &$checks, bool $requireSocket = tr
         $mode,
         $checks,
         'database_secret_invalid'
+    );
+
+    $inquirySecretStat = @lstat(MIAOMU_INQUIRY_SECRET);
+    requireCheck(
+        $inquirySecretStat !== false
+        && is_file(MIAOMU_INQUIRY_SECRET)
+        && !is_link(MIAOMU_INQUIRY_SECRET)
+        && ($inquirySecretStat['size'] ?? 0) >= 32
+        && ($inquirySecretStat['size'] ?? 0) <= 4097
+        && ($inquirySecretStat['uid'] ?? -1) === 0
+        && ($inquirySecretStat['gid'] ?? -1) === 10001
+        && (($inquirySecretStat['mode'] ?? 0) & 0777) === 0440,
+        'inquiry_hmac_secret_metadata',
+        $mode,
+        $checks,
+        'inquiry_hmac_secret_invalid'
     );
 
     if($requireSocket)

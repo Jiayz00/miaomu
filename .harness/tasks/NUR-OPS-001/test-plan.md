@@ -2,33 +2,31 @@
 
 ## 自动测试
 
-- `harness_selftest`：运行 `python scripts/harness_selftest.py`，预期全部项目级门禁测试退出码 0。
-- `deploy_contract`：运行 `python tests/ops/test_deployment_contract.py`，检查目标目录 `/root/jia/miaomu`、端口 88、非生产防护、仓库外敏感配置、备份/回滚步骤和禁止占位值，预期退出码 0。
-- `compose_config`：运行 `docker compose -p miaomu -f deploy/compose.yaml config --quiet`，预期 Compose 配置可解析、无端口/卷/网络引用错误且退出码 0。
-- `composer_validate`：通过 `docker compose ... exec -T app composer validate --no-check-publish --strict` 在应用容器执行，预期元数据和锁文件有效且退出码 0。
-- `server_environment`：通过 `docker compose ... exec -T app php tests/ops/environment_check.php` 执行，检查容器 PHP 版本与扩展、`app/common.php` blob、可写目录边界、非生产标记和配置权限，预期退出码 0 且不输出凭据。
+- `harness_selftest`：`python scripts/harness_selftest.py`，验证项目 Harness、审批、范围、证据和状态恢复门禁。
+- `harness_remote_selftest`：`python scripts/harness_remote_selftest.py`，用替身 transport 验证主机指纹、外部 SSH 文件引用、受管路径、动作白名单、输出脱敏、超时和 release seal；不得联网。
+- `deploy_contract`：`python tests/ops/test_deployment_contract.py`，检查两服务 Compose、PHP `intl`/Normalizer、HMAC secret、FPM socket、Caddy 只读挂载、端口 88、备份和回滚合同。
+- `release_inputs_contract`：`python deploy/validate_release_inputs.py --contract-only`，检查 release manifest、镜像固定策略、外部配置路径和恢复边界；不读取 secret 内容。
 
-运行前另执行 `source-check` 和 `doctor --strict`。`source-check` 当前已通过；缺少 PHP/Composer 或远端运行环境未就绪仍记录 blocked，不计为测试通过。
+验证前先运行 `source-check`、`task-check` 和 `plan-check`。命令必须由 Harness 无 shell 执行并保存退出码；本地缺少 Docker/PHP/Composer 时只能记录 blocked，不得改写为通过。
 
 ## 手工验收
 
-1. 由项目负责人确认服务器用途和无生产数据，记录云实例标识的脱敏证据；严格 SSH 主机校验已通过，后续连接不得自动接受指纹变化。
-2. 以部署账号核对 `/root/jia/miaomu` 的提交与获批提交一致；应用运行账号不应拥有 SSH 私钥、全局系统目录或其他项目的写权限。
-3. 发布前创建数据库、上传、配置和插件代码备份，记录文件存在性、大小、权限和校验值；在隔离测试位置完成一次恢复演练。
-4. 启动实例后先从服务器本机访问 88 端口，再从外部浏览器访问 `http://38.12.21.18:88/`；预期返回 ShopXO 页面、无 PHP 堆栈或安装向导泄漏，静态资源无系统性 404。
-5. 启动前后分别记录 `caddy`、`beszel`、`beszel-agent` 和 `beszel-watchtower` 的容器 ID、状态和端口；预期无重建、重启、端口或网络变化，苗木容器均带 Watchtower 禁用标签。
-6. 检查 Web/PHP/MySQL 日志，无凭据、私钥、完整连接串或用户数据；检查 Git tracked files 和本任务证据，同样不得出现敏感值。
-7. 对当前已存在的首页、商品列表和详情入口记录固定并发、样本数、预热规则、P50/P95/错误率和环境规格。尚未实现的收藏、询价、行为上报、30 日趋势和导出仅登记补测任务，不填造数据。
-8. 执行一次应用版本回滚并重复本地/外部 88 端口冒烟，确认提交、配置、数据库和上传资源与回滚目标一致。
+1. **主机与共享服务**：通过 `inventory_*`、`inspect_*`、`hash_*` 和 `smoke_supervise_before` 记录 Ubuntu/Docker/Compose、Caddy v2.11.2、容器 ID/镜像/网络/挂载、Beszel、80/443/8090、88 和 Caddy 配置快照；确认目标为非生产。
+2. **发布与镜像**：确认 release SHA 与 release seal 一致；运行 Compose config、Dockerfile 构建、Composer validate/platform check、PHP lint 和 `environment_check.php --all`。确认 `intl` 与 `Normalizer` 可用，应用不以 root 常驻，不挂 Docker socket。
+3. **secret 与权限**：只检查 database.php、HMAC 文件、generated event 的存在性、owner/group/mode/size 和不可被 Web 访问；禁止输出内容。验证 HMAC 已有文件不被覆盖，变更值会明确阻断历史解密风险。
+4. **数据库、迁移与权限边界**：确认数据库无宿主机端口，仅 internal backend；备份后在空/可丢弃库导入固定基线，运行 `initialize_nursery` 的 catalog/favorite/inquiry v1 前向迁移，核验五类表/索引和 `sxo_config` 台账、重复执行幂等及失败关闭；清除样例交易/个人数据、禁用 id=1 超管 token，创建非 1 的最小权限管理员，并证明安装器、SQL 控制台、在线升级、插件/主题上传、订单/支付路由不可达。
+5. **Caddy 与 FPM**：先运行候选 validate，再按合同只 recreate `jia-caddy`；确认 Caddy 仅只读挂载 public、uploads、FPM socket，supplemental group 10001，downloads/runtime/config/secrets 不挂载。验证 FPM socket group/mode、无 TCP listener、唯一入口 index/admin/api、`/download/**` 和 PHP 旁路拒绝。
+6. **HTTP/浏览器**：运行首页、`admin.php`、`api.php`、查询参数、静态资源和上传媒体的回环冒烟；确认 `http://38.12.21.18:88` 不可达，supervise、80/443 和 Beszel 仍健康。浏览器验证只使用合成数据和临时账号，不记录 cookie、手机号或正文。
+7. **备份/回滚**：保存数据库、uploads、配置、插件代码、Caddyfile/Compose 和镜像身份备份；在隔离位置检查恢复可读性。故障时执行合同 rollback actions，再重复共享服务和 88 冒烟。
+8. **性能基线**：固定 Git/Caddy/PHP/MySQL/配置哈希、数据集规模、预热、并发、样本数和超时，记录 P50/P95/错误率和原始结果路径。商品列表、详情已有入口可真实测量；收藏、询价、行为上报、后台 30 日趋势、导出若缺少夹具或页面，分别记 `blocked`/`not_run` 并登记后续任务。
 
 ## 数据与权限
 
-本任务不处理用户收藏、询价、PV/UV 或业务历史。测试库必须为空库或明确可丢弃的合成数据，禁止连接生产数据库。数据库端口不向公网开放，配置文件由运行账号最小权限读取，备份目录不在 Web root 且不可被匿名下载。任务无 migration；若只初始化测试库，应核对 schema 来自固定上游并在清理/回滚后验证数据库状态。
+本任务只操作非生产测试数据，不读取生产数据库，不处理真实用户收藏/询价历史。数据库备份目录不在 Web root；secret 通过 `/etc/miaomu` 和 `/etc/miaomu-restore` 外部文件注入，应用只能读取所需 secret。所有管理员路由检查必须使用最小权限测试账号，并清理测试账号、token、cookie 和日志中的个人数据。
 
 ## 未覆盖项
 
-- 当前 Windows 主机没有 PHP、Composer 和 MySQL；本地严格 doctor 为 blocked，Composer/PHP 业务检查改在目标应用容器执行。
-- `38.12.21.18:22`、主机指纹、Ubuntu/Docker/Compose 与目录/端口事实已只读核验；`88` 尚未监听，必须等获批 Compose 栈启动后补测。
-- 服务器是否非生产尚待 `Jiayz00` 明确确认；未确认前禁止远端写操作。
-- 收藏、询价、行为上报、后台 30 日趋势和导出尚未实现，不能在本任务给出性能通过结论；对应功能任务必须在实现后补齐 `NFR-PERF-005` 证据。
-- L4 release_approver 尚未指定，任务不能进入有效计划审批或 preflight。
+- 本地 Windows 工具链和 Docker daemon 的可用性不等同于服务器通过；服务器命令尚未执行前统一记 `not_run`。
+- 远程 HTTP/浏览器、真实并发、MySQL 备份恢复、Caddy reload/recreate 和公网 :88 探测必须由 L4 broker 后续补证。
+- 收藏/询价/行为/趋势/导出性能基线依赖对应功能和合成数据夹具；不能用静态合同测试替代。
+- 若主机、Caddy 路径、socket GID/mode、卷布局、镜像摘要或任一 v1 migration 的实际 schema 与合同不一致，任务必须阻塞并重新计划。

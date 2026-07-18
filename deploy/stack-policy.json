@@ -44,6 +44,7 @@
   "external_files": {
     "database_config": "/etc/miaomu/config/database.php",
     "mysql_app_password": "/etc/miaomu/secrets/mysql_app_password",
+    "nursery_inquiry_hmac_key": "/etc/miaomu/secrets/nursery_inquiry_hmac_key",
     "mysql_root_password": "/etc/miaomu/secrets/mysql_root_password",
     "generated_event": "/etc/miaomu/generated/event.php",
     "shared_required_uid": 0,
@@ -56,6 +57,7 @@
   "restore_external_files": {
     "database_config": "/etc/miaomu-restore/config/database.php",
     "mysql_app_password": "/etc/miaomu-restore/secrets/mysql_app_password",
+    "nursery_inquiry_hmac_key": "/etc/miaomu-restore/secrets/nursery_inquiry_hmac_key",
     "mysql_root_password": "/etc/miaomu-restore/secrets/mysql_root_password",
     "generated_event": "/etc/miaomu-restore/generated/event.php",
     "shared_required_uid": 0,

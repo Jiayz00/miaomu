@@ -148,7 +148,8 @@ def validate_compose_contract(
                 errors,
             )
         require(
-            set(compose.get("secrets", {})) == {"mysql_app_password", "mysql_root_password"},
+            set(compose.get("secrets", {}))
+            == {"mysql_app_password", "mysql_root_password", "nursery_inquiry_hmac_key"},
             f"{label} secret set mismatch",
             errors,
         )
@@ -288,8 +289,8 @@ def validate_compose_contract(
                 )
             )
         require(
-            app.get("secrets") == ["mysql_app_password"],
-            f"{label}.app must receive only the application database secret",
+            app.get("secrets") == ["mysql_app_password", "nursery_inquiry_hmac_key"],
+            f"{label}.app must receive only the database and inquiry secrets",
             errors,
         )
         expected_app_image = (
@@ -482,7 +483,11 @@ def validate_compose_contract(
         )
 
         secret_root = "/etc/miaomu/secrets" if label == "main" else "/etc/miaomu-restore/secrets"
-        for secret_name in ("mysql_app_password", "mysql_root_password"):
+        for secret_name in (
+            "mysql_app_password",
+            "mysql_root_password",
+            "nursery_inquiry_hmac_key",
+        ):
             require(
                 compose.get("secrets", {}).get(secret_name, {}).get("file")
                 == f"{secret_root}/{secret_name}",
@@ -560,6 +565,7 @@ def validate_compose_contract(
         "external_files": {
             "database_config": "/etc/miaomu/config/database.php",
             "mysql_app_password": "/etc/miaomu/secrets/mysql_app_password",
+            "nursery_inquiry_hmac_key": "/etc/miaomu/secrets/nursery_inquiry_hmac_key",
             "mysql_root_password": "/etc/miaomu/secrets/mysql_root_password",
             "generated_event": "/etc/miaomu/generated/event.php",
             "shared_required_uid": 0,
@@ -572,6 +578,7 @@ def validate_compose_contract(
         "restore_external_files": {
             "database_config": "/etc/miaomu-restore/config/database.php",
             "mysql_app_password": "/etc/miaomu-restore/secrets/mysql_app_password",
+            "nursery_inquiry_hmac_key": "/etc/miaomu-restore/secrets/nursery_inquiry_hmac_key",
             "mysql_root_password": "/etc/miaomu-restore/secrets/mysql_root_password",
             "generated_event": "/etc/miaomu-restore/generated/event.php",
             "shared_required_uid": 0,
@@ -939,12 +946,14 @@ def validate_external_inputs(
             continue
         database_config = Path(external.get("database_config", ""))
         app_secret = Path(external.get("mysql_app_password", ""))
+        inquiry_secret = Path(external.get("nursery_inquiry_hmac_key", ""))
         root_secret = Path(external.get("mysql_root_password", ""))
         generated_event = Path(external.get("generated_event", ""))
         group_errors: list[str] = []
         for path, item_label in (
             (database_config, f"{label} database config"),
             (app_secret, f"{label} application database secret"),
+            (inquiry_secret, f"{label} inquiry HMAC secret"),
         ):
             group_errors.extend(validate_external_file_metadata(path, item_label))
         group_errors.extend(

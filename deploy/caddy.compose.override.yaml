@@ -1,0 +1,51 @@
+{
+  "services": {
+    "jia-caddy": {
+      "group_add": [
+        "10001"
+      ],
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/root/jia/miaomu/.ops/Caddyfile.candidate",
+          "target": "/etc/caddy/Caddyfile",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/root/jia/miaomu/public",
+          "target": "/var/www/html/public",
+          "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "volume",
+          "source": "miaomu_uploads",
+          "target": "/var/www/html/public/static/upload",
+          "read_only": true
+        },
+        {
+          "type": "volume",
+          "source": "miaomu_fpm_socket",
+          "target": "/run/miaomu-fpm",
+          "read_only": true
+        }
+      ]
+    }
+  },
+  "volumes": {
+    "miaomu_uploads": {
+      "external": true,
+      "name": "miaomu_uploads"
+    },
+    "miaomu_fpm_socket": {
+      "external": true,
+      "name": "miaomu_fpm_socket"
+    }
+  }
+}

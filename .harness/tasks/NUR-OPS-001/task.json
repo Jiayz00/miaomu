@@ -1,43 +1,49 @@
 {
   "schema_version": 2,
   "id": "NUR-OPS-001",
-  "title": "单目录开发与服务器验证环境基线",
+  "title": "单目录苗木站 L4 服务器部署与回滚基线",
   "type": "operations",
   "priority": "P0",
   "phase": 1,
   "risk_level": "L4",
-  "status": "draft",
+  "status": "approved_for_implementation",
   "requirement_ids": [
     "NFR-SEC-006",
     "NFR-PERF-005"
   ],
   "decision_ids": [],
-  "business_goal": "在不把密钥或生产配置写入仓库的前提下，为固定 ShopXO 6.9.0 源码建立可复现的单目录开发、服务器测试、端口 88 验证、备份和回滚基线，并为后续 P0 功能固定可执行的环境与性能验收入口。",
+  "business_goal": "在不把密钥或生产配置写入 Git 的前提下，将获批 ShopXO 苗木站提交部署到用户指定的个人服务器 /root/jia/miaomu，复用现有 jia-caddy，仅以回环 127.0.0.1:88 提供验证入口，并留下可复现的备份、回滚、环境和性能基线证据。",
   "in_scope": [
-    "核验固定上游提交、完整 ShopXO 源码以及 Docker Compose、PHP、Composer、MySQL 和 Web 服务运行条件。",
-    "在 deploy/** 中维护不含凭据的服务器预检、配置样例、备份、部署、回滚和冒烟说明或脚本。",
-    "在 tests/ops/** 中提供可在目标测试服务器真实执行的环境与部署合同检查。",
-    "将测试实例部署到 /root/jia/miaomu 并由 Web 服务监听 88 端口，保留实际命令、退出码和脱敏证据。",
-    "在部署环境确认后记录首版性能基线方法、预算和可执行入口；尚未实现的业务流程明确标记待后续任务补测。"
+    "只读核验 38.12.21.18:22 的主机、Docker、Compose、jia-caddy、Beszel、80/443 和 88 端口基线。",
+    "在 deploy/** 中维护不含凭据的 Compose、PHP intl、FPM Unix socket、外部 secret 注入、Caddy 候选配置、备份、部署、回滚和冒烟入口。",
+    "在 tests/ops/** 中提供可离线审查且可在目标服务器真实执行的环境、secret、Caddy 和部署合同检查。",
+    "在锁定的 remote_execution 动作内上传获批提交、启动隔离 miaomu app/db、初始化空测试库、执行已批准的 nursery catalog/favorite/inquiry v1 前向迁移、接入现有 jia-caddy 并验证回环 88。",
+    "记录商品列表、详情、收藏、询价、行为上报、后台趋势和导出性能基线的真实执行入口；未具备前置条件的场景保持 blocked/not_run。"
   ],
   "out_of_scope": [
-    "任何苗木业务功能、主题页面、数据统计或 ShopXO 核心行为修改。",
+    "任何苗木业务功能、主题页面、数据统计口径或 ShopXO 核心行为修改。",
     "供应商、多商户、分销、购物车、订单、支付与售后能力。",
-    "访问或写入生产密钥、生产数据库、生产环境以及自动发布生产环境。",
+    "生产环境、生产数据库、真实用户数据、生产密钥和正式公网入口发布。",
+    "新建 Nginx、第二个长期运行的 Caddy、修改现有共享栈的非必要服务，或执行共享栈 down。",
     "关闭火绒、写入全局安全软件排除项、修改用户级或全局 Codex 配置。",
-    "修改 ShopXO 数据库结构；新建测试库时只使用固定上游的完整安装基线。"
+    "新增或改写 nursery 迁移实现；迁移实现仍由已批准的 NUR-FEAT-002/003/004 任务拥有，本任务只在隔离测试库中按固定 release 执行并验收这些前向迁移。"
   ],
   "business_invariants": [
-    "本地开发只使用 D:/苗木网站 这一份项目工作区，不创建第二项目目录或 Git worktree。",
-    "数据库口令、SSH 私钥、API Key、短信或邮件密钥和生产配置不得进入 Git、测试输出或评审证据。",
-    "测试服务器在执行任何发布动作前必须由项目负责人确认为非生产环境；生产环境访问保持禁止。",
-    "ShopXO 源码必须与固定上游提交 d1825c5404054b535255d8fcad675a5dae0ab633 一致，缺失文件不得伪装为通过。",
-    "环境、数据库、HTTP、备份或性能检查未执行时必须记录 blocked，不得表述为通过。",
-    "后续业务任务仍保持公开参考价格、收藏与询价独立、用户数据隔离和历史可追溯。"
+    "本地开发只使用 D:/苗木网站 一份工作区，不创建第二项目目录或 Git worktree。",
+    "数据库口令、SSH 私钥、API Key、短信或邮件密钥、询价 HMAC 密钥和生产配置不得进入 Git、测试输出或评审证据。",
+    "询价 HMAC 文件由仓库外脚本只创建一次；已有文件只检查元数据并保留，改变该值会使历史手机号数据不可用。",
+    "远端写操作只针对用户明确授权的个人服务器 root@38.12.21.18:22、受管根 /root/jia/miaomu、/root/jia/caddy、/etc/miaomu 和 /etc/miaomu-restore。",
+    "现有 jia-caddy、Beszel、80/443 路由和共享卷在变更前后必须保持健康；苗木入口只绑定 127.0.0.1:88。",
+    "环境、数据库、HTTP、备份、回滚或性能检查未执行时必须记录 blocked/not_run，不得表述为通过。",
+    "后续业务任务仍保持公开参考价格、收藏与询价独立、用户数据隔离和历史可追溯。",
+    "catalog/favorite/inquiry v1 前向迁移必须幂等、只增不删；结构不完整或同名异构时失败关闭，不以应用启动成功替代 schema 核验。"
   ],
   "dependencies": [
-    "在远端写操作前复核 38.12.21.18 是测试环境，且现有 caddy、beszel、80/443/8090 服务不受影响。",
-    "为 L4 任务指定不同于 owner 和 reviewer 的真实 release_approver。"
+    "写操作前必须用锁定的只读动作复核目标主机仍为用户授权的个人/测试服务器，且 caddy、beszel、80/443/8090 和现有路由不受影响。",
+    "用户 .ssh 外部文件必须存在且分别引用 id_ed25519 与 known_hosts；主机指纹固定为 SHA256:LS9YRVGrU78RNKZ38nYa1p8zxP3oP0LmiO75sF38aa0。",
+    "Git release seal 必须锁定干净、已合并并通过独立审查的提交；mutating remote action 只能在 release approval 后执行。",
+    "release_approver 必须不同于 owner、reviewer 和实现代理，并引用真实备份、回滚与验证证据。",
+    "NUR-FEAT-002/003/004 的已批准 v1 migration manifests/services 必须存在于 release SHA；本任务不得修改其实现，只能由 nursery-bootstrap 的固定编排入口执行。"
   ],
   "allowed_paths": [
     "deploy/**",
@@ -58,38 +64,862 @@
     "registration": ""
   },
   "database_change": {
-    "required": false,
-    "affected_tables": [],
-    "migration_paths": [],
+    "required": true,
+    "affected_tables": [
+      "sxo_plugins",
+      "sxo_config",
+      "sxo_goods_category",
+      "sxo_goods_spec_template",
+      "sxo_goods_params_template",
+      "sxo_goods_params_template_config",
+      "sxo_goods_favor",
+      "sxo_plugins_nursery_inquiry",
+      "sxo_plugins_nursery_inquiry_reply",
+      "sxo_plugins_nursery_inquiry_history",
+      "sxo_plugins_nursery_inquiry_duplicate_guard",
+      "sxo_plugins_nursery_inquiry_rate_limit"
+    ],
+    "migration_paths": [
+      "deploy/docker/app/nursery-bootstrap.php"
+    ],
     "fresh_install_baseline_exception": {
       "requested": false,
-      "reason": ""
+      "reason": "不适用：固定上游 config/shopxo.sql 只是空测试库安装基线，随后仍必须执行版本化 nursery v1 前向迁移。"
     },
-    "rollback_plan": "本任务不修改数据库结构；测试库初始化失败时删除未投入使用的测试库并从部署前备份或固定上游安装基线重新创建。",
-    "verification": "核验任务差异中不存在 schema migration，测试库表结构来自固定上游 config/shopxo.sql，任何后续结构变更由独立 DATA/FEAT 任务管理。"
+    "rollback_plan": "迁移实现为 NUR-FEAT-002/003/004 已批准的 forward-only v1 入口；本任务不执行 DROP/DELETE 回退。执行前备份数据库、上传和配置，空/可丢弃测试库失败时停止 app/db 并从固定基线重建后重跑迁移；若发现既有数据则保持原库和备份，改走前向修复或阻塞，不触碰未知数据。",
+    "verification": "以 deploy/docker/app/nursery-bootstrap.php 为发布迁移编排入口，确认其按固定 run-id 依次成功执行 CatalogMigration existing、FavoriteMigration schema-v1、InquiryMigration schema-v1；在 information_schema 与 sxo_config 台账核验表、索引、版本和幂等重跑结果，并记录备份/恢复退出码。"
   },
   "new_dependency_allowed": true,
-  "network_access_required": false,
+  "network_access_required": true,
+  "remote_execution": {
+    "authorization": {
+      "mode": "user_explicit",
+      "thread_id": "019f566b-dffa-7913-a608-bc2dffbd2bea",
+      "authorized_at": "2026-07-18T16:07:05Z",
+      "scope": "用户明确授权将个人苗木站部署到 root@38.12.21.18:22 的 /root/jia/miaomu，复用现有 jia-caddy，入口只绑定 127.0.0.1:88，不创建 Nginx，不提交或输出密钥。"
+    },
+    "environment": "authorized_personal_site",
+    "host": "38.12.21.18",
+    "port": 22,
+    "user": "root",
+    "host_key_fingerprint": "SHA256:LS9YRVGrU78RNKZ38nYa1p8zxP3oP0LmiO75sF38aa0",
+    "identity_reference": "user-ssh-file:id_ed25519",
+    "known_hosts_reference": "user-ssh-file:known_hosts",
+    "deployment_root": "/root/jia/miaomu",
+    "managed_roots": [
+      "/root/jia/miaomu",
+      "/root/jia/caddy",
+      "/etc/miaomu",
+      "/etc/miaomu-restore"
+    ],
+    "allowed_actions": [
+      {
+        "id": "inventory_pwd",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 30,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "pwd"
+        ]
+      },
+      {
+        "id": "inventory_host",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 30,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "uname",
+          "-a"
+        ]
+      },
+      {
+        "id": "inventory_cpu",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 30,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "lscpu"
+        ]
+      },
+      {
+        "id": "inventory_memory",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 30,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "free",
+          "-m"
+        ]
+      },
+      {
+        "id": "inventory_disk",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 30,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "df",
+          "-h",
+          "/root/jia/caddy"
+        ]
+      },
+      {
+        "id": "inventory_caddy_files",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 30,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "ls",
+          "-la",
+          "/root/jia/caddy"
+        ]
+      },
+      {
+        "id": "inventory_docker",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "docker",
+          "version"
+        ]
+      },
+      {
+        "id": "inventory_containers",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "docker",
+          "ps",
+          "--all",
+          "--no-trunc",
+          "--format",
+          "{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}"
+        ]
+      },
+      {
+        "id": "inspect_caddy_id",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "docker",
+          "container",
+          "inspect",
+          "--format",
+          "{{.Id}}",
+          "jia-caddy"
+        ]
+      },
+      {
+        "id": "inspect_caddy_image",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "docker",
+          "container",
+          "inspect",
+          "--format",
+          "{{.Image}}",
+          "jia-caddy"
+        ]
+      },
+      {
+        "id": "inspect_caddy_network",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "docker",
+          "container",
+          "inspect",
+          "--format",
+          "{{.HostConfig.NetworkMode}}",
+          "jia-caddy"
+        ]
+      },
+      {
+        "id": "inspect_caddy_mounts",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "docker",
+          "container",
+          "inspect",
+          "--format",
+          "{{json .Mounts}}",
+          "jia-caddy"
+        ]
+      },
+      {
+        "id": "inspect_caddy_ports",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "docker",
+          "container",
+          "inspect",
+          "--format",
+          "{{json .NetworkSettings.Ports}}",
+          "jia-caddy"
+        ]
+      },
+      {
+        "id": "hash_caddyfile",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 30,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "sha256sum",
+          "--",
+          "/root/jia/caddy/Caddyfile"
+        ]
+      },
+      {
+        "id": "hash_caddy_compose",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 30,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "sha256sum",
+          "--",
+          "/root/jia/caddy/docker-compose.yml"
+        ]
+      },
+      {
+        "id": "download_caddyfile",
+        "transport": "scp",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "direction": "download",
+        "source": "/root/jia/caddy/Caddyfile",
+        "destination": ".harness/runs/NUR-OPS-001/caddy.original"
+      },
+      {
+        "id": "download_caddy_compose",
+        "transport": "scp",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "direction": "download",
+        "source": "/root/jia/caddy/docker-compose.yml",
+        "destination": ".harness/runs/NUR-OPS-001/caddy-compose.original.yml"
+      },
+      {
+        "id": "smoke_supervise_before",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "curl",
+          "-q",
+          "--fail",
+          "--show-error",
+          "--silent",
+          "--noproxy",
+          "*",
+          "--resolve",
+          "supervise.jiayyy.cn:443:127.0.0.1",
+          "https://supervise.jiayyy.cn/"
+        ]
+      },
+      {
+        "id": "bootstrap_deployment_root",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 30,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "mkdir",
+          "-p",
+          "--",
+          "/root/jia/miaomu"
+        ]
+      },
+      {
+        "id": "upload_release",
+        "transport": "scp",
+        "mode": "mutating",
+        "timeout_seconds": 1800,
+        "direction": "upload",
+        "source": ".harness/runs/NUR-OPS-001/release.tar",
+        "destination": "/root/jia/miaomu/release.tar"
+      },
+      {
+        "id": "upload_release_env",
+        "transport": "scp",
+        "mode": "mutating",
+        "timeout_seconds": 60,
+        "direction": "upload",
+        "source": ".harness/runs/NUR-OPS-001/release.env",
+        "destination": "/root/jia/miaomu/release.env"
+      },
+      {
+        "id": "extract_release",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 300,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "tar",
+          "--extract",
+          "--file",
+          "/root/jia/miaomu/release.tar",
+          "--directory",
+          "/root/jia/miaomu"
+        ]
+      },
+      {
+        "id": "prepare_external_files",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "python3",
+          "/root/jia/miaomu/deploy/prepare_runtime_secrets.py",
+          "--scope",
+          "main",
+          "--prepare-event",
+          "--prepare-config"
+        ]
+      },
+      {
+        "id": "compose_config",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 120,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "docker",
+          "compose",
+          "--env-file",
+          "/root/jia/miaomu/release.env",
+          "-p",
+          "miaomu",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.yaml",
+          "config",
+          "--quiet"
+        ]
+      },
+      {
+        "id": "build_app",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 1800,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "docker",
+          "compose",
+          "--env-file",
+          "/root/jia/miaomu/release.env",
+          "-p",
+          "miaomu",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.yaml",
+          "build",
+          "--pull",
+          "app"
+        ]
+      },
+      {
+        "id": "bootstrap_db",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 600,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "docker",
+          "compose",
+          "--env-file",
+          "/root/jia/miaomu/release.env",
+          "-p",
+          "miaomu",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.yaml",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.bootstrap.yaml",
+          "up",
+          "-d",
+          "db"
+        ]
+      },
+      {
+        "id": "bootstrap_db_status",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 120,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "docker",
+          "compose",
+          "--env-file",
+          "/root/jia/miaomu/release.env",
+          "-p",
+          "miaomu",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.yaml",
+          "ps",
+          "-q",
+          "db"
+        ]
+      },
+      {
+        "id": "create_steady_marker",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "docker",
+          "compose",
+          "--env-file",
+          "/root/jia/miaomu/release.env",
+          "-p",
+          "miaomu",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.yaml",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.bootstrap.yaml",
+          "exec",
+          "-T",
+          "db",
+          "gosu",
+          "mysql",
+          "touch",
+          "/var/lib/mysql/.miaomu-steady"
+        ]
+      },
+      {
+        "id": "restart_db_steady",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 600,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "docker",
+          "compose",
+          "--env-file",
+          "/root/jia/miaomu/release.env",
+          "-p",
+          "miaomu",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.yaml",
+          "up",
+          "-d",
+          "--force-recreate",
+          "db"
+        ]
+      },
+      {
+        "id": "initialize_nursery",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 600,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "docker",
+          "compose",
+          "--env-file",
+          "/root/jia/miaomu/release.env",
+          "-p",
+          "miaomu",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.yaml",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.init.yaml",
+          "run",
+          "--rm",
+          "--no-deps",
+          "app",
+          "php",
+          "/usr/local/lib/miaomu/nursery-bootstrap.php",
+          "initialize",
+          "--actor",
+          "NUR-OPS-001",
+          "--run-id=NUR-OPS-001-20260719"
+        ]
+      },
+      {
+        "id": "finalize_event",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "python3",
+          "/root/jia/miaomu/deploy/prepare_runtime_secrets.py",
+          "--scope",
+          "main",
+          "--finalize-event"
+        ]
+      },
+      {
+        "id": "start_app",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 600,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "docker",
+          "compose",
+          "--env-file",
+          "/root/jia/miaomu/release.env",
+          "-p",
+          "miaomu",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.yaml",
+          "up",
+          "-d",
+          "app"
+        ]
+      },
+      {
+        "id": "app_status",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 120,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "docker",
+          "compose",
+          "--env-file",
+          "/root/jia/miaomu/release.env",
+          "-p",
+          "miaomu",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.yaml",
+          "ps",
+          "-q",
+          "app"
+        ]
+      },
+      {
+        "id": "app_readiness",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 180,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "docker",
+          "compose",
+          "--env-file",
+          "/root/jia/miaomu/release.env",
+          "-p",
+          "miaomu",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.yaml",
+          "exec",
+          "-T",
+          "app",
+          "php",
+          "/usr/local/lib/miaomu/environment_check.php",
+          "--all"
+        ]
+      },
+      {
+        "id": "prepare_caddy_candidate",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "python3",
+          "/root/jia/miaomu/deploy/prepare_caddy_candidate.py"
+        ]
+      },
+      {
+        "id": "backup_caddy_dir",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "mkdir",
+          "-p",
+          "--",
+          "/root/jia/miaomu/backups/NUR-OPS-001"
+        ]
+      },
+      {
+        "id": "backup_caddyfile",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "cp",
+          "--",
+          "/root/jia/caddy/Caddyfile",
+          "/root/jia/miaomu/backups/NUR-OPS-001/Caddyfile"
+        ]
+      },
+      {
+        "id": "backup_caddy_compose",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "cp",
+          "--",
+          "/root/jia/caddy/docker-compose.yml",
+          "/root/jia/miaomu/backups/NUR-OPS-001/docker-compose.yml"
+        ]
+      },
+      {
+        "id": "validate_caddy_candidate",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 180,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "docker",
+          "compose",
+          "-f",
+          "/root/jia/caddy/docker-compose.yml",
+          "-f",
+          "/root/jia/miaomu/deploy/caddy.compose.override.yaml",
+          "run",
+          "--rm",
+          "--no-deps",
+          "--entrypoint",
+          "caddy",
+          "jia-caddy",
+          "validate",
+          "--config",
+          "/etc/caddy/Caddyfile"
+        ]
+      },
+      {
+        "id": "apply_caddy_candidate",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 300,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "docker",
+          "compose",
+          "-f",
+          "/root/jia/caddy/docker-compose.yml",
+          "-f",
+          "/root/jia/miaomu/deploy/caddy.compose.override.yaml",
+          "up",
+          "-d",
+          "--no-deps",
+          "--force-recreate",
+          "jia-caddy"
+        ]
+      },
+      {
+        "id": "inspect_caddy_after",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "docker",
+          "container",
+          "inspect",
+          "--format",
+          "{{json .Mounts}}",
+          "jia-caddy"
+        ]
+      },
+      {
+        "id": "smoke_supervise_after",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "curl",
+          "-q",
+          "--fail",
+          "--show-error",
+          "--silent",
+          "--noproxy",
+          "*",
+          "--resolve",
+          "supervise.jiayyy.cn:443:127.0.0.1",
+          "https://supervise.jiayyy.cn/"
+        ]
+      },
+      {
+        "id": "smoke_miaomu_home",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "curl",
+          "-q",
+          "--fail",
+          "--show-error",
+          "--silent",
+          "--noproxy",
+          "*",
+          "http://127.0.0.1:88/"
+        ]
+      },
+      {
+        "id": "smoke_miaomu_admin",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "curl",
+          "-q",
+          "--fail",
+          "--show-error",
+          "--silent",
+          "--noproxy",
+          "*",
+          "http://127.0.0.1:88/admin.php"
+        ]
+      },
+      {
+        "id": "smoke_miaomu_api",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "curl",
+          "-q",
+          "--fail",
+          "--show-error",
+          "--silent",
+          "--noproxy",
+          "*",
+          "http://127.0.0.1:88/api.php"
+        ]
+      },
+      {
+        "id": "smoke_download_denied",
+        "transport": "ssh",
+        "mode": "read_only",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "curl",
+          "-q",
+          "--head",
+          "--show-error",
+          "--silent",
+          "--noproxy",
+          "*",
+          "http://127.0.0.1:88/download/contract-negative"
+        ]
+      },
+      {
+        "id": "probe_public_88",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 60,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "curl",
+          "-q",
+          "--connect-timeout",
+          "5",
+          "--max-time",
+          "10",
+          "--noproxy",
+          "*",
+          "http://38.12.21.18:88/"
+        ]
+      },
+      {
+        "id": "rollback_caddy",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 300,
+        "cwd": "/root/jia/caddy",
+        "argv": [
+          "docker",
+          "compose",
+          "-f",
+          "/root/jia/caddy/docker-compose.yml",
+          "up",
+          "-d",
+          "--no-deps",
+          "--force-recreate",
+          "jia-caddy"
+        ]
+      },
+      {
+        "id": "rollback_miaomu",
+        "transport": "ssh",
+        "mode": "mutating",
+        "timeout_seconds": 180,
+        "cwd": "/root/jia/miaomu",
+        "argv": [
+          "docker",
+          "compose",
+          "--env-file",
+          "/root/jia/miaomu/release.env",
+          "-p",
+          "miaomu",
+          "-f",
+          "/root/jia/miaomu/deploy/compose.yaml",
+          "stop",
+          "app",
+          "db"
+        ]
+      }
+    ],
+    "forbidden_actions": [
+      "arbitrary_shell_command",
+      "destructive_system_action",
+      "read_private_key",
+      "sensitive_cli_argument",
+      "ssh_config_override",
+      "unmanaged_remote_path",
+      "uncontracted_host",
+      "proxy_command"
+    ]
+  },
   "acceptance_criteria": [
     {
       "id": "AC-TASK-001",
       "requirement_ids": [
         "NFR-SEC-006"
       ],
-      "description": "Git 跟踪文件和已提交证据不包含数据库口令、SSH 私钥、API Key 或生产配置；服务器配置只通过仓库外受限文件注入，并有脱敏扫描结果。"
+      "description": "Git 跟踪文件和已提交证据不包含数据库口令、SSH 私钥、API Key、询价 HMAC 值或生产配置；服务器 secret 只由仓库外受限文件注入，并有脱敏元数据扫描证据。"
     },
     {
       "id": "AC-TASK-002",
       "requirement_ids": [
         "NFR-PERF-005"
       ],
-      "description": "固定上游源码在确认的非生产服务器 /root/jia/miaomu 可复现启动，PHP/Composer/MySQL/Web 服务版本有证据，88 端口内外冒烟通过，并记录后续商品列表、详情、收藏、询价、行为上报、30 日趋势和导出的性能基线入口与补测责任。"
+      "description": "固定 release 在 /root/jia/miaomu 的非生产栈可复现启动，PHP/intl/Composer/MySQL/Caddy 版本与资源有证据；空基线后的 catalog/favorite/inquiry v1 迁移、sxo_config 台账和幂等重跑有真实 schema/退出码证据；127.0.0.1:88 首页/后台/API 和拒绝旁路冒烟有真实退出码，并为后续七类性能场景记录基线入口或 blocked/not_run。"
     }
   ],
   "required_tests": [
     {
       "id": "harness_selftest",
-      "description": "运行项目级 Harness 回归测试，确认环境任务未削弱门禁。",
+      "description": "运行项目级 Harness 回归测试，确认 L4 合同没有削弱门禁。",
       "command": [
         "python",
         "scripts/harness_selftest.py"
@@ -98,67 +928,32 @@
       "timeout_seconds": 300
     },
     {
+      "id": "harness_remote_selftest",
+      "description": "以替身 transport 离线验证主机指纹、外部 SSH 文件引用、精确动作、敏感输出脱敏和 release seal。",
+      "command": [
+        "python",
+        "scripts/harness_remote_selftest.py"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 600
+    },
+    {
       "id": "deploy_contract",
-      "description": "校验部署清单、端口、路径、回滚步骤和敏感信息占位规则。",
+      "description": "校验 Compose、PHP intl/Normalizer、FPM HMAC 注入、Caddy 挂载、路径、端口、备份和回滚合同。",
       "command": [
         "python",
         "tests/ops/test_deployment_contract.py"
       ],
       "cwd": ".",
-      "timeout_seconds": 120
+      "timeout_seconds": 180
     },
     {
-      "id": "compose_config",
-      "description": "解析独立 miaomu Compose 栈并验证服务、网络、卷和端口配置有效。",
+      "id": "release_inputs_contract",
+      "description": "运行发布输入校验器合同模式；真实镜像、secret 元数据、Caddy 语法和服务器健康留给锁定 remote actions。",
       "command": [
-        "docker",
-        "compose",
-        "-p",
-        "miaomu",
-        "-f",
-        "deploy/compose.yaml",
-        "config",
-        "--quiet"
-      ],
-      "cwd": ".",
-      "timeout_seconds": 120
-    },
-    {
-      "id": "composer_validate",
-      "description": "在应用容器内验证固定 ShopXO Composer 元数据和锁文件一致性。",
-      "command": [
-        "docker",
-        "compose",
-        "-p",
-        "miaomu",
-        "-f",
-        "deploy/compose.yaml",
-        "exec",
-        "-T",
-        "app",
-        "composer",
-        "validate",
-        "--no-check-publish",
-        "--strict"
-      ],
-      "cwd": ".",
-      "timeout_seconds": 300
-    },
-    {
-      "id": "server_environment",
-      "description": "在应用容器内核验 PHP 版本、扩展、源码完整性、目录权限和非生产环境标记。",
-      "command": [
-        "docker",
-        "compose",
-        "-p",
-        "miaomu",
-        "-f",
-        "deploy/compose.yaml",
-        "exec",
-        "-T",
-        "app",
-        "php",
-        "tests/ops/environment_check.php"
+        "python",
+        "deploy/validate_release_inputs.py",
+        "--contract-only"
       ],
       "cwd": ".",
       "timeout_seconds": 120
@@ -166,15 +961,15 @@
   ],
   "rollback": {
     "required": true,
-    "plan": "发布前记录当前提交、Web/PHP 配置和数据库/上传备份；失败时停止 88 端口新实例，恢复上一提交与对应配置，必要时恢复测试库和上传备份。若此前无实例，则移除本任务创建的测试服务配置并保留脱敏日志。",
-    "verification": "确认 88 端口不再指向失败版本或已恢复到上一健康提交，执行上一版本健康检查，核验数据库和上传资源校验值，并记录回滚命令、退出码和时间。"
+    "plan": "任一 build、数据库、FPM、Caddy、共享服务或 HTTP 门禁失败，立即停止后续动作；恢复备份的完整 Caddyfile/Compose 与原 mounts/groups，只用原 Compose recreate jia-caddy，复核 supervise/Beszel/80/443，再停止 miaomu app/db。不得删除未知卷、数据库或上传资源。",
+    "verification": "记录 rollback action 的真实 argv、退出码和时间；确认 jia-caddy service/image/network/mount/config 哈希回到发布前快照，127.0.0.1:88 不再指向失败版本，supervise、Beszel、80/443 与数据库/上传备份校验通过。"
   },
   "manual_approvals": {
     "plan": {
       "required": true,
-      "status": "pending",
-      "approved_by": null,
-      "approved_at": null
+      "status": "approved",
+      "approved_by": "Codex-Review",
+      "approved_at": "2026-07-18T16:40:00Z"
     },
     "merge": {
       "required": true,
@@ -208,5 +1003,5 @@
   "reviewer": "Codex-Review",
   "release_approver": "Codex-Release",
   "created_at": "2026-07-13T02:39:55Z",
-  "updated_at": "2026-07-13T08:26:05Z"
+  "updated_at": "2026-07-18T16:40:32Z"
 }

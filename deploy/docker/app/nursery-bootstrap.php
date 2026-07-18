@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace think;
 
 use app\plugins\nursery\service\CatalogMigration;
+use app\plugins\nursery\service\FavoriteMigration;
+use app\plugins\nursery\service\InquiryMigration;
 use app\service\PluginsAdminService;
 use think\facade\Db;
 
@@ -151,6 +153,23 @@ try {
         NurseryBootstrapFinish(false, 'nursery_catalog_failed');
     }
 
+    // The runtime image deliberately excludes repository scripts/**.  Run all
+    // forward-only nursery migrations from the packaged plugin services, using
+    // deterministic child run IDs so retries remain idempotent and auditable.
+    $favoriteRunId = $runId.'-favorite-v1';
+    $favorite = FavoriteMigration::Run($actor, $favoriteRunId);
+    if(!is_array($favorite) || intval($favorite['code'] ?? -1) !== 0)
+    {
+        NurseryBootstrapFinish(false, 'nursery_favorite_failed');
+    }
+
+    $inquiryRunId = $runId.'-inquiry-v1';
+    $inquiry = InquiryMigration::Run($actor, $inquiryRunId);
+    if(!is_array($inquiry) || intval($inquiry['code'] ?? -1) !== 0)
+    {
+        NurseryBootstrapFinish(false, 'nursery_inquiry_failed');
+    }
+
     $enabled = Db::name('Plugins')->where(['is_enable'=>1])->column('plugins');
     $enabled = array_values(array_unique(array_map('strval', is_array($enabled) ? $enabled : [])));
     sort($enabled, SORT_STRING);
@@ -162,4 +181,9 @@ try {
     NurseryBootstrapFinish(false, 'bootstrap_failed');
 }
 
-NurseryBootstrapFinish(true, 'nursery_ready', ['plugin'=>'nursery', 'catalog'=>'existing']);
+    NurseryBootstrapFinish(true, 'nursery_ready', [
+        'plugin'   => 'nursery',
+        'catalog'  => 'existing',
+        'favorite' => 'schema-v1',
+        'inquiry'  => 'schema-v1',
+    ]);

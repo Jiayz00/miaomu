@@ -2,55 +2,49 @@
 
 ## 需求与当前事实
 
-本任务关联 `NFR-SEC-006`、`NFR-PERF-005`，并落实第一阶段“部署和确认 ShopXO 版本”的前置工作。上游固定为 ShopXO 6.9.0、提交 `d1825c5404054b535255d8fcad675a5dae0ab633`；`composer.json` 要求 PHP `>=8.0.0`。完整源码事实基线提交为 `846eb6a1cf7f94415ae9ae4c3eefb87d4fa9da3e`，GitHub `origin` 指向 `Jiayz00/miaomu`，`upstream` 保留 `gongfuxiang/shopxo`。
+任务关联 `NFR-SEC-006` 与 `NFR-PERF-005`，属于 P0/Phase 1/L4 operations。仓库已包含完整 ShopXO 源码、`composer.json`、`app/`、`config/shopxo.sql` 和 `app/common.php`，固定上游版本为 ShopXO 6.9.0（上游提交由 Harness baseline 锁定）。当前工作分支的功能提交为 `aafdfdf7c`；最终发布必须使用通过独立审查的干净 release commit，而不是直接发布未提交工作区。
 
-2026-07-13 的真实检查显示：火绒已信任并允许恢复 `app/common.php`，其 blob 为固定上游的 `74422022b2f384c1c97e3eafabd946d2bb5ec219`；四份事实基线已在 bootstrap 分支刷新，`source-check` 通过且工作区无源码差异。`python scripts/harness.py doctor` 可运行，但 Windows 主机没有 PHP 和 Composer，严格 doctor 仍应如实标记工具链缺口。
+本次工作区还包含部署合同所需的 PHP `intl`/ICU 扩展、询价 HMAC external secret、FPM 环境传递、Compose secret、运行时环境检查和合同测试改动。它们只位于 `deploy/**`、`tests/ops/**` 和 `docs/operations/**`，不新增业务迁移实现；但 `deploy/docker/app/nursery-bootstrap.php` 会在发布时编排已批准的 NUR-FEAT-002/003/004 v1 前向迁移，因此本任务必须如实声明数据库变更执行和验证边界。
 
-服务器 `38.12.21.18:22` 现已通过已有 `known_hosts` 和 `Jia-8u8g` 配置完成严格主机校验与只读认证。服务器为 Ubuntu 22.04、8 vCPU、约 7.8 GiB 内存、无 swap、根盘约 35 GiB 可用；Docker 29.4.2 与 Compose 5.1.3 可用，宿主机没有 PHP、Composer、MySQL CLI。现有 Compose 项目为 `caddy` 和 `beszel-monitoring`，Caddy 使用 host network 监听 80/443，Beszel 监听本机 8090；端口 88 未监听，`/root/jia/miaomu` 不存在。
+目标主机、SSH 端口、用户、主机指纹、部署根和 Caddy 根以 `task.json.remote_execution` 为唯一事实。主机当前状态、Caddy 版本/容器身份、80/443/8090、88、卷、GID 和 userns 在每次发布前重新只读核验；旧文档或聊天记录不能替代新证据。
 
 ## 当前调用链与数据
 
-任务不改变控制器、服务、视图、接口、权限、事件或业务表。运行链路确定为：本地唯一工作区产生经审查提交 -> GitHub 受保护分支 -> 非生产服务器 `/root/jia/miaomu` 的固定提交 -> 独立 `miaomu` Docker Compose 项目 -> 端口 88 Web 服务/PHP-FPM -> ShopXO -> Compose 内部 MySQL。现有 Caddy、Beszel 和端口 80/443/8090 不参与调用链。
+本地唯一工作区产生已审查提交，broker 通过仓库外 SSH 文件完成主机指纹校验，然后在 `/root/jia/miaomu` 解包同一 release。`miaomu` Compose 只运行 `app` 和 `db`，两者使用 internal backend 网络；FPM 通过命名 Unix socket 与现有 Caddy 连接，MySQL 不发布宿主机端口。Caddy 的候选配置只增加 `127.0.0.1:88`、public/uploads/socket 只读挂载和必要组权限，不创建 Web 服务。
 
-测试库初始化只允许使用固定上游安装基线，凭据通过仓库外受限配置注入。MySQL 只加入 Compose 内部网络，不发布宿主机端口；数据库、上传和运行时数据使用任务专属命名卷或 `/root/jia/miaomu` 下的受限持久化目录。镜像摘要、卷布局、备份工具和应用服务账号需在实现前按实际 Dockerfile/Compose 配置固定。
+运行时配置、数据库口令和 `PHP_NURSERY_INQUIRY_HMAC_KEY` 来自 `/etc/miaomu` 下仓库外受限文件；恢复合同使用 `/etc/miaomu-restore`。HMAC 文件只允许首次创建，之后只检查 owner/group/mode/size 元数据，绝不读取或输出值。数据库初始化是可丢弃的非生产测试库，商品/询价历史等真实业务数据不在本任务范围。
 
 ## 影响范围
 
-- 用户端/管理端/API：仅建立可启动和冒烟的底座，不改变页面与响应语义。
-- 数据：不修改 schema；测试库初始化、备份和恢复是人工 L4 步骤，必须在空库或明确测试数据上执行。
-- 安全：主要风险是密钥进入 Git/日志、误把服务器当生产、配置权限过宽、以 root 长期运行应用、Docker socket 暴露或数据库端口暴露。脚本和文档只能引用环境变量名或仓库外路径，不记录值；应用容器不得挂载 Docker socket。
-- 性能：固定测量方法和环境事实；当前尚无苗木数据/业务入口，除现有 ShopXO 基础页面外不得宣称未来流程达标。
-- 升级：`upstream` 与固定 commit 分离，部署必须使用可追溯提交；不得运行 ShopXO 在线升级覆盖二开文件。
-- 本地环境：只允许 `D:/苗木网站` 一份工作区，不创建 WSL clone、第二 worktree 或同级项目目录。
+- **服务器与网关**：可能只 recreate 现有 `jia-caddy` 以增加三项只读挂载和 group 10001；不得 `down` 共享栈或改变 80/443 路由。失败时按快照恢复 Caddyfile、Compose、挂载和组权限。
+- **应用运行时**：Dockerfile 增加 ICU/`intl`，FPM 只监听 Unix socket，应用不以 root 常驻、不挂 Docker socket；运行时写入范围限于 runtime、uploads、downloads。
+- **数据库与数据**：本任务不新增迁移代码，但会在确认空/可丢弃测试库后导入固定上游基线，并通过 `nursery-bootstrap.php` 执行 catalog/favorite/inquiry v1 前向迁移。Catalog 写入受管分类/规格/参数和 `sxo_config` 台账，Favorite 创建 `sxo_goods_favor` 唯一索引并写台账，Inquiry 创建五张询价表/索引并写台账；插件安装/启用还会更新 `sxo_plugins`。每次执行前备份，失败只停止并重建可丢弃库或前向修复，禁止删除未知数据。
+- **安全与隐私**：所有远程命令结构化、主机/路径受管、敏感参数拒绝；日志、证据和 Git 扫描不得出现私钥、口令、完整手机号、HMAC 值或生产配置。
+- **性能**：环境指纹必须包含 Git release SHA、Caddy/PHP/MySQL 版本、配置哈希、数据集规模、并发、预热和样本数。没有实现或夹具的场景只记 blocked/not_run。
+- **升级与回滚**：禁止 ShopXO 在线升级覆盖二开文件；回滚以提交、Compose/Caddy 快照、数据库/上传备份为边界，失败时停止新 app/db 并验证旧健康版本。迁移只前向修复，不执行 DROP/DELETE 回退。
+- **迁移依赖**：实际 schema 定义仍由已批准任务的 `app/plugins/nursery/{catalog-v1.json,favorite-schema-v1.json,inquiry-schema-v1.json}` 与对应 `*Migration.php` 拥有；OPS 只锁定 `deploy/docker/app/nursery-bootstrap.php` 编排入口，不允许在发布现场绕过版本台账或调用 `config/shopxo.sql` 作为唯一迁移。
 
 ## 方案比较
 
-1. 配置：端口 88、项目名 `miaomu`、数据卷和仓库外配置集中声明；不修改现有 Caddy 与 80/443。
-2. 现有服务：复用服务器 Docker/Compose 以及 ShopXO `composer.json`、`composer.lock`、安装 SQL和原生入口，不在宿主机搭建第二套常驻 PHP/MySQL 服务。
-3. 插件钩子与 `nursery` 插件：环境任务不需要业务钩子或插件，暂不引入。
-4. 独立模块：部署资料集中到 `deploy/**`，环境检查集中到 `tests/ops/**`，运行手册集中到 `docs/operations/**`，避免把运维逻辑散落进业务目录。
-5. 核心适配：无。`app/common.php` 只允许从固定提交恢复到精确 blob，恢复后 Git diff 应为空，不构成核心改动。
+1. **配置与现有服务**：复用现有 Caddy、Docker 和 Compose，使用回环 88；不在宿主机安装第二套 PHP/MySQL，也不增加 Nginx。
+2. **插件/独立模块**：业务已集中在 `nursery` 插件；部署只维护 `deploy/**`、`tests/ops/**` 和运维文档，不把远程逻辑散落到业务控制器。
+3. **核心适配**：不修改 ShopXO 核心。`intl` 是应用镜像运行依赖，不是业务核心改动；数据库迁移实现留在已批准的业务任务，本任务只执行其固定版本并验证结果。
 
-方案选择为独立 Docker Compose：宿主机缺少 PHP/Composer/MySQL，而 Docker/Compose 已稳定运行；容器化可避免污染现有 Caddy/Beszel，并能固定版本、网络和卷。宿主机原生安装会扩大升级与端口冲突面；复用现有 Caddy 会触及其他项目；WSL/ext4 clone 违反用户的单本地项目目录约束，均不采用。
+选用两服务 Compose 加共享 Caddy 的原因是目标机已有 host-network Caddy，且用户明确要求复用；单独 Web 容器会引入第二网关和端口冲突。所有变更均由 L4 broker 的精确动作执行，避免现场自由命令扩大范围。
 
 ## 风险与边界
 
-- L4 独立审批：计划/合并由 `Jiayz00` 审查，release 必须由第三个真实身份批准；不得由子代理伪造身份。
-- 生产边界：若服务器是生产或含真实用户数据，本任务立即停止；Harness 不授权生产访问。
-- 数据损失：任何数据库初始化、覆盖部署或服务切换前必须确认空环境或完成可恢复备份。
-- 可达性：TCP/22 和严格 SSH 认证已通过；88 尚未监听，必须在获批实施并启动独立 Compose 栈后验证。
-- 源码完整性：`app/common.php` 已恢复并通过 baseline freshness gate；后续若再次缺失必须立即停止，不允许用跳过 `source-check`、`skip-worktree` 或修改门禁来绕过。
-- 密钥：不得读取或提交 `C:/Users/25390/.ssh` 私钥内容；SSH 客户端只引用现有密钥路径。对话中的生图 Key 不参与本任务。
-- 兼容性：Ubuntu/Docker/Compose 已确认；PHP/MySQL/Nginx 镜像与扩展必须由 Dockerfile/Compose 固定版本和摘要，不能使用 `latest`。
-- 共享主机：`caddy` 和 `beszel-monitoring` 已运行；任务不得停止、重建、改名或挂载其路径/卷/网络，并为所有苗木容器设置 `com.centurylinklabs.watchtower.enable=false`。
-- PX 与统计：本任务不改变 PX 路由和指标口径，后续独立任务必须继续验证。
+- **误触生产**：远程写入前必须由只读动作确认个人/测试环境；发现生产标记、真实业务数据或目标指纹变化立即停止。
+- **共享网关回归**：候选 Caddyfile 必须先在现有镜像中 validate；只允许受管的 `jia-caddy` recreate，任何 80/443/Beszel 异常立即回滚。
+- **密钥不可逆性**：HMAC 值改变会使历史手机号无法解密；脚本只创建一次并保留既有文件，仓库不保存值。
+- **初始化数据损失**：只允许空/可丢弃测试库；发布前下载 Caddy 快照并备份数据库、上传和配置，未完成备份不得继续。
+- **动作越界**：受管根固定为 `/root/jia/miaomu`、`/root/jia/caddy`、`/etc/miaomu`、`/etc/miaomu-restore`；禁止 shell、嵌套传输、未合同主机、敏感 CLI 参数和系统破坏动作。
+- **工具缺口**：本地没有 PHP/Composer/Docker 时不把本地缺口转成通过；对应检查必须在目标应用容器/服务器真实执行并保留退出码。
 
 ## 预计文件
 
-- 新增 `deploy/compose.yaml` 与 `deploy/docker/**`：独立 `miaomu` Web/PHP/MySQL 栈、固定镜像、健康检查、资源约束、内部数据库网络和持久卷。
-- 新增 `deploy/**` 其他文件：非敏感服务器预检、配置样例、备份、部署、回滚和冒烟入口。
-- 新增 `tests/ops/test_deployment_contract.py`：离线检查路径、端口、占位符、回滚和敏感信息规则。
-- 新增 `tests/ops/environment_check.php`：服务器 PHP/扩展、源码完整性、权限和非生产标记检查。
-- 新增 `docs/operations/**`：单目录开发、服务器验证、性能基线与发布手册。
-- 不修改 `.gitignore`；业务 OPS 任务不得授权 Harness/bootstrap 策略路径，本地运行产物必须写入已有忽略目录或保持在授权目录内且不提交。
-- 无数据库迁移、无 ShopXO 核心修改、无需 `.harness/core-changes/REGISTER.md` 登记。
+- `deploy/compose*.yaml`、`deploy/docker/app/**`、`deploy/stack-policy.json`：两服务、FPM socket、intl、secret 和恢复边界。
+- `deploy/prepare_runtime_secrets.py`、`deploy/prepare_caddy_candidate.py`、`deploy/validate_release_inputs.py`：仅元数据/配置准备和合同校验，不输出密钥。
+- `tests/ops/test_deployment_contract.py`、`tests/ops/environment_check.php`：离线合同与容器环境检查。
+- `docs/operations/DEPLOYMENT.md`、`LOCAL_STACK.md` 及相关运维文档：Caddy-only 发布、备份、回滚和性能协议。
+- `.harness/tasks/NUR-OPS-001/**`：唯一任务合同、计划、证据、审批和审查制品；不修改 Harness 策略或用户级配置。

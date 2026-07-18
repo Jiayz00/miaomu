@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-OPS-001",
+  "stage": "plan",
+  "decision": "approved",
+  "actor": "Codex-Review",
+  "agent_task": "/root/ops001_plan_review",
+  "codex_thread_id": "019f760c-9c0b-76b0-8d9c-94d6e38118a7",
+  "result_marker": "APPROVED",
+  "approval_context_sha256": "d604973b335ca9dd3bc1c8a62b86c8f86d044e47dee2e26e87e66b18867193b7",
+  "reviewed_at": "2026-07-19T00:40:00+08:00",
+  "findings": [],
+  "summary": "独立计划审查确认部署入口会执行 catalog、favorite、inquiry v1 前向迁移，已将 database_change.required 设为 true，列出受影响表并锁定 bootstrap 编排入口；迁移实现仍由已批准的 NUR-FEAT-002/003/004 拥有，fresh baseline 例外未启用。备份、schema/台账、幂等、回滚和未执行服务器证据均已明确为后续 L4 门禁。"
+}

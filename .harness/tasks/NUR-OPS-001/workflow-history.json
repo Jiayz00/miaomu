@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "task_id": "NUR-OPS-001",
+  "events": [
+    {
+      "type": "transition",
+      "from": "draft",
+      "to": "ready_for_analysis",
+      "by": "/root",
+      "reason": "继续执行已授权的部署任务，收拢合同修订并进入实施准备。",
+      "at": "2026-07-18T16:26:21Z"
+    },
+    {
+      "type": "transition",
+      "from": "ready_for_analysis",
+      "to": "awaiting_plan_approval",
+      "by": "/root",
+      "reason": "需求、影响分析、实施计划和测试计划已完成，交由独立代理核验部署合同。",
+      "at": "2026-07-18T16:26:32Z"
+    },
+    {
+      "type": "approval",
+      "stage": "plan",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/ops001_plan_review",
+      "codex_thread_id": "019f760c-9c0b-76b0-8d9c-94d6e38118a7",
+      "expected_agent_task": "/root/ops001_plan_review",
+      "observed_agent_task": "/root/ops001_plan_review",
+      "observed_codex_thread_id": "019f760c-9c0b-76b0-8d9c-94d6e38118a7",
+      "reason": "",
+      "at": "2026-07-18T16:40:00Z",
+      "review_artifact_path": ".harness/tasks/NUR-OPS-001/approval-plan.json",
+      "review_artifact_sha256": "f8874d06e826ec791464e253eadd72903d8fe22b06e540ba4240e67868e43ac8",
+      "approval_context_sha256": "d604973b335ca9dd3bc1c8a62b86c8f86d044e47dee2e26e87e66b18867193b7",
+      "reviewed_at": "2026-07-19T00:40:00+08:00",
+      "plan_artifacts_sha256": "e34317314d5fc022c890413e1affdd27e7c4193b2b2ac2f2134fd2b2bea1d8ff",
+      "decision_context_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "contract_sha256": "648b82ab8101ce6a862e3550b4f8de81cc2859fb63285458b37b97d1019c98b4",
+      "policy_sha256": "bc4de32986cc1309ef6851f1d051ad55cac6ada2091a11d75ed3c19af18e121e"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_plan_approval",
+      "to": "approved_for_implementation",
+      "by": "Codex-Review",
+      "reason": "独立计划审查已通过，数据库迁移执行边界与实际 bootstrap 一致，进入实施。",
+      "at": "2026-07-18T16:40:32Z"
+    }
+  ]
+}

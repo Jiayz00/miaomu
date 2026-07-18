@@ -141,8 +141,8 @@ def mysql_handoff_errors(
             errors.append(f"{label}.db healthcheck script must be read-only")
         if set(db.get("secrets", [])) != {"mysql_app_password", "mysql_root_password"}:
             errors.append(f"{label}.db secret set mismatch")
-        if app.get("secrets") != ["mysql_app_password"]:
-            errors.append(f"{label}.app must receive only the application secret")
+        if app.get("secrets") != ["mysql_app_password", "nursery_inquiry_hmac_key"]:
+            errors.append(f"{label}.app must receive only the database and inquiry secrets")
         if "/run/miaomu-db-secrets" in json.dumps(app, sort_keys=True):
             errors.append(f"{label}.app must not mount the database private tmpfs")
 
@@ -481,6 +481,8 @@ def event_bootstrap_errors(source: str) -> list[str]:
     required = (
         "use app\\service\\PluginsAdminService;",
         "use app\\plugins\\nursery\\service\\CatalogMigration;",
+        "use app\\plugins\\nursery\\service\\FavoriteMigration;",
+        "use app\\plugins\\nursery\\service\\InquiryMigration;",
         "PHP_SAPI !== 'cli'",
         "event_bootstrap_metadata_invalid",
         "($eventStat['uid'] ?? -1) !== 0",
@@ -490,6 +492,12 @@ def event_bootstrap_errors(source: str) -> list[str]:
         "PluginsAdminService::PluginsStatusUpdate(['id'=>'nursery', 'state'=>0])",
         "PluginsAdminService::PluginsStatusUpdate(['id'=>'nursery', 'state'=>1])",
         "CatalogMigration::Run('existing', $actor, $runId)",
+        "$favoriteRunId = $runId.'-favorite-v1';",
+        "FavoriteMigration::Run($actor, $favoriteRunId)",
+        "$inquiryRunId = $runId.'-inquiry-v1';",
+        "InquiryMigration::Run($actor, $inquiryRunId)",
+        "nursery_favorite_failed",
+        "nursery_inquiry_failed",
         "array_diff($enabled, ['nursery'])",
         "$enabled !== ['nursery']",
         "$events['listen'] === $config['hook']",
@@ -530,6 +538,8 @@ def readiness_errors(source: str) -> list[str]:
         "'SELECT plugins FROM '.$prefix.'plugins WHERE is_enable = 1 ORDER BY plugins'",
         "$enabledPlugins === ['nursery']",
         "generated_event_metadata",
+        "MIAOMU_INQUIRY_SECRET",
+        "inquiry_hmac_secret_metadata",
         "nursery_event_bindings",
         "enabled_plugin_set",
         "$connectionString = sprintf(",
@@ -674,6 +684,7 @@ class RequiredArtifactTests(unittest.TestCase):
             DEPLOY / "caddy-mounts.json",
             DEPLOY / "stack-policy.json",
             DEPLOY / "validate_release_inputs.py",
+            DEPLOY / "prepare_runtime_secrets.py",
             DEPLOY / "release-manifest.example.json",
             DEPLOY / "docker" / "app" / "Dockerfile",
             DEPLOY / "docker" / "app" / "Dockerfile.dockerignore",
@@ -761,7 +772,11 @@ class ComposeContractTests(unittest.TestCase):
                     self.main["volumes"][key]["name"],
                     self.restore["volumes"][key]["name"],
                 )
-        for secret in ("mysql_app_password", "mysql_root_password"):
+        for secret in (
+            "mysql_app_password",
+            "mysql_root_password",
+            "nursery_inquiry_hmac_key",
+        ):
             self.assertTrue(self.main["secrets"][secret]["file"].startswith("/etc/miaomu/"))
             self.assertTrue(self.restore["secrets"][secret]["file"].startswith("/etc/miaomu-restore/"))
             self.assertNotEqual(
@@ -1199,10 +1214,12 @@ class ReleaseInputContractTests(unittest.TestCase):
             paths = {
                 "main_config": temp / "main-database.php",
                 "main_app_secret": temp / "main-app-secret",
+                "main_inquiry_secret": temp / "main-inquiry-secret",
                 "main_root_secret": temp / "main-root-secret",
                 "main_event": temp / "main-event.php",
                 "restore_config": temp / "restore-database.php",
                 "restore_app_secret": temp / "restore-app-secret",
+                "restore_inquiry_secret": temp / "restore-inquiry-secret",
                 "restore_root_secret": temp / "restore-root-secret",
                 "restore_event": temp / "restore-event.php",
                 "caddy_config": temp / "Caddyfile",
@@ -1210,7 +1227,14 @@ class ReleaseInputContractTests(unittest.TestCase):
             }
             paths["main_config"].write_bytes(main_template.read_bytes())
             paths["restore_config"].write_bytes(restore_template.read_bytes())
-            for key in ("main_app_secret", "main_root_secret", "restore_app_secret", "restore_root_secret"):
+            for key in (
+                "main_app_secret",
+                "main_inquiry_secret",
+                "main_root_secret",
+                "restore_app_secret",
+                "restore_inquiry_secret",
+                "restore_root_secret",
+            ):
                 paths[key].write_bytes(b"fixture-only-not-a-secret\n")
             paths["main_event"].write_text("<?php return ['listen'=>[]];\n", encoding="utf-8")
             paths["restore_event"].write_text("<?php return ['listen'=>['restore'=>[]]];\n", encoding="utf-8")
@@ -1222,6 +1246,7 @@ class ReleaseInputContractTests(unittest.TestCase):
                 {
                     "database_config": str(paths["main_config"]),
                     "mysql_app_password": str(paths["main_app_secret"]),
+                    "nursery_inquiry_hmac_key": str(paths["main_inquiry_secret"]),
                     "mysql_root_password": str(paths["main_root_secret"]),
                     "generated_event": str(paths["main_event"]),
                 }
@@ -1230,6 +1255,7 @@ class ReleaseInputContractTests(unittest.TestCase):
                 {
                     "database_config": str(paths["restore_config"]),
                     "mysql_app_password": str(paths["restore_app_secret"]),
+                    "nursery_inquiry_hmac_key": str(paths["restore_inquiry_secret"]),
                     "mysql_root_password": str(paths["restore_root_secret"]),
                     "generated_event": str(paths["restore_event"]),
                 }
@@ -1280,6 +1306,14 @@ class ReleaseInputContractTests(unittest.TestCase):
                     "restore root database secret",
                     expected_gid=0,
                     expected_mode=0o400,
+                )
+                metadata_check.assert_any_call(
+                    paths["main_inquiry_secret"],
+                    "main inquiry HMAC secret",
+                )
+                metadata_check.assert_any_call(
+                    paths["restore_inquiry_secret"],
+                    "restore inquiry HMAC secret",
                 )
 
                 main_only = copy.deepcopy(manifest)
@@ -1808,6 +1842,9 @@ class AppRuntimeContractTests(unittest.TestCase):
         self.assertRegex(source, r"(?m)^FROM\s+\S+\s+AS\s+runtime\s*$")
         self.assertIn("composer install", source)
         self.assertIn("composer check-platform-reqs", source)
+        self.assertIn("libicu-dev", source)
+        self.assertIn("libicu72", source)
+        self.assertRegex(source, r"for extension in .*\bintl\b")
         self.assertIn("environment_check.php", source)
         self.assertIn("nursery-bootstrap.php", source)
         self.assertIn("/usr/local/lib/miaomu/nursery-bootstrap.php", source)
@@ -1816,6 +1853,44 @@ class AppRuntimeContractTests(unittest.TestCase):
         self.assertNotRegex(runtime, r"(?m)^COPY\s+--from=composer[^\n]*/usr/bin/composer")
         self.assertNotIn("EXPOSE 9000", source)
 
+        pool = (self.app_dir / "www.conf").read_text(encoding="utf-8")
+        entrypoint = (self.app_dir / "docker-entrypoint.sh").read_text(encoding="utf-8")
+        self.assertIn(
+            "env[PHP_NURSERY_INQUIRY_HMAC_KEY] = $PHP_NURSERY_INQUIRY_HMAC_KEY",
+            pool,
+        )
+        for fragment in (
+            'inquiry_secret_path="/run/secrets/nursery_inquiry_hmac_key"',
+            '[ ! -L "$inquiry_secret_path" ]',
+            'IFS= read -r inquiry_key <&3',
+            'export PHP_NURSERY_INQUIRY_HMAC_KEY="$inquiry_key"',
+        ):
+            self.assertIn(fragment, entrypoint)
+        self.assertNotIn("cat /run/secrets/nursery_inquiry_hmac_key", entrypoint)
+        self.assertNotIn("set -x", entrypoint)
+
+    def test_runtime_secret_preparation_is_create_once_and_metadata_only(self) -> None:
+        source = (DEPLOY / "prepare_runtime_secrets.py").read_text(encoding="utf-8")
+        for fragment in (
+            'SECRET_NAME = "nursery_inquiry_hmac_key"',
+            "os.O_EXCL",
+            "os.fchown(descriptor, 0, 10001)",
+            "os.fchmod(descriptor, SECRET_MODE)",
+            "return \"preserved\"",
+            "SCOPES =",
+            'parser.add_argument("--prepare-event", action="store_true")',
+            'parser.add_argument("--prepare-config", action="store_true")',
+            'parser.add_argument("--finalize-event", action="store_true")',
+            "database.php.example",
+            "database.restore.php.example",
+            'root / "generated" / "event.php"',
+            "event_finalize",
+        ):
+            self.assertIn(fragment, source)
+        self.assertNotIn("read_bytes", source)
+        self.assertNotIn("open(path, \"r\")", source)
+        self.assertNotIn("print(payload", source)
+
     def test_official_nursery_bootstrap_contract_and_mutations(self) -> None:
         source = (self.app_dir / "nursery-bootstrap.php").read_text(encoding="utf-8")
         self.assertEqual([], event_bootstrap_errors(source))
@@ -1823,6 +1898,8 @@ class AppRuntimeContractTests(unittest.TestCase):
             source.replace("PluginsAdminService::PluginsInstall", "NurseryInstall", 1),
             source.replace("PluginsAdminService::PluginsStatusUpdate", "NurseryStatusUpdate", 1),
             source.replace("CatalogMigration::Run('existing', $actor, $runId)", "[]", 1),
+            source.replace("FavoriteMigration::Run($actor, $favoriteRunId)", "[]", 1),
+            source.replace("InquiryMigration::Run($actor, $inquiryRunId)", "[]", 1),
             source.replace("array_diff($enabled, ['nursery'])", "[]", 1),
             source.replace("$enabled !== ['nursery']", "false", 1),
             source.replace("!== 0660", "!== 0666", 1),
@@ -1847,6 +1924,7 @@ class AppRuntimeContractTests(unittest.TestCase):
             source.replace("$events['listen'] === $pluginConfig['hook']", "true", 1),
             source.replace("$enabledPlugins === ['nursery']", "true", 1),
             source.replace("plugins_nursery_catalog_manifest", "plugins_other", 1),
+            source.replace("'inquiry_hmac_secret_metadata'", "'inquiry_hmac_secret_missing'", 1),
         )
         for mutation in mutations:
             with self.subTest(mutation=mutation[:80]):

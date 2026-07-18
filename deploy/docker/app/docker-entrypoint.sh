@@ -18,6 +18,28 @@ fail()
 [ -r /run/secrets/mysql_app_password ] || fail "database secret unreadable"
 [ -s /run/secrets/mysql_app_password ] || fail "database secret empty"
 
+inquiry_secret_path="/run/secrets/nursery_inquiry_hmac_key"
+[ -f "$inquiry_secret_path" ] || fail "inquiry secret missing"
+[ ! -L "$inquiry_secret_path" ] || fail "inquiry secret must not be a symlink"
+[ -r "$inquiry_secret_path" ] || fail "inquiry secret unreadable"
+[ -s "$inquiry_secret_path" ] || fail "inquiry secret empty"
+
+# The secret is supplied by an external file secret. Read one bounded line
+# without printing it, then expose it only to the FPM environment contract.
+inquiry_key=""
+inquiry_extra=""
+exec 3< "$inquiry_secret_path"
+IFS= read -r inquiry_key <&3 || [ -n "$inquiry_key" ] || fail "inquiry secret read failed"
+if IFS= read -r inquiry_extra <&3 || [ -n "$inquiry_extra" ]; then
+    exec 3<&-
+    fail "inquiry secret must contain one line"
+fi
+exec 3<&-
+[ "${#inquiry_key}" -ge 32 ] || fail "inquiry secret too short"
+[ "${#inquiry_key}" -le 4096 ] || fail "inquiry secret too long"
+export PHP_NURSERY_INQUIRY_HMAC_KEY="$inquiry_key"
+unset inquiry_key inquiry_extra
+
 for path in \
     /var/www/html/runtime \
     /var/www/html/public/static/upload \

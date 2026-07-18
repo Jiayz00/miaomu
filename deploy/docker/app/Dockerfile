@@ -12,6 +12,8 @@ RUN apt-get update \
         libcurl4-openssl-dev \
         libfreetype6 \
         libfreetype6-dev \
+        libicu72 \
+        libicu-dev \
         libjpeg62-turbo \
         libjpeg62-turbo-dev \
         libonig5 \
@@ -25,7 +27,7 @@ RUN apt-get update \
         unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && extensions="" \
-    && for extension in bcmath dom gd mbstring opcache pdo_mysql posix simplexml xml xmlreader xmlwriter zip; do \
+    && for extension in bcmath dom gd intl mbstring opcache pdo_mysql posix simplexml xml xmlreader xmlwriter zip; do \
         if ! php -r "exit(extension_loaded('$extension') ? 0 : 1);"; then \
             extensions="$extensions $extension"; \
         fi; \
@@ -35,6 +37,7 @@ RUN apt-get update \
         $PHPIZE_DEPS \
         libcurl4-openssl-dev \
         libfreetype6-dev \
+        libicu-dev \
         libjpeg62-turbo-dev \
         libonig-dev \
         libpng-dev \

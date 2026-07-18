@@ -20,7 +20,8 @@
         "TZ": "Asia/Shanghai"
       },
       "secrets": [
-        "mysql_app_password"
+        "mysql_app_password",
+        "nursery_inquiry_hmac_key"
       ],
       "volumes": [
         {
@@ -229,6 +230,9 @@
   "secrets": {
     "mysql_app_password": {
       "file": "/etc/miaomu-restore/secrets/mysql_app_password"
+    },
+    "nursery_inquiry_hmac_key": {
+      "file": "/etc/miaomu-restore/secrets/nursery_inquiry_hmac_key"
     },
     "mysql_root_password": {
       "file": "/etc/miaomu-restore/secrets/mysql_root_password"

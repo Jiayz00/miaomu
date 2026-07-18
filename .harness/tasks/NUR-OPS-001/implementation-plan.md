@@ -2,32 +2,30 @@
 
 ## 实施步骤
 
-1. 关闭剩余外部前置条件。完整源码、TCP/22、严格主机校验和只读 SSH 认证已经通过。远端写操作前复核 `38.12.21.18` 无生产数据，并指定真实 `release_approver`；任一项未完成则保持 draft/blocked，不运行 preflight 或远端写操作。
-2. 复核源码与固定基线。完整源码事实基线为 `846eb6a1cf7f94415ae9ae4c3eefb87d4fa9da3e`，`app/common.php` blob 为 `74422022b2f384c1c97e3eafabd946d2bb5ec219`。在计划审批前再次运行 `source-check` 和 `doctor --strict`；本机缺少 PHP/Composer 时严格 doctor 必须保持 blocked，不能靠改 Harness 降级，完整工具链最终在测试服务器证明。
-3. 固定服务器事实与隔离边界。记录 Ubuntu 22.04、Docker 29.4.2、Compose 5.1.3、8 vCPU、约 7.8 GiB 内存和 35 GiB 可用空间；记录现有 `caddy`、`beszel-monitoring`、80/443/8090。禁止操作既有项目、路径、卷、网络和容器；若发现生产标记或真实数据立即停止。
-4. 实现仓库内运维制品。在 `deploy/compose.yaml` 和 `deploy/docker/**` 定义独立 `miaomu` Web/PHP/MySQL 栈：只将 Web 端口发布为 `0.0.0.0:88`，MySQL 仅内部网络，固定镜像版本/摘要，使用健康检查、资源限制、非 root 应用进程、持久卷和 `watchtower.enable=false` 标签。其余 `deploy/**` 提供不含凭据的配置样例和幂等预检/备份/部署/回滚/冒烟入口；`tests/ops/**` 实现合同与容器环境检查。
-5. 先验证后发布。提交获批计划并确保工作区干净后运行 `preflight`，进入 implementing；执行离线 Harness、部署合同、Composer 和 PHP 环境检查。失败时不继续部署，保留退出码和脱敏输出。
-6. 初始化非生产实例。发布前确认 `/root/jia/miaomu` 仍不存在或备份其测试内容，将获批提交部署到该目录；只在空测试库中使用固定上游安装基线。以 Compose 项目名 `miaomu` 构建并启动，数据库不发布宿主机端口，Web 只监听 88，应用进程使用最小权限账号。每个远端写步骤需能单独回滚，且不得调用 `docker compose down` 而未显式指定 `-p miaomu -f deploy/compose.yaml`。
-7. 冒烟与性能基线。先在服务器本机检查 88 端口，再从外部浏览器验证；记录首页和现有商品入口状态、响应时间测量方法与环境规格。收藏、询价、行为上报、30 日趋势和导出尚未实现时，登记对应后续任务和数据夹具，不写通过结果。
-8. 完成证据与审查。转入 verifying，运行合同声明的真实测试，补全 `evidence.md`、release note、范围检查和 review pack；由独立 reviewer 完成合并审查，由第三身份完成 release 审批后才允许发布切换或关闭任务。
+1. **本地合同与发布输入**：确认 `source-check`、`task-check`、`plan-check`、部署合同测试、HMAC/intl 变更审阅和 Git diff 安全扫描通过。生成只包含获批提交和非敏感 manifest 的 release 工件；不把 `.env`、secret 或私钥放入工件。
+2. **只读主机盘点**：使用 `inventory_*`、`inspect_*`、`hash_*`、`download_caddy_*`、`smoke_supervise_before` 动作核验主机指纹、Docker/Compose、`jia-caddy`、Beszel、80/443/8090、88、Caddyfile/Compose 快照和可用空间。发现生产标记、指纹变化、共享服务异常或目标根已有未知业务数据时停止。
+3. **建立发布根并上传**：在独立 release/merge/release 审批和 release seal 后执行 `bootstrap_deployment_root`、`upload_release`、`upload_release_env`、`extract_release`。解包内容只来自锁定提交；`release.env` 只含非敏感路径/版本变量。
+4. **准备外部运行时文件**：执行 `prepare_external_files`，从仓库外受限位置检查/创建 database.php、event.php 和 `nursery_inquiry_hmac_key`；脚本必须幂等，既有 HMAC 只保留并检查元数据。Compose 解析前运行 `compose_config`。
+5. **构建与数据库初始化**：执行 `build_app`，确认镜像含 ICU/intl/Normalizer 且运行阶段无 Composer 工具。通过 `bootstrap_db` 启动隔离 db，`bootstrap_db_status` 确认健康，再用 `create_steady_marker`、`restart_db_steady` 完成 root bootstrap 到稳态降权。仅在空/可丢弃库上导入固定上游基线；在任何清理或迁移前完成数据库/上传/配置备份，并记录清理默认样例和 id/role 不为 1 的最小管理员证据。
+6. **应用 readiness 与前向迁移**：执行 `initialize_nursery`，由固定 bootstrap 入口按顺序运行已批准的 `CatalogMigration::Run('existing')`、`FavoriteMigration::Run()` 和 `InquiryMigration::Run()`；核对返回状态、`sxo_config` 台账、information_schema 表/列/索引、重复执行无额外 DDL，并把每个 run-id 和退出码写入脱敏证据。随后执行 `finalize_event`、`start_app`、`app_status`、`app_readiness`。检查 FPM Unix socket 为 group 10001/mode 0660、应用无 TCP FPM 监听、源码只读、secret 元数据正确、危险后台能力不可达。任何 PHP/数据库/权限失败都进入回滚，不启动 Caddy 入口。
+7. **候选 Caddy 与共享服务**：执行 `prepare_caddy_candidate` 生成完整候选配置，先备份 `backup_caddy_dir`、`backup_caddyfile`、`backup_caddy_compose`，再用 `validate_caddy_candidate` 验证。只有新增 public/uploads/socket 挂载或 group 时才执行 `apply_caddy_candidate`（只 recreate `jia-caddy`）；不得修改或重建其他共享服务。
+8. **回环冒烟与性能记录**：执行 `inspect_caddy_after`、`smoke_supervise_after`、`smoke_miaomu_home`、`smoke_miaomu_admin`、`smoke_miaomu_api`、`smoke_download_denied` 和 `probe_public_88`。记录 HTTP 状态、错误率、脚本入口、查询参数、拒绝旁路和公网 :88 不可达结果。已实现业务场景按固定协议测量，未有夹具的收藏/询价/行为/趋势/导出保持 blocked/not_run。
+9. **失败回滚与关闭**：任一门禁失败立即执行 `rollback_caddy`、`rollback_miaomu`（仅在相应变更已发生时），再次验证 supervise、Beszel、80/443 和 88。保存退出码、时间、配置/卷哈希和备份校验，不删除未知卷或数据；所有证据完成后才允许独立 reviewer/release approver 推进生命周期。
+
+所有远程动作必须经 `python -I -S -B scripts/harness.py remote-exec` 调度；mutating action 还要求任务处于 `approved_for_merge`、工作区干净且 release seal 有效。审批由不同 Codex 角色自动完成，不把用户反复确认作为执行前置。
 
 ## 验证顺序
 
-1. `python scripts/harness.py source-check` 和 `python scripts/harness.py doctor --strict` 验证源码及工具链；它们是 preflight 前置，不以缺失工具为通过。
-2. `harness_selftest`：`python scripts/harness_selftest.py`。
-3. `deploy_contract`：`python tests/ops/test_deployment_contract.py`。
-4. `compose_config`：`docker compose -p miaomu -f deploy/compose.yaml config --quiet`。
-5. `composer_validate`：在 `miaomu` 应用容器内运行 `composer validate --no-check-publish --strict`。
-6. `server_environment`：在 `miaomu` 应用容器内运行 `php tests/ops/environment_check.php`。
-7. 运行 `verify`、`scope-check`、`evidence-check` 和 `review-pack`，保存合同哈希与退出码。
-8. 手工核验备份可读、回滚演练、既有容器未变化、服务器本地和外部端口 88、敏感信息扫描以及性能基线记录。网络/SSH/HTTP 命令不放入 required_tests，也不得借 Python 包装绕过 Harness 网络禁令。
+1. `python scripts/harness.py source-check`。
+2. `python scripts/harness.py task-check NUR-OPS-001` 与 `python scripts/harness.py plan-check NUR-OPS-001`。
+3. `python scripts/harness_selftest.py`、`python scripts/harness_remote_selftest.py`、`python tests/ops/test_deployment_contract.py`、`python deploy/validate_release_inputs.py --contract-only`。
+4. 进入 `verifying` 后运行合同声明的 `verify`、`scope-check`、`evidence-check`、`review-pack`；保存合同哈希、每条测试的 argv 和退出码。
+5. 完成独立计划/合并/发布审查和 release seal 后，按上面的 remote action 顺序执行；服务器 PHP lint、Composer、Docker Compose、Caddy validate、MySQL、HTTP、浏览器、并发和回滚均必须有真实证据。
 
 ## 数据库与核心适配
 
-无数据库结构变更、无 ShopXO 核心适配。测试库初始化只复用固定上游全量安装基线，不修改 `config/shopxo.sql`，也不把它伪装成苗木增量迁移。`app/common.php` 恢复到已提交 blob 后必须是零差异；若内容需要改动，应停止并创建独立核心影响任务。
+本任务不新增或改写 ShopXO/ nursery 迁移实现，也不修改 ShopXO 核心；但部署会执行已批准的 NUR-FEAT-002/003/004 v1 前向迁移。`config/shopxo.sql` 只作为确认空测试库后的固定安装基线，不能替代迁移。Catalog 受管目录/模板和 `sxo_config` 台账、Favorite 唯一索引和台账、Inquiry 五张表/索引和台账均须在 `initialize_nursery` 后真实核验；迁移只前向、幂等，失败不 DROP/DELETE。数据库初始化、默认数据清理、最小管理员和密钥重置均限制在远程合同声明的非生产实例，并在备份后执行。若发现需要新增未批准表、改变 socket/挂载边界或修改核心路径，立即阻塞并另立任务，不在本合同内临时扩权。
 
 ## 失败处理与回滚
 
-停止条件包括：服务器被判定为生产、SSH 主机指纹异常、备份失败、源码/锁文件不一致、密钥出现在 diff 或输出、数据库不是空测试库、端口 88 被未知服务占用、任何 required test 失败。失败输出只保留脱敏摘要，密钥与完整配置不进入 Harness runs/evidence。
-
-发布前记录上一提交、服务配置和备份校验值。失败时停止新实例，恢复上一提交与对应 Web/PHP 配置，按需恢复测试库和上传资源，再执行上一版本健康检查。若此前无实例，移除本任务创建的测试服务配置并确认 88 端口不再暴露失败版本。回滚失败时保持任务 blocked，不继续业务开发。
+以下任一情况停止：主机指纹不匹配、目标被判定为生产、备份失败、release SHA 漂移、secret 缺失/权限异常、intl/Normalizer 缺失、任一 v1 迁移返回失败、台账/实际 schema 不匹配、同名异构表或重复执行产生非预期写入、FPM TCP 暴露、MySQL 宿主机端口暴露、Caddy validate 失败、共享 Caddy/Beszel/80/443 异常、HTTP 冒烟失败或证据含敏感值。恢复顺序为：停止新 app/db，恢复 Caddyfile/Compose 与挂载组快照，只 recreate `jia-caddy`，验证共享服务，再按需停止苗木栈；不运行共享栈 `down`，不物理删除未知数据或迁移历史。回滚验证必须记录真实动作和退出码，失败则保持 blocked。
