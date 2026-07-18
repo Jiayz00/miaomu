@@ -7,8 +7,8 @@
   "agent_task": "/root/ops001_merge_review",
   "codex_thread_id": "019f7624-93c3-7012-bdfd-a5e02221aee4",
   "result_marker": "APPROVED",
-  "approval_context_sha256": "0ca56168a69e659f0529d8601bb511e32e6bd40c1451849c40c715506e13decf",
-  "reviewed_at": "2026-07-19T03:51:52+08:00",
+  "approval_context_sha256": "b20c4d5bc021ac1c9aa524bc7af7eea6beedd101553eca0378631bf8f1dcaccc",
+  "reviewed_at": "2026-07-19T04:06:26+08:00",
   "findings": [],
-  "summary": "独立合并审查覆盖 42c7e4b1213a208b6bf8b6fc9b8d6db28f2f3283 至 04b4806125da456a63bfcaefa427d492d0c3e0f7，并补查合同基线修复；未发现 P0-P2 缺陷。有效 verify 20260718T194150030953Z 为 4/4 通过且控制面完整，有效 review-pack 20260718T194600015120Z 的 task、plan、scope、evidence 和安全扫描均通过。Docker context、schema 后置核验、steady marker 权限及 Caddy 候选发布竞态修复均有回归覆盖。两次 SSH inventory_pwd exit_code=255 仅作为 release 和远端部署阻断项，不阻断当前合并批准。"
+  "summary": "基于当前 HEAD dcb056034a682c939f636049fa14f125a3171997 与最新 review-pack 20260718T195759385466Z 的独立合并审查未发现 P0-P2 缺陷。最新 pack ready_for_review=true，task、plan、scope、evidence 和安全扫描均通过；workspace fingerprint 1ba20149e26f5de589d524746ff9e2937da0339c13d00050f06a33bcff762e5a 与业务差异一致。有效 verify 20260718T194150030953Z 仍为 4/4 通过且控制面完整，SSH inventory_pwd exit_code=255 仅阻断 release/远端部署，不阻断合并。"
 }

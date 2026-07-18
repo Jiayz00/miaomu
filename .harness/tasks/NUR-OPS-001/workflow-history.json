@@ -393,6 +393,48 @@
       "review_artifact_sha256": "b2f64fc279529ef30377246f12acd44eccd5122270968631f1de88771a645df9",
       "approval_context_sha256": "0ca56168a69e659f0529d8601bb511e32e6bd40c1451849c40c715506e13decf",
       "reviewed_at": "2026-07-19T03:51:52+08:00"
+    },
+    {
+      "type": "transition",
+      "from": "awaiting_review",
+      "to": "implementing",
+      "by": "Codex-Implementer",
+      "reason": "最新 review-pack 生成后旧 merge context 失效，按合法状态机重置并重新审查。",
+      "at": "2026-07-18T20:05:57Z"
+    },
+    {
+      "type": "transition",
+      "from": "implementing",
+      "to": "verifying",
+      "by": "Codex-Implementer",
+      "reason": "仅重置审批状态，业务实现与验证证据未变。",
+      "at": "2026-07-18T20:05:58Z"
+    },
+    {
+      "type": "transition",
+      "from": "verifying",
+      "to": "awaiting_review",
+      "by": "Codex-Implementer",
+      "reason": "复用有效 verify/evidence，等待最新 review-pack 的独立 merge 重审。",
+      "at": "2026-07-18T20:05:59Z"
+    },
+    {
+      "type": "approval",
+      "stage": "merge",
+      "status": "approved",
+      "by": "Codex-Review",
+      "expected_actor": "Codex-Review",
+      "agent_task": "/root/ops001_merge_review",
+      "codex_thread_id": "019f7624-93c3-7012-bdfd-a5e02221aee4",
+      "expected_agent_task": "/root/ops001_merge_review",
+      "observed_agent_task": "/root/ops001_merge_review",
+      "observed_codex_thread_id": "019f7624-93c3-7012-bdfd-a5e02221aee4",
+      "reason": "基于当前 HEAD dcb0560 与最新 review-pack 195759385466Z 的独立合并审查未发现 P0-P2；SSH 255 仅阻断 release。",
+      "at": "2026-07-18T20:07:19Z",
+      "review_artifact_path": ".harness/tasks/NUR-OPS-001/approval-merge.json",
+      "review_artifact_sha256": "bf55d017aebe68a4701bae793f497dae5036a3fe1c31b7cdca276a948ea66414",
+      "approval_context_sha256": "b20c4d5bc021ac1c9aa524bc7af7eea6beedd101553eca0378631bf8f1dcaccc",
+      "reviewed_at": "2026-07-19T04:06:26+08:00"
     }
   ]
 }
