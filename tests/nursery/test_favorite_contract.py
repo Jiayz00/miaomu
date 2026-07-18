@@ -76,6 +76,12 @@ class FavoriteMigrationContractTests(unittest.TestCase):
         self.assertIn("'ledger_present'=>$ledger!==null", preflight)
         self.assertIn("'write_performed'=>false", preflight)
 
+    def test_cli_action_allowlist_is_explicit_and_shared(self) -> None:
+        cli = read_utf8(CLI_FILE)
+        self.assertIn("function NurseryFavoriteActions()", cli)
+        self.assertIn("return ['status', 'preflight', 'migrate'];", cli)
+        self.assertIn("in_array($action, NurseryFavoriteActions(), true)", cli)
+
     def test_duplicates_fail_before_any_unique_ddl(self) -> None:
         inspect = method(MIGRATION_FILE, "Inspect")
         self.assertIn("self::duplicatesummary($table)", inspect)

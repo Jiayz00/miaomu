@@ -44,9 +44,14 @@ function NurseryFavoriteOutput($result)
     exit(isset($result['code']) && intval($result['code']) === 0 ? 0 : 1);
 }
 
+function NurseryFavoriteActions()
+{
+    return ['status', 'preflight', 'migrate'];
+}
+
 try {
     $action = isset($argv[1]) ? $argv[1] : '';
-    if(!in_array($action, ['status', 'preflight', 'migrate'], true))
+    if(!in_array($action, NurseryFavoriteActions(), true))
     {
         throw new \InvalidArgumentException('Action must be status, preflight, or migrate.');
     }
